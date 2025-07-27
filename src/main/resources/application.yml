@@ -1,0 +1,48 @@
+spring:
+  output:
+    ansi:
+      enabled: always
+
+  datasource:
+    driver-class-name: org.h2.Driver
+    url: jdbc:h2:mem:test
+    username: sa
+    password:
+
+  h2:
+    console: # H2 DB를 웹에서 관리할 수 있는 기능
+      enabled: true           # H2 Console 사용 여부
+      path: /h2-console       # H2 Console 접속 주소
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+        show-actuator: true
+
+# 관리 및 모니터링 설정
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: when-authorized
+  info:
+    env:
+      enabled: true
+      sql: true
+    database: postgresql
+
+jackson:
+  serialization:
+    indent-output: true
+
+# JWT 설정
+jwt:
+  secret: duit-server-jwt-secret-key-for-development-2024-this-key-must-be-at-least-512-bits-long-for-hs512-algorithm-so-we-make-it-really-long
+  access-token-validity: 86400000 # 24시간 (밀리초)
