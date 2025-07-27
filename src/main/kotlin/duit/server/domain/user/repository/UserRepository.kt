@@ -7,12 +7,5 @@ import java.util.*
 
 @Repository
 interface UserRepository : JpaRepository<User, Long> {
-    
-    fun findByLoginId(loginId: String): Optional<User>
-    
-    fun existsByLoginId(loginId: String): Boolean
-    
-    fun existsByEmail(email: String): Boolean
-    
     fun existsByNickname(nickname: String): Boolean
 }

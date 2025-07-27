@@ -25,12 +25,3 @@ class DuplicateNicknameException(val nickname: String) :
 
 class InvalidPasswordException(message: String = "Invalid password") : 
     DomainException(message)
-
-class UserAccountLockedException(val userId: Long) : 
-    DomainException("User account $userId is locked")
-
-class UserAccountExpiredException(val userId: Long) : 
-    DomainException("User account $userId has expired")
-
-class InvalidUserRoleException(val role: String) : 
-    DomainException("Invalid user role: $role")

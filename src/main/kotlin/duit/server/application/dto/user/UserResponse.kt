@@ -4,7 +4,6 @@ import duit.server.domain.user.entity.User
 
 data class UserResponse(
     val id: Long,
-    val loginId: String,
     val email: String?,
     val nickname: String,
     val allowPushAlarm: Boolean,
@@ -14,7 +13,6 @@ data class UserResponse(
         fun from(user: User) =
             UserResponse(
                 id = user.id!!,
-                loginId = user.loginId!!,
                 email = user.email,
                 nickname = user.nickname,
                 allowPushAlarm = user.allowPushAlarm,
