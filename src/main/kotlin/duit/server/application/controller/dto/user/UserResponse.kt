@@ -1,4 +1,4 @@
-package duit.server.application.dto.user
+package duit.server.application.controller.dto.user
 
 import duit.server.domain.user.entity.User
 

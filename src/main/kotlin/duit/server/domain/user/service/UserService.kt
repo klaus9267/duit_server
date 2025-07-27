@@ -1,7 +1,7 @@
 package duit.server.domain.user.service
 
-import duit.server.application.dto.user.UpdateNicknameRequest
-import duit.server.application.dto.user.UserResponse
+import duit.server.application.controller.dto.user.UpdateNicknameRequest
+import duit.server.application.controller.dto.user.UserResponse
 import duit.server.domain.user.entity.User
 import duit.server.domain.user.exception.DuplicateNicknameException
 import duit.server.domain.user.exception.UserNotFoundException

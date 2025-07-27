@@ -1,7 +1,7 @@
 package duit.server.application.controller
 
-import duit.server.application.dto.user.UpdateNicknameRequest
-import duit.server.application.dto.user.UserResponse
+import duit.server.application.controller.dto.user.UpdateNicknameRequest
+import duit.server.application.controller.dto.user.UserResponse
 import duit.server.domain.user.service.UserService
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter

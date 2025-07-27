@@ -1,4 +1,4 @@
-package duit.server.application.dto
+package duit.server.application.controller.dto
 
 import com.fasterxml.jackson.annotation.JsonFormat
 import io.swagger.v3.oas.annotations.media.Schema
