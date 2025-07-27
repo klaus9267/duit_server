@@ -32,6 +32,19 @@ class UserExceptionHandler(
         )
     }
     
+    @ExceptionHandler(UserLoginIdNotFoundException::class)
+    fun handleUserLoginIdNotFoundException(
+        ex: UserLoginIdNotFoundException,
+        request: HttpServletRequest
+    ): ResponseEntity<ErrorResponse> {
+        return errorResponseBuilder.buildDomainErrorResponse(
+            errorCode = ErrorCode.USER_NOT_FOUND,
+            exception = ex,
+            request = request,
+            additionalDetails = "로그인 ID '${ex.loginId}'로 등록된 사용자가 없습니다."
+        )
+    }
+    
     @ExceptionHandler(UserEmailNotFoundException::class)
     fun handleUserEmailNotFoundException(
         ex: UserEmailNotFoundException,
@@ -55,6 +68,45 @@ class UserExceptionHandler(
             exception = ex,
             request = request,
             additionalDetails = "이메일 ${ex.email}는 이미 사용 중입니다."
+        )
+    }
+    
+    @ExceptionHandler(DuplicateLoginIdException::class)
+    fun handleDuplicateLoginIdException(
+        ex: DuplicateLoginIdException,
+        request: HttpServletRequest
+    ): ResponseEntity<ErrorResponse> {
+        return errorResponseBuilder.buildDomainErrorResponse(
+            errorCode = ErrorCode.DUPLICATE_LOGIN_ID,
+            exception = ex,
+            request = request,
+            additionalDetails = "로그인 ID '${ex.loginId}'는 이미 사용 중입니다."
+        )
+    }
+    
+    @ExceptionHandler(DuplicateNicknameException::class)
+    fun handleDuplicateNicknameException(
+        ex: DuplicateNicknameException,
+        request: HttpServletRequest
+    ): ResponseEntity<ErrorResponse> {
+        return errorResponseBuilder.buildDomainErrorResponse(
+            errorCode = ErrorCode.DUPLICATE_NICKNAME,
+            exception = ex,
+            request = request,
+            additionalDetails = "닉네임 '${ex.nickname}'은 이미 사용 중입니다."
+        )
+    }
+    
+    @ExceptionHandler(InvalidPasswordException::class)
+    fun handleInvalidPasswordException(
+        ex: InvalidPasswordException,
+        request: HttpServletRequest
+    ): ResponseEntity<ErrorResponse> {
+        return errorResponseBuilder.buildDomainErrorResponse(
+            errorCode = ErrorCode.INVALID_PASSWORD,
+            exception = ex,
+            request = request,
+            additionalDetails = "비밀번호가 일치하지 않습니다."
         )
     }
 }

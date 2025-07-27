@@ -24,6 +24,9 @@ enum class ErrorCode(
     USER_NOT_FOUND("USER_001", "사용자를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     USER_EMAIL_NOT_FOUND("USER_002", "해당 이메일로 등록된 사용자가 없습니다.", HttpStatus.NOT_FOUND),
     DUPLICATE_EMAIL("USER_003", "이미 사용 중인 이메일입니다.", HttpStatus.CONFLICT),
+    DUPLICATE_LOGIN_ID("USER_004", "이미 사용 중인 로그인 ID입니다.", HttpStatus.CONFLICT),
+    DUPLICATE_NICKNAME("USER_005", "이미 사용 중인 닉네임입니다.", HttpStatus.CONFLICT),
+    INVALID_PASSWORD("USER_006", "비밀번호가 일치하지 않습니다.", HttpStatus.UNAUTHORIZED),
     
     // 이벤트 관련 에러
     EVENT_NOT_FOUND("EVENT_001", "이벤트를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
