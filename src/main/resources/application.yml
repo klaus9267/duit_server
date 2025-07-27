@@ -44,5 +44,5 @@ jackson:
 
 # JWT 설정
 jwt:
-  secret: duit-server-jwt-secret-key-for-development-2024
+  secret: duit-server-jwt-secret-key-for-development-2024-this-key-must-be-at-least-512-bits-long-for-hs512-algorithm-so-we-make-it-really-long
   access-token-validity: 86400000 # 24시간 (밀리초)

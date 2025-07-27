@@ -36,7 +36,7 @@ class JwtTokenProvider(
             .claim("userId", userId)
             .issuedAt(now)
             .expiration(validity)
-            .signWith(key, Jwts.SIG.HS512)
+            .signWith(key, Jwts.SIG.HS256)
             .compact()
     }
     
