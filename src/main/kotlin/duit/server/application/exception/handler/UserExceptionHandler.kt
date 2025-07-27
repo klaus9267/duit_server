@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice
 class UserExceptionHandler(
     private val errorResponseBuilder: ErrorResponseBuilder
 ) {
-    
+
     @ExceptionHandler(UserNotFoundException::class)
     fun handleUserNotFoundException(
         ex: UserNotFoundException,
@@ -31,7 +31,7 @@ class UserExceptionHandler(
             additionalDetails = "사용자 ID ${ex.userId}를 찾을 수 없습니다."
         )
     }
-    
+
     @ExceptionHandler(UserLoginIdNotFoundException::class)
     fun handleUserLoginIdNotFoundException(
         ex: UserLoginIdNotFoundException,
@@ -44,7 +44,7 @@ class UserExceptionHandler(
             additionalDetails = "로그인 ID '${ex.loginId}'로 등록된 사용자가 없습니다."
         )
     }
-    
+
     @ExceptionHandler(UserEmailNotFoundException::class)
     fun handleUserEmailNotFoundException(
         ex: UserEmailNotFoundException,
@@ -57,7 +57,7 @@ class UserExceptionHandler(
             additionalDetails = "이메일 ${ex.email}로 등록된 사용자가 없습니다."
         )
     }
-    
+
     @ExceptionHandler(DuplicateEmailException::class)
     fun handleDuplicateEmailException(
         ex: DuplicateEmailException,
@@ -70,7 +70,7 @@ class UserExceptionHandler(
             additionalDetails = "이메일 ${ex.email}는 이미 사용 중입니다."
         )
     }
-    
+
     @ExceptionHandler(DuplicateLoginIdException::class)
     fun handleDuplicateLoginIdException(
         ex: DuplicateLoginIdException,
@@ -83,7 +83,7 @@ class UserExceptionHandler(
             additionalDetails = "로그인 ID '${ex.loginId}'는 이미 사용 중입니다."
         )
     }
-    
+
     @ExceptionHandler(DuplicateNicknameException::class)
     fun handleDuplicateNicknameException(
         ex: DuplicateNicknameException,
@@ -96,7 +96,7 @@ class UserExceptionHandler(
             additionalDetails = "닉네임 '${ex.nickname}'은 이미 사용 중입니다."
         )
     }
-    
+
     @ExceptionHandler(InvalidPasswordException::class)
     fun handleInvalidPasswordException(
         ex: InvalidPasswordException,
@@ -107,6 +107,45 @@ class UserExceptionHandler(
             exception = ex,
             request = request,
             additionalDetails = "비밀번호가 일치하지 않습니다."
+        )
+    }
+
+    @ExceptionHandler(UnauthorizedException::class)
+    fun handleUnauthorizedException(
+        ex: UnauthorizedException,
+        request: HttpServletRequest
+    ): ResponseEntity<ErrorResponse> {
+        return errorResponseBuilder.buildDomainErrorResponse(
+            errorCode = ErrorCode.UNAUTHORIZED,
+            exception = ex,
+            request = request,
+            additionalDetails = "인증이 필요합니다."
+        )
+    }
+
+    @ExceptionHandler(InvalidTokenException::class)
+    fun handleInvalidTokenException(
+        ex: InvalidTokenException,
+        request: HttpServletRequest
+    ): ResponseEntity<ErrorResponse> {
+        return errorResponseBuilder.buildDomainErrorResponse(
+            errorCode = ErrorCode.UNAUTHORIZED,
+            exception = ex,
+            request = request,
+            additionalDetails = "유효하지 않은 토큰입니다."
+        )
+    }
+
+    @ExceptionHandler(ExpiredTokenException::class)
+    fun handleExpiredTokenException(
+        ex: ExpiredTokenException,
+        request: HttpServletRequest
+    ): ResponseEntity<ErrorResponse> {
+        return errorResponseBuilder.buildDomainErrorResponse(
+            errorCode = ErrorCode.UNAUTHORIZED,
+            exception = ex,
+            request = request,
+            additionalDetails = "만료된 토큰입니다."
         )
     }
 }

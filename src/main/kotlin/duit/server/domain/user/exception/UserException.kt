@@ -25,3 +25,12 @@ class DuplicateNicknameException(val nickname: String) :
 
 class InvalidPasswordException(message: String = "Invalid password") : 
     DomainException(message)
+
+class UnauthorizedException(message: String = "인증되지 않은 사용자입니다") : 
+    DomainException(message)
+
+class InvalidTokenException(message: String = "유효하지 않은 토큰입니다") : 
+    DomainException(message)
+
+class ExpiredTokenException(message: String = "만료된 토큰입니다") : 
+    DomainException(message)

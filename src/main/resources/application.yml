@@ -41,3 +41,8 @@ management:
 jackson:
   serialization:
     indent-output: true
+
+# JWT 설정
+jwt:
+  secret: duit-server-jwt-secret-key-for-development-2024
+  access-token-validity: 86400000 # 24시간 (밀리초)

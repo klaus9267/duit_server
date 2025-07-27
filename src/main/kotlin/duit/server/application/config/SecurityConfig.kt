@@ -1,5 +1,7 @@
 package duit.server.application.config
 
+import duit.server.application.security.JwtAuthenticationEntryPoint
+import duit.server.application.security.JwtAuthenticationFilter
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
@@ -8,13 +10,17 @@ import org.springframework.security.config.http.SessionCreationPolicy
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.security.web.SecurityFilterChain
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter
 import org.springframework.web.cors.CorsConfiguration
 import org.springframework.web.cors.CorsConfigurationSource
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource
 
 @Configuration
 @EnableWebSecurity
-class SecurityConfig {
+class SecurityConfig(
+    private val jwtAuthenticationFilter: JwtAuthenticationFilter,
+    private val jwtAuthenticationEntryPoint: JwtAuthenticationEntryPoint
+) {
 
     @Bean
     fun passwordEncoder(): PasswordEncoder {
@@ -29,11 +35,30 @@ class SecurityConfig {
             .cors { it.configurationSource(corsConfigurationSource()) }
             .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
             .authorizeHttpRequests { auth ->
-                auth.anyRequest().permitAll()
+                auth
+                    // 공개 경로 - 인증 불필요
+                    .requestMatchers(
+                        "/h2-console/**",
+                        "/swagger-ui/**",
+                        "/v3/api-docs/**",
+                        "/swagger-resources/**",
+                        "/actuator/**",
+                        "/api/v1/auth/**",
+                        "/api/v1/users/check-nickname"
+                    ).permitAll()
+                    
+                    // 나머지 모든 요청은 인증 필요
+                    .anyRequest().authenticated()
             }
             .headers { headers ->
                 headers.frameOptions { it.sameOrigin() } // h2
             }
+            // JWT 인증 실패 시 처리
+            .exceptionHandling { exceptions ->
+                exceptions.authenticationEntryPoint(jwtAuthenticationEntryPoint)
+            }
+            // JWT 필터 추가
+            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter::class.java)
             .build()
     }
 
