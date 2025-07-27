@@ -1,6 +1,6 @@
 package duit.server.domain.event.entity
 
-import duit.server.domain.organizer.entity.Host
+import duit.server.domain.host.entity.Host
 import jakarta.persistence.*
 import java.time.LocalDateTime
 
