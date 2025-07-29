@@ -4,4 +4,5 @@ import duit.server.domain.host.entity.Host
 import org.springframework.data.jpa.repository.JpaRepository
 
 interface HostRepository : JpaRepository<Host, Long> {
+    fun findByName(name: String): Host?
 }
