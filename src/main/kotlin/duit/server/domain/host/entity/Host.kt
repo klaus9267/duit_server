@@ -9,6 +9,6 @@ class Host(
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long? = null,
     val name: String,
-    val thumbnail: String,
+    val thumbnail: String? = null,
 ) {
 }

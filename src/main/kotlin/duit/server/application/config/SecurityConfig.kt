@@ -44,7 +44,8 @@ class SecurityConfig(
                         "/swagger-resources/**",
                         "/actuator/**",
                         "/api/v1/auth/**",
-                        "/api/v1/users/check-nickname"
+                        "/api/v1/users/check-nickname",
+                        "/api/v1/forms/webhook"  // Google Forms Webhook 경로 추가
                     ).permitAll()
                     
                     // 나머지 모든 요청은 인증 필요
