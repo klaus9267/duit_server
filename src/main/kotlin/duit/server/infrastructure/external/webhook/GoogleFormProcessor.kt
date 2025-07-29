@@ -1,4 +1,4 @@
-package duit.server.infrastructure.external.googleform
+package duit.server.infrastructure.external.webhook
 
 import duit.server.application.controller.dto.event.EventRequest
 import duit.server.application.controller.dto.googleform.GoogleFormResult

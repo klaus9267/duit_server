@@ -1,7 +1,6 @@
-package duit.server.application.controller
+package duit.server.infrastructure.external.webhook
 
 import duit.server.application.controller.dto.googleform.GoogleFormResult
-import duit.server.infrastructure.external.googleform.GoogleFormProcessor
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
 import org.slf4j.LoggerFactory

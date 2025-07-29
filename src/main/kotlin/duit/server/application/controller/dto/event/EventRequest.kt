@@ -4,9 +4,9 @@ import duit.server.application.controller.dto.googleform.FileInfo
 import duit.server.domain.event.entity.Event
 import duit.server.domain.event.entity.EventType
 import duit.server.domain.host.entity.Host
-import duit.server.infrastructure.external.googleform.exception.InvalidURI
-import duit.server.infrastructure.external.googleform.exception.PastDateException
-import duit.server.infrastructure.external.googleform.exception.PastTimeException
+import duit.server.infrastructure.external.webhook.exception.InvalidURI
+import duit.server.infrastructure.external.webhook.exception.PastDateException
+import duit.server.infrastructure.external.webhook.exception.PastTimeException
 import java.net.URI
 import java.time.LocalDate
 import java.time.LocalDateTime

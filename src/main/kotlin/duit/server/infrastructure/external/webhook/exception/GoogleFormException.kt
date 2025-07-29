@@ -1,4 +1,4 @@
-package duit.server.infrastructure.external.googleform.exception
+package duit.server.infrastructure.external.webhook.exception
 
 import duit.server.domain.common.exception.DomainException
 import java.net.URI
