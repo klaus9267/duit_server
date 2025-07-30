@@ -1,8 +1,9 @@
 package duit.server.application.controller
 
-import duit.server.application.controller.dto.pagination.PaginationParam
+import duit.server.application.controller.dto.event.EventPaginationParam
 import duit.server.domain.event.service.EventService
 import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.validation.Valid
 import org.springdoc.core.annotations.ParameterObject
@@ -19,10 +20,12 @@ class EventController(
     private val eventService: EventService
 ) {
     @GetMapping("pending")
-    @Operation(summary = "미승인 행사 목록 조회")
+    @Operation(summary = "행사 목록 조회")
     @ResponseStatus(HttpStatus.OK)
-    fun getPendingEvents(
+    fun getEvents(
+        @Parameter(description = "행사 승인 여부", example = "true")
+        isApproved: Boolean? = true,
         @Valid @ParameterObject
-        param: PaginationParam
-    ) = eventService.getPendingEvents(param)
+        param: EventPaginationParam
+    ) = eventService.getEvents(param,isApproved)
 }
