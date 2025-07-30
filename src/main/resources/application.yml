@@ -19,8 +19,17 @@ spring:
       ddl-auto: create-drop
     properties:
       hibernate:
+        show_sql: true
         dialect: org.hibernate.dialect.H2Dialect
         show-actuator: true
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: method
+    tagsSorter: alpha
+    docExpansion: none
+  enable-kotlin: true
 
 # 관리 및 모니터링 설정
 management:

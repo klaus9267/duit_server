@@ -1,7 +1,7 @@
 package duit.server.domain.user.entity
 
 import duit.server.domain.bookmark.entity.Bookmark
-import duit.server.domain.organizer.entity.Host
+import duit.server.domain.host.entity.Host
 import jakarta.persistence.*
 import org.hibernate.annotations.UpdateTimestamp
 import org.springframework.data.annotation.CreatedDate
@@ -28,9 +28,6 @@ class User(
 ) {
     @OneToMany(mappedBy = "user", cascade = [CascadeType.ALL], orphanRemoval = true)
     val bookmarks: MutableList<Bookmark> = mutableListOf()
-
-    @OneToOne(mappedBy = "user", cascade = [CascadeType.ALL], orphanRemoval = true)
-    val host: Host? = null
     
     /**
      * 닉네임 업데이트

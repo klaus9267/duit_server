@@ -41,3 +41,8 @@ class EventCancellationNotAllowedException(
     val eventId: Long, 
     val reason: String
 ) : DomainException("Event $eventId cannot be cancelled: $reason")
+
+class InvalidEventTypeException(
+    val input: String
+) : DomainException("Invalid event type: '$input'") {
+}

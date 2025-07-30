@@ -44,7 +44,8 @@ class SecurityConfig(
                         "/swagger-resources/**",
                         "/actuator/**",
                         "/api/v1/auth/**",
-                        "/api/v1/users/check-nickname"
+                        "/api/v1/users/check-nickname",
+                        "/api/v1/webhooks/**"
                     ).permitAll()
                     
                     // 나머지 모든 요청은 인증 필요
