@@ -1,6 +1,6 @@
 package duit.server.application.controller.dto.pagination
 
-data class PaginationResponse<T>(
-    val content: List<T> = mutableListOf(),
+data class PageResponse<T>(
+    val content: List<T> = emptyList(),
     val pageInfo: PageInfo
 )

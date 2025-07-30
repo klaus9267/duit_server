@@ -2,9 +2,19 @@ package duit.server.application.controller.dto.host
 
 import duit.server.application.controller.dto.pagination.PaginationField
 import duit.server.application.controller.dto.pagination.PaginationParam
+import io.swagger.v3.oas.annotations.media.Schema
+import org.springframework.data.domain.Sort
 
 data class HostPaginationParam(
-    override val field: PaginationField = PaginationField.NAME
-) : PaginationParam(
-    field = field
-)
+    @field:Schema(description = "페이지 번호", example = "0", required = false)
+    override val page: Int?,
+
+    @field:Schema(description = "페이지 크기", example = "10", required = false)
+    override val size: Int?,
+
+    @field:Schema(description = "정렬 순서", example = "ASC", required = false)
+    override val sortDirection: Sort.Direction?,
+
+    @field:Schema(description = "정렬 필드", example = PaginationField.CONST_NAME, required = false)
+    override val field: PaginationField? = PaginationField.NAME
+) : PaginationParam(page, size, sortDirection, field ?: PaginationField.NAME)

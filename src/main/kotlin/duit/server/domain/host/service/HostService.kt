@@ -4,7 +4,7 @@ import duit.server.application.controller.dto.host.HostPaginationParam
 import duit.server.application.controller.dto.host.HostRequest
 import duit.server.application.controller.dto.host.HostResponse
 import duit.server.application.controller.dto.pagination.PageInfo
-import duit.server.application.controller.dto.pagination.PaginationResponse
+import duit.server.application.controller.dto.pagination.PageResponse
 import duit.server.domain.host.entity.Host
 import duit.server.domain.host.repository.HostRepository
 import org.springframework.stereotype.Service
@@ -17,11 +17,11 @@ class HostService(private val hostRepository: HostRepository) {
             ?: hostRepository.save(request.toEntity())
     }
 
-    fun getHosts(param: HostPaginationParam): PaginationResponse<HostResponse> {
+    fun getHosts(param: HostPaginationParam): PageResponse<HostResponse> {
         val hostPage = hostRepository.findAll(param.toPageable())
             .map { HostResponse.from(it) }
 
-        return PaginationResponse(
+        return PageResponse(
             content = hostPage.content,
             pageInfo = PageInfo.from(hostPage)
         )

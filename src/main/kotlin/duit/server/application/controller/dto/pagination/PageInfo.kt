@@ -22,7 +22,7 @@ data class PageInfo(
 
             return PageInfo(
                 pageNumber = pageable.pageNumber,
-                pageSize = page.numberOfElements,
+                pageSize = page.size,
                 totalPages = page.totalPages,
                 totalElements = page.totalElements
             )
