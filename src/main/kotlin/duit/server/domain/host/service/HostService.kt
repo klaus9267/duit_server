@@ -1,9 +1,9 @@
 package duit.server.domain.host.service
 
+import duit.server.application.controller.dto.host.HostPaginationParam
 import duit.server.application.controller.dto.host.HostRequest
 import duit.server.application.controller.dto.host.HostResponse
 import duit.server.application.controller.dto.pagination.PageInfo
-import duit.server.application.controller.dto.pagination.PaginationParam
 import duit.server.application.controller.dto.pagination.PaginationResponse
 import duit.server.domain.host.entity.Host
 import duit.server.domain.host.repository.HostRepository
@@ -17,7 +17,7 @@ class HostService(private val hostRepository: HostRepository) {
             ?: hostRepository.save(request.toEntity())
     }
 
-    fun getHosts(param: PaginationParam): PaginationResponse<HostResponse> {
+    fun getHosts(param: HostPaginationParam): PaginationResponse<HostResponse> {
         val hostPage = hostRepository.findAll(param.toPageable())
             .map { HostResponse.from(it) }
 

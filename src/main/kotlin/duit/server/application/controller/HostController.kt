@@ -1,5 +1,6 @@
 package duit.server.application.controller
 
+import duit.server.application.controller.dto.host.HostPaginationParam
 import duit.server.application.controller.dto.host.HostResponse
 import duit.server.application.controller.dto.pagination.PaginationParam
 import duit.server.application.controller.dto.pagination.PaginationResponse
@@ -24,7 +25,6 @@ class HostController(private val hostService: HostService) {
         description = "주최측 목록을 조회합니다."
     )
     @ResponseStatus(HttpStatus.OK)
-    fun getHosts(@ParameterObject param: PaginationParam): PaginationResponse<HostResponse> =
+    fun getHosts(@ParameterObject param: HostPaginationParam): PaginationResponse<HostResponse> =
         hostService.getHosts(param)
-
 }
