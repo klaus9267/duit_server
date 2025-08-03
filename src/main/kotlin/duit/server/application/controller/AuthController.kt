@@ -31,7 +31,7 @@ class AuthController(
         @RequestParam userId: Long
     ): TokenResponse {
         // 사용자 존재 여부 확인
-        userService.findUserForAuthentication(userId)
+        userService.findUserById(userId)
         
         // JWT 토큰 생성
         val accessToken = jwtTokenProvider.createAccessToken(userId)
