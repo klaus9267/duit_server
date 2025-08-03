@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.RestController
 class EventController(
     private val eventService: EventService
 ) {
-    @GetMapping("pending")
+    @GetMapping
     @Operation(summary = "행사 목록 조회")
     @ResponseStatus(HttpStatus.OK)
     fun getEvents(
