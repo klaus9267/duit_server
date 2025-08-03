@@ -5,6 +5,7 @@ import duit.server.application.controller.dto.event.EventRequest
 import duit.server.application.controller.dto.event.EventResponse
 import duit.server.application.controller.dto.pagination.PageInfo
 import duit.server.application.controller.dto.pagination.PageResponse
+import duit.server.domain.event.exception.EventNotFoundException
 import duit.server.domain.event.repository.EventRepository
 import org.springframework.stereotype.Service
 
@@ -12,6 +13,10 @@ import org.springframework.stereotype.Service
 class EventService(private val eventRepository: EventRepository) {
 
     fun createEvent(eventRequest: EventRequest) = eventRepository.save(eventRequest.toEntity())
+
+    fun getEvent(eventId:Long) =
+        eventRepository.findById(eventId)
+            .orElseThrow{ EventNotFoundException(eventId) }
 
     fun getEvents(param: EventPaginationParam, isApproved: Boolean?): PageResponse<EventResponse> {
         val events =
