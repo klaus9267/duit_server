@@ -50,3 +50,4 @@ out/
 ### Docker Compose Files ###
 docker-compose.yml.backup
 docker-compose-env.yml
+/src/main/resources/application-properties

@@ -15,9 +15,13 @@ COPY src/ src/
 RUN ./gradlew bootJar --no-daemon
 
 # 런타임 이미지
-FROM openjdk:17-jre-slim
+FROM openjdk:17.0.2-jdk
 
 WORKDIR /app
+
+# 애플리케이션 실행을 위한 비-루트 사용자 생성
+RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
+USER appuser
 
 # 빌드된 JAR 파일 복사
 COPY --from=builder /app/build/libs/*.jar app.jar
