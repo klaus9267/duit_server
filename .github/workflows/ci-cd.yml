@@ -8,9 +8,6 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
-  DEPLOY_HOST: klaus9267.iptime.org
-  DEPLOY_USER: vagom
-  DEPLOY_PORT: 22
 
 jobs:
   build-and-deploy:
@@ -82,10 +79,10 @@ jobs:
     - name: Deploy with Profiles
       uses: appleboy/ssh-action@v1.0.3
       with:
-        host: ${{ env.DEPLOY_HOST }}
-        username: ${{ env.DEPLOY_USER }}
+        host: ${{ secrets.DEPLOY_HOST }}
+        username: ${{ secrets.DEPLOY_USER }}
         password: ${{ secrets.SSH_PASSWORD }}
-        port: ${{ env.DEPLOY_PORT }}
+        port: ${{ secrets.DEPLOY_PORT }}
         script: |
           cd /home/vagom/duit-server || mkdir -p /home/vagom/duit-server && cd /home/vagom/duit-server
           
