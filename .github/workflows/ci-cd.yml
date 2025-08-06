@@ -1,0 +1,133 @@
+name: CI/CD with Profiles (Clean & Simple)
+
+on:
+  pull_request:
+    branches: [ main ]
+    types: [ closed ]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  DEPLOY_HOST: klaus9267.iptime.org
+  DEPLOY_USER: vagom
+  DEPLOY_PORT: 22
+
+jobs:
+  build-and-deploy:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+
+    - name: Cache Gradle packages
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.gradle/caches
+          ~/.gradle/wrapper
+        key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+
+    - name: Run tests
+      run: ./gradlew test
+
+    - name: Build application
+      run: ./gradlew bootJar
+
+    - name: Login to GHCR
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=ref,event=branch
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        platforms: linux/amd64
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    # 🎯 깔끔한 Profiles 기반 배포
+    - name: Deploy with Profiles
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ env.DEPLOY_HOST }}
+        username: ${{ env.DEPLOY_USER }}
+        password: ${{ secrets.SSH_PASSWORD }}
+        port: ${{ env.DEPLOY_PORT }}
+        script: |
+          cd /home/vagom/duit-server || mkdir -p /home/vagom/duit-server && cd /home/vagom/duit-server
+          
+          # 파일명 정리
+          mv docker-compose.yml >/dev/null || true
+          
+          # GHCR 로그인
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          
+          # 최신 이미지 풀
+          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          
+          # 🚀 Profiles 기반 스마트 배포
+          if docker ps -q -f name=duit-mysql > /dev/null; then
+            echo "🎯 Rolling Update: App-only restart"
+            IMAGE_TAG=latest docker-compose --profile app up -d --force-recreate
+          else
+            echo "🔄 Initial Deployment: Full stack startup"  
+            IMAGE_TAG=latest docker-compose --profile full up -d
+          fi
+          
+          # 헬스 체크
+          echo "🏥 Health checking..."
+          for i in {1..30}; do
+            if curl -f http://localhost:8080/actuator/health 2>/dev/null; then
+              echo "✅ Application healthy!"
+              break
+            fi
+            echo "⏳ Waiting... ($i/30)"
+            sleep 2
+          done
+          
+          # 상태 요약
+          echo "📊 Deployment Status:"
+          docker ps --format "table {{.Names}}\t{{.Status}}"
+          
+          docker image prune -f
+          echo "🎉 Clean deployment completed!"
+
+    - name: Deployment Summary
+      run: |
+        echo "## 🚀 Deployment Completed"
+        echo "- **Strategy**: Docker Compose Profiles"
+        echo "- **Image**: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
+        echo "- **Endpoint**: http://${{ env.DEPLOY_HOST }}:8080"

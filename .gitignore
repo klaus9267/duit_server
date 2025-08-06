@@ -5,6 +5,8 @@ build/
 !**/src/main/**/build/
 !**/src/test/**/build/
 application.properties
+application-*.properties
+!application-*.properties.example
 
 ### STS ###
 .apt_generated
@@ -39,3 +41,12 @@ out/
 
 ### Kotlin ###
 .kotlin
+
+### Environment Variables ###
+.env
+.env.*
+!.env.example
+
+### Docker Compose Files ###
+docker-compose.yml.backup
+docker-compose-env.yml

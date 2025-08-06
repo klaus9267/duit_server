@@ -1,34 +1,29 @@
 spring:
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local}
   output:
     ansi:
       enabled: always
 
-  datasource:
-    driver-class-name: org.h2.Driver
-    url: jdbc:h2:mem:test
-    username: sa
-    password:
+# Jackson 설정
+  jackson:
+    serialization:
+      indent-output: true
 
-  h2:
-    console: # H2 DB를 웹에서 관리할 수 있는 기능
-      enabled: true           # H2 Console 사용 여부
-      path: /h2-console       # H2 Console 접속 주소
+# JWT 설정
+jwt:
+  secret: ${JWT_SECRET:defaultSecretKeyForDevelopmentOnlyNotForProduction123456789}
+  access-token-validity: ${JWT_ACCESS_TOKEN_VALIDITY:86400000} # 24시간 (밀리초)
 
-  jpa:
-    hibernate:
-      ddl-auto: create-drop
-    properties:
-      hibernate:
-        show_sql: true
-        dialect: org.hibernate.dialect.H2Dialect
-        show-actuator: true
-
+# Swagger 설정
 springdoc:
   swagger-ui:
     path: /swagger-ui.html
     operationsSorter: method
     tagsSorter: alpha
     docExpansion: none
+  api-docs:
+    path: /api-docs
   enable-kotlin: true
 
 # 관리 및 모니터링 설정
@@ -44,14 +39,11 @@ management:
   info:
     env:
       enabled: true
-      sql: true
-    database: postgresql
 
-jackson:
-  serialization:
-    indent-output: true
-
-# JWT 설정
-jwt:
-  secret: duit-server-jwt-secret-key-for-development-2024-this-key-must-be-at-least-512-bits-long-for-hs512-algorithm-so-we-make-it-really-long
-  access-token-validity: 86400000 # 24시간 (밀리초)
+# 로깅 설정
+logging:
+  level:
+    root: INFO
+    duit: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
