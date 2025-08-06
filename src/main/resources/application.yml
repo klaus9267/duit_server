@@ -1,6 +1,6 @@
 spring:
   profiles:
-    active: ${SPRING_PROFILES_ACTIVE:local}
+    active: prod
   output:
     ansi:
       enabled: always
@@ -12,7 +12,7 @@ spring:
 
 # JWT 설정
 jwt:
-  secret: ${JWT_SECRET:defaultSecretKeyForDevelopmentOnlyNotForProduction123456789}
+  secret: ${JWT_SECRET}
   access-token-validity: ${JWT_ACCESS_TOKEN_VALIDITY:86400000} # 24시간 (밀리초)
 
 # Swagger 설정
