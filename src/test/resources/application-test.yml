@@ -1,0 +1,56 @@
+# 테스트 환경 설정 (H2 In-Memory Database)
+spring:
+  datasource:
+    driver-class-name: org.h2.Driver
+    url: jdbc:h2:mem:test;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;MODE=MySQL
+    username: sa
+    password: ""
+
+  h2:
+    console:
+      enabled: false  # 테스트에서는 H2 콘솔 비활성화
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop  # 테스트마다 스키마 재생성
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+        show_sql: false  # 테스트 로그 깔끔하게
+        format_sql: false
+        use_sql_comments: false
+    show-sql: false
+
+  sql:
+    init:
+      mode: never  # 테스트는 data.sql 실행 안함
+
+# JWT 테스트용 설정
+jwt:
+  secret: testSecretKeyForUnitTestingOnly12345678901234567890testSecretKeyForUnitTestingOnly12345678901234567890testSecretKeyForUnitTestingOnly12345678901234567890
+  access-token-validity: 3600000  # 1시간 (테스트용으로 짧게)
+
+# 로깅 설정 (테스트는 조용하게)
+logging:
+  level:
+    root: WARN
+    duit: INFO
+    org.hibernate.SQL: WARN
+    org.springframework.security: WARN
+    org.springframework.test: INFO
+
+# Actuator 테스트용 설정
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+
+# Redis 설정 (테스트용 - 없어도 됨)
+spring.data.redis:
+  host: localhost
+  port: 16379  # 다른 포트 (실제 Redis와 충돌 방지)
+  timeout: 1000ms
