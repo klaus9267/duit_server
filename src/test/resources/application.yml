@@ -1,0 +1,4 @@
+# 테스트 기본 설정 - 모든 테스트에서 자동 적용
+spring:
+  profiles:
+    active: test  # 테스트 실행 시 자동으로 test 프로파일 사용
