@@ -88,17 +88,7 @@ class UserService(
         }
     }
 
-    /**
-     * JWT 토큰 생성을 위한 사용자 인증 (로그인 시 사용)
-     * 실제 로그인 로직은 별도 AuthService에서 구현하는 것을 권장
-     */
-    fun findUserForAuthentication(userId: Long): User {
-        return findUserById(userId)
-    }
-
-// Private 메서드들
-
-    private fun findUserById(userId: Long): User {
+    fun findUserById(userId: Long): User {
         return userRepository.findById(userId)
             .orElseThrow { UserNotFoundException(userId) }
     }

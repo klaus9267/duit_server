@@ -31,7 +31,7 @@ data class EventRequest(
         recruitmentEndAt = recruitmentEndAt,
         uri = uri,
         thumbnail = thumbnail,
-        eventType = EventType.WORKSHOP,
+        eventType = eventType,
         host = host
     )
 
@@ -78,11 +78,11 @@ data class EventRequest(
         }
 
         fun from(formData: Map<String, String>, fileInfo: FileInfo?, host: Host) = EventRequest(
-            title = formData.get("행사 제목")!!,
-            startAt = parseDate(formData["행사 시작 날짜"]!!)!!,
+            title = formData.getValue("행사 제목"),
+            startAt = parseDate(formData.getValue("행사 시작 날짜"))!!,
             endAt = formData["행사 종료 날짜"]?.let { parseDate(it) },
-            uri = parseAndValidateUrl(formData["행사 정보 상세 정보 페이지 주소"]!!),
-            eventType = EventType.of(formData["행사 종류"]!!),
+            uri = parseAndValidateUrl(formData.getValue("행사 정보 상세 정보 페이지 주소")),
+            eventType = EventType.of(formData.getValue("행사 종류")),
             recruitmentStartAt = formData["모집 시작 날짜"]?.let { parseTime(it) },
             recruitmentEndAt = formData["모집 종료 날짜"]?.let { parseTime(it) },
             thumbnail = fileInfo?.directDownloadUrl,

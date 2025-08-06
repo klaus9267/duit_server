@@ -16,8 +16,6 @@ class WebhookController(
     private val googleFormProcessor: GoogleFormProcessor
 ) {
 
-    private val logger = LoggerFactory.getLogger(WebhookController::class.java)
-
     @PostMapping("/google/form")
     @Operation(summary = "Google Forms 응답 Webhook", description = "Google Forms 응답 시 호출되는 Webhook 엔드포인트")
     fun handleGoogleFormResult(@RequestBody result: GoogleFormResult) = googleFormProcessor.handleGoogleFormResult(result)
