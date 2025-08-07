@@ -1,5 +1,6 @@
 package duit.server.domain.event.controller
 
+import duit.server.domain.event.dto.Event4CalendarRequest
 import duit.server.domain.event.dto.EventPaginationParam
 import duit.server.domain.event.service.EventService
 import io.swagger.v3.oas.annotations.Operation
@@ -27,5 +28,13 @@ class EventController(
         isApproved: Boolean? = true,
         @Valid @ParameterObject
         param: EventPaginationParam
-    ) = eventService.getEvents(param,isApproved)
+    ) = eventService.getEvents(param, isApproved)
+
+    @GetMapping("calendar")
+    @Operation(summary = "년,월별 행사 목록 조회")
+    @ResponseStatus(HttpStatus.OK)
+    fun getEvents4Calendar(
+        @Valid @ParameterObject
+        param: Event4CalendarRequest
+    ) = eventService.getEvents4Calendar(param)
 }
