@@ -1,6 +1,7 @@
 package duit.server.domain.event.entity
 
 import duit.server.domain.host.entity.Host
+import duit.server.domain.view.entity.View
 import jakarta.persistence.*
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -24,6 +25,9 @@ class Event(
     val eventType: EventType,
 
     @ManyToOne(fetch = FetchType.LAZY)
-    val host: Host
+    val host: Host,
+
+    @OneToOne(mappedBy = "event", cascade = [CascadeType.ALL], orphanRemoval = true)
+    val view: View? = null
 ) {
 }

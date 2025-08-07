@@ -9,17 +9,26 @@ import duit.server.domain.event.dto.EventResponse
 import duit.server.domain.event.entity.Event
 import duit.server.domain.event.exception.EventNotFoundException
 import duit.server.domain.event.repository.EventRepository
+import duit.server.domain.view.service.ViewService
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDate
 
 @Service
+@Transactional(readOnly = true)
 class EventService(
-    private val eventRepository: EventRepository
+    private val eventRepository: EventRepository,
+    private val viewService: ViewService
 ) {
 
-    fun createEvent(eventRequest: EventRequest) = eventRepository.save(eventRequest.toEntity())
+    @Transactional
+    fun createEvent(eventRequest: EventRequest): Event {
+        val event = eventRequest.toEntity()
+        viewService.createView(event)
+        return eventRepository.save(event)
+    }
 
-    fun getEvent(eventId: Long) =
+    fun getEvent(eventId: Long): Event =
         eventRepository.findById(eventId)
             .orElseThrow { EventNotFoundException(eventId) }
 

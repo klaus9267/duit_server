@@ -33,7 +33,7 @@ data class EventResponse(
             isApproved = event.isApproved,
             eventType = event.eventType,
             host = HostResponse.from(event.host),
-            viewCount = event.view.count
+            viewCount = event.view?.count ?: 0
         )
     }
 }
