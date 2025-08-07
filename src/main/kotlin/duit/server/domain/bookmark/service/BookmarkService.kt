@@ -1,12 +1,12 @@
 package duit.server.domain.bookmark.service
 
+import duit.server.application.security.SecurityUtil
 import duit.server.domain.bookmark.dto.BookmarkResponse
+import duit.server.domain.bookmark.entity.Bookmark
+import duit.server.domain.bookmark.repository.BookmarkRepository
 import duit.server.domain.common.dto.pagination.PageInfo
 import duit.server.domain.common.dto.pagination.PageResponse
 import duit.server.domain.common.dto.pagination.PaginationParam
-import duit.server.application.security.SecurityUtil
-import duit.server.domain.bookmark.entity.Bookmark
-import duit.server.domain.bookmark.repository.BookmarkRepository
 import duit.server.domain.event.service.EventService
 import duit.server.domain.user.service.UserService
 import org.springframework.stereotype.Service
@@ -40,9 +40,10 @@ class BookmarkService(
     }
 
     fun getBookmarks(param: PaginationParam): PageResponse<BookmarkResponse> {
-        val bookmarks = bookmarkRepository.findAll(param.toPageable())
+        val currentUserId = securityUtil.getCurrentUserId()
+        val bookmarks = bookmarkRepository.findByUserId(currentUserId, param.toPageable())
             .map { BookmarkResponse.from(it) }
-        return PageResponse<BookmarkResponse>(
+        return PageResponse(
             bookmarks.content,
             pageInfo = PageInfo.from(bookmarks)
         )
