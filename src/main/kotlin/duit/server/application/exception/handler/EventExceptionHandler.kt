@@ -1,7 +1,7 @@
 package duit.server.application.exception.handler
 
 import duit.server.application.common.ErrorCode
-import duit.server.application.controller.dto.ErrorResponse
+import duit.server.domain.common.dto.ErrorResponse
 import duit.server.application.exception.ErrorResponseBuilder
 import duit.server.domain.event.exception.*
 import jakarta.servlet.http.HttpServletRequest

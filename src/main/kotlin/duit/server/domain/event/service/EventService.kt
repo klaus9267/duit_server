@@ -1,10 +1,10 @@
 package duit.server.domain.event.service
 
-import duit.server.application.controller.dto.event.EventPaginationParam
-import duit.server.application.controller.dto.event.EventRequest
-import duit.server.application.controller.dto.event.EventResponse
-import duit.server.application.controller.dto.pagination.PageInfo
-import duit.server.application.controller.dto.pagination.PageResponse
+import duit.server.domain.event.dto.EventPaginationParam
+import duit.server.domain.event.dto.EventRequest
+import duit.server.domain.event.dto.EventResponse
+import duit.server.domain.common.dto.pagination.PageInfo
+import duit.server.domain.common.dto.pagination.PageResponse
 import duit.server.domain.event.exception.EventNotFoundException
 import duit.server.domain.event.repository.EventRepository
 import org.springframework.stereotype.Service

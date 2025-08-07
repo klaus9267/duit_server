@@ -1,7 +1,7 @@
 package duit.server.application.exception
 
 import duit.server.application.common.ErrorCode
-import duit.server.application.controller.dto.ErrorResponse
+import duit.server.domain.common.dto.ErrorResponse
 import jakarta.servlet.http.HttpServletRequest
 import org.slf4j.LoggerFactory
 import org.slf4j.MDC

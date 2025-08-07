@@ -1,8 +1,8 @@
 package duit.server.application.exception
 
 import duit.server.application.common.ErrorCode
-import duit.server.application.controller.dto.ErrorResponse
-import duit.server.application.controller.dto.FieldError
+import duit.server.domain.common.dto.ErrorResponse
+import duit.server.domain.common.dto.FieldError
 import duit.server.domain.common.exception.DomainException
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.validation.ConstraintViolationException

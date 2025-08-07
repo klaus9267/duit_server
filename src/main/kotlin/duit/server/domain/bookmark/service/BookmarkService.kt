@@ -1,9 +1,9 @@
 package duit.server.domain.bookmark.service
 
-import duit.server.application.controller.dto.bookmarks.BookmarkResponse
-import duit.server.application.controller.dto.pagination.PageInfo
-import duit.server.application.controller.dto.pagination.PageResponse
-import duit.server.application.controller.dto.pagination.PaginationParam
+import duit.server.domain.bookmark.dto.BookmarkResponse
+import duit.server.domain.common.dto.pagination.PageInfo
+import duit.server.domain.common.dto.pagination.PageResponse
+import duit.server.domain.common.dto.pagination.PaginationParam
 import duit.server.application.security.SecurityUtil
 import duit.server.domain.bookmark.entity.Bookmark
 import duit.server.domain.bookmark.repository.BookmarkRepository

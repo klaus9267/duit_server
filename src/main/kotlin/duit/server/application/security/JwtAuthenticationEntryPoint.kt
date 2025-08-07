@@ -2,7 +2,7 @@ package duit.server.application.security
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import duit.server.application.common.ErrorCode
-import duit.server.application.controller.dto.ErrorResponse
+import duit.server.domain.common.dto.ErrorResponse
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
 import org.springframework.http.MediaType
