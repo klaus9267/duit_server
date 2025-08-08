@@ -88,6 +88,15 @@ jobs:
         script: |
           cd /home/vagom/duit-server || mkdir -p /home/vagom/duit-server && cd /home/vagom/duit-server
           
+          # Docker 관련 파일들 정리
+          mkdir -p docker
+          
+          # docker-compose.yml 복사 (이미 있다면 업데이트)
+          curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+               -H "Accept: application/vnd.github.v3.raw" \
+               -o docker-compose.yml \
+               "https://api.github.com/repos/${{ github.repository }}/contents/docker/docker-compose.yml"
+          
           # .env 파일 생성 (GitHub Secrets에서)
           cat > docker/.env << EOF
           IMAGE_TAG=latest
@@ -110,16 +119,23 @@ jobs:
           docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
           
           # 🚀 Profiles 기반 스마트 배포
+          cd docker
           if docker ps -q -f name=duit-mysql 2>/dev/null | grep -q .; then
             echo "🎯 Rolling Update: App-only restart"
-            docker-compose --profile app up -d --force-recreate
+            # 기존 앱 컨테이너 중지 및 제거
+            docker-compose stop app || true
+            docker-compose rm -f app || true
+            # 앱만 새로 시작
+            docker-compose up -d app
           else
             echo "🔄 Initial Deployment: Full stack startup"  
             docker-compose --profile full up -d
           fi
+          cd ..
           
           # 헬스 체크 (더 안정적으로)
           echo "🏥 Health checking..."
+          cd docker
           for i in {1..60}; do
             if curl -f -s http://localhost:8080/actuator/health >/dev/null 2>&1; then
               echo "✅ Application healthy after ${i} attempts!"
@@ -128,12 +144,19 @@ jobs:
             if [ $i -eq 60 ]; then
               echo "❌ Health check failed after 60 attempts"
               echo "📋 Container logs:"
-              docker logs --tail 20 $(docker ps -q -f name=duit-server) || true
+              APP_CONTAINER=$(docker-compose ps -q app)
+              if [ -n "$APP_CONTAINER" ]; then
+                docker logs --tail 50 $APP_CONTAINER || true
+              else
+                echo "No app container found"
+                docker-compose ps
+              fi
             else
               echo "⏳ Waiting... ($i/60)"
-              sleep 2
+              sleep 3
             fi
           done
+          cd ..
           
           # 상태 요약
           echo "📊 Deployment Status:"
