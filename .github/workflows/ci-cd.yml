@@ -69,7 +69,6 @@ jobs:
         file: ./docker/Dockerfile
         platforms: linux/amd64
         push: true
-        tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
@@ -123,8 +122,8 @@ jobs:
           if docker ps -q -f name=duit-mysql 2>/dev/null | grep -q .; then
             echo "🎯 Rolling Update: App-only restart"
             # 기존 앱 컨테이너 중지 및 제거
-            docker-compose stop app || true
-            docker-compose rm -f app || true
+            # docker-compose stop app || true
+            # docker-compose rm -f app || true
             # 앱만 새로 시작
             docker-compose up -d app
           else
