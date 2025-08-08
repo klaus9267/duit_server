@@ -38,6 +38,21 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
+      - name: Create application.properties for build
+        run: |
+          cat > src/main/resources/application.properties << EOF
+          JWT_SECRET=${{ secrets.JWT_SECRET }}
+          DB_HOST=${{ secrets.DB_HOST }}
+          DB_USERNAME=${{ secrets.DB_USERNAME }}
+          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+          DB_PORT=${{ secrets.DB_PORT }}
+          DB_NAME=${{ secrets.DB_NAME }}
+          REDIS_HOST=${{ secrets.REDIS_HOST }}
+          REDIS_PORT=${{ secrets.REDIS_PORT }}
+          REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
+          REDIS_TIMEOUT=${{ secrets.REDIS_TIMEOUT }}
+          EOF
+
       - name: Run tests
         run: ./gradlew test
 
