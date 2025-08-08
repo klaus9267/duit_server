@@ -88,6 +88,13 @@ jobs:
           script: |
             cd /home/vagom/duit-server || mkdir -p /home/vagom/duit-server && cd /home/vagom/duit-server
 
+          # Compose v2 우선 사용, 없으면 v1(docker-compose)로 폴백
+          if docker compose version >/dev/null 2>&1; then
+            COMPOSE_CMD="docker compose"
+          else
+            COMPOSE_CMD="docker-compose"
+          fi
+
             # Docker 관련 파일들 정리
             mkdir -p docker
 
@@ -120,18 +127,18 @@ jobs:
             docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
 
             # 🚀 Profiles 기반 스마트 배포
-            cd docker
-            if docker ps -q -f name=duit-mysql-prod 2>/dev/null | grep -q .; then
+          cd docker
+          if docker ps -q -f name=duit-mysql-prod 2>/dev/null | grep -q .; then
               echo "🎯 Rolling Update: App-only restart"
               # 기존 앱 컨테이너 중지 및 제거
               # docker-compose stop app || true
               # docker-compose rm -f app || true
               # 앱만 새로 시작
-              docker-compose pull app
-              docker-compose up -d app
+            $COMPOSE_CMD pull app
+            $COMPOSE_CMD up -d --no-deps app
             else
               echo "🔄 Initial Deployment: Full stack startup"  
-              docker-compose --profile full up -d
+            $COMPOSE_CMD --profile full up -d
             fi
             cd ..
 
@@ -146,12 +153,12 @@ jobs:
               if [ $i -eq 60 ]; then
                 echo "❌ Health check failed after 60 attempts"
                 echo "📋 Container logs:"
-                APP_CONTAINER=$(docker-compose ps -q app)
+                APP_CONTAINER=$($COMPOSE_CMD ps -q app)
                 if [ -n "$APP_CONTAINER" ]; then
                   docker logs --tail 50 $APP_CONTAINER || true
                 else
                   echo "No app container found"
-                  docker-compose ps
+                  $COMPOSE_CMD ps
                 fi
               else
                 echo "⏳ Waiting... ($i/60)"
@@ -168,47 +175,12 @@ jobs:
             docker image prune -f
             echo "🎉 Clean deployment completed!"
 
-            # 상태 요약 파일 생성(민감정보 제거: 포트 등 제외)
-            STATUS_FILE=/home/vagom/duit-server/status_summary.md
-            echo "## Deployment Status" > $STATUS_FILE
-            status_line() {
-              local display_name="$1"; local cname="$2"
-              local st
-              st=$(docker ps -a --filter name="$cname" --format '{{.Status}}') || st="not found"
-              local health
-              health=$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{end}}' "$cname" 2>/dev/null || true)
-              if [ -n "$health" ]; then
-                echo "- ${display_name}: ${st:-not found}, health: ${health}" >> $STATUS_FILE
-              else
-                echo "- ${display_name}: ${st:-not found}" >> $STATUS_FILE
-              fi
-            }
-            status_line app duit-server-prod
-            status_line db duit-mysql-prod
-            status_line redis duit-redis-prod
+            - Run details: [View Workflow Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
 
-            echo "\nStatus summary written to $STATUS_FILE"
-
-      - name: Fetch deployment status from server
-        id: fetch_status
+      - name: Add job summary
         run: |
-          sudo apt-get update -y
-          sudo apt-get install -y sshpass >/dev/null 2>&1 || true
-          STATUS=$(sshpass -p "${{ secrets.SSH_PASSWORD }}" \
-            ssh -o StrictHostKeyChecking=no -p "${{ secrets.DEPLOY_PORT }}" \
-            "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
-            "cat /home/vagom/duit-server/status_summary.md" 2>/dev/null || echo "status unavailable")
-          echo "summary<<EOF" >> $GITHUB_OUTPUT
-          echo "$STATUS" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-
-      - name: Comment deployment status to PR
-        if: github.event.pull_request.number != ''
-        uses: marocchino/sticky-pull-request-comment@v2
-        with:
-          header: deployment-status
-          message: |
-            ### Deployment Status
-            ````
-            ${{ steps.fetch_status.outputs.summary }}
-            ````
+          echo "### Deployment Status" >> $GITHUB_STEP_SUMMARY
+          echo '````' >> $GITHUB_STEP_SUMMARY
+          echo "${{ steps.fetch_status.outputs.summary }}" >> $GITHUB_STEP_SUMMARY
+          echo '````' >> $GITHUB_STEP_SUMMARY
+          echo "\n- Run details: [View Workflow Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
