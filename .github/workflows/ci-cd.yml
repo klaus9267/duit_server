@@ -99,7 +99,9 @@ jobs:
 
             # .env 파일 생성 (GitHub Secrets에서)
             cat > docker/.env << EOF
-            IMAGE_TAG=latest
+           IMAGE_REGISTRY=${{ env.REGISTRY }}
+           IMAGE_NAME=${{ env.IMAGE_NAME }}
+           IMAGE_TAG=latest
             JWT_SECRET=${{ secrets.JWT_SECRET }}
             DB_HOST=${{ secrets.DB_HOST }}
             DB_USERNAME=${{ secrets.DB_USERNAME }}
