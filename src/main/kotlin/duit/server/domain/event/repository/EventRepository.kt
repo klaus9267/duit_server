@@ -25,13 +25,16 @@ interface EventRepository : JpaRepository<Event, Long> {
         """
         SELECT e
         FROM Event e
-        WHERE e.isApproved = true
+        JOIN Bookmark b ON b.event = e
+        WHERE b.user.id = :userId
+        AND e.isApproved = true
         AND e.startAt BETWEEN :startDate AND :endDate
         AND (:eventType IS NULL OR e.eventType = :eventType)
         ORDER BY e.startAt ASC
         """
     )
     fun findEvents4Calendar(
+        userId: Long,
         startDate: LocalDate,
         endDate: LocalDate,
         eventType: EventType?

@@ -1,5 +1,6 @@
 package duit.server.domain.event.service
 
+import duit.server.application.security.SecurityUtil
 import duit.server.domain.common.dto.pagination.PageInfo
 import duit.server.domain.common.dto.pagination.PageResponse
 import duit.server.domain.event.dto.Event4CalendarRequest
@@ -18,7 +19,8 @@ import java.time.LocalDate
 @Transactional(readOnly = true)
 class EventService(
     private val eventRepository: EventRepository,
-    private val viewService: ViewService
+    private val viewService: ViewService,
+    private val securityUtil: SecurityUtil
 ) {
 
     @Transactional
@@ -43,8 +45,9 @@ class EventService(
     }
 
     fun getEvents4Calendar(request: Event4CalendarRequest): List<Event> {
+        val currentUserId = securityUtil.getCurrentUserId()
         val startDate = LocalDate.of(request.year, request.month, 1)
         val endDate = LocalDate.of(request.year, request.month, startDate.dayOfMonth)
-        return eventRepository.findEvents4Calendar(startDate, endDate, request.type)
+        return eventRepository.findEvents4Calendar(currentUserId, startDate, endDate, request.type)
     }
 }

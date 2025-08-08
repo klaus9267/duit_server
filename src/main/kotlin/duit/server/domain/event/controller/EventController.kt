@@ -87,7 +87,7 @@ class EventController(
     ) = eventService.getEvents(param, isApproved)
 
     @GetMapping("calendar")
-    @Operation(summary = "년,월별 행사 목록 조회")
+    @Operation(summary = "현재 로그인한 사용자가 북마크한 년,월별 행사 목록 조회")
     @ResponseStatus(HttpStatus.OK)
     fun getEvents4Calendar(
         @Valid @ParameterObject
