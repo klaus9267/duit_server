@@ -66,6 +66,7 @@ jobs:
       uses: docker/build-push-action@v5
       with:
         context: .
+        file: ./docker/Dockerfile
         platforms: linux/amd64
         push: true
         tags: ${{ steps.meta.outputs.tags }}
@@ -87,8 +88,20 @@ jobs:
         script: |
           cd /home/vagom/duit-server || mkdir -p /home/vagom/duit-server && cd /home/vagom/duit-server
           
-          # 파일명 정리
-          mv docker-compose.yml >/dev/null || true
+          # .env 파일 생성 (GitHub Secrets에서)
+          cat > docker/.env << EOF
+          IMAGE_TAG=latest
+          JWT_SECRET=${{ secrets.JWT_SECRET }}
+          DB_HOST=${{ secrets.DB_HOST }}
+          DB_USERNAME=${{ secrets.DB_USERNAME }}
+          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+          DB_PORT=${{ secrets.DB_PORT }}
+          DB_NAME=${{ secrets.DB_NAME }}
+          REDIS_HOST=${{ secrets.REDIS_HOST }}
+          REDIS_PORT=${{ secrets.REDIS_PORT }}
+          REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
+          REDIS_TIMEOUT=${{ secrets.REDIS_TIMEOUT }}
+          EOF
           
           # GHCR 로그인
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
@@ -99,10 +112,10 @@ jobs:
           # 🚀 Profiles 기반 스마트 배포
           if docker ps -q -f name=duit-mysql 2>/dev/null | grep -q .; then
             echo "🎯 Rolling Update: App-only restart"
-            IMAGE_TAG=latest docker-compose --profile app up -d --force-recreate
+            docker-compose --profile app up -d --force-recreate
           else
             echo "🔄 Initial Deployment: Full stack startup"  
-            IMAGE_TAG=latest docker-compose --profile full up -d
+            docker-compose --profile full up -d
           fi
           
           # 헬스 체크 (더 안정적으로)

@@ -44,8 +44,9 @@ out/
 
 ### Environment Variables ###
 .env
-.env.*
-!.env.example
+docker/.env
+docker/.env.*
+!docker/.env.example
 
 ### Docker Compose Files ###
 docker-compose.yml.backup

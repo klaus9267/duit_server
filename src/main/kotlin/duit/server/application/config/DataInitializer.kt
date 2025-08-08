@@ -8,6 +8,8 @@ import duit.server.domain.host.repository.HostRepository
 import duit.server.domain.user.entity.ProviderType
 import duit.server.domain.user.entity.User
 import duit.server.domain.user.repository.UserRepository
+import duit.server.domain.view.entity.View
+import duit.server.domain.view.repository.ViewRepository
 import org.springframework.boot.ApplicationArguments
 import org.springframework.boot.ApplicationRunner
 import org.springframework.stereotype.Component
@@ -22,7 +24,8 @@ import java.time.LocalDateTime
 class DataInitializer(
     private val userRepository: UserRepository,
     private val hostRepository: HostRepository,
-    private val eventRepository: EventRepository
+    private val eventRepository: EventRepository,
+    private val viewRepository: ViewRepository
 ) : ApplicationRunner {
     
     @Transactional
@@ -158,7 +161,7 @@ class DataInitializer(
                 thumbnail = "https://example.com/thumbnails/critical-care.jpg",
                 isApproved = true,
                 eventType = EventType.SEMINAR,
-                host = hosts[7] // 대한중환자간호학회
+                host = hosts[7] ,
             ),
             Event(
                 title = "감염관리 실무 워크숍",
@@ -170,7 +173,7 @@ class DataInitializer(
                 thumbnail = "https://example.com/thumbnails/infection-control.jpg",
                 isApproved = true,
                 eventType = EventType.WORKSHOP,
-                host = hosts[1] // 서울아산병원
+                host = hosts[1] // 서울아산병원,
             ),
             
             // 진행 중인 이벤트들
@@ -366,8 +369,20 @@ class DataInitializer(
             )
         )
         
-        eventRepository.saveAll(testEvents)
+        // 이벤트 저장
+        val savedEvents = eventRepository.saveAll(testEvents)
+        
+        // 각 이벤트에 대해 View 생성
+        val views = savedEvents.map { event ->
+            View(
+                count = (1..50).random(), // 랜덤 조회수 (1~50)
+                event = event
+            )
+        }
+        viewRepository.saveAll(views)
+        
         println("✅ 테스트용 간호 행사 데이터 생성 완료! (${testEvents.size}개)")
+        println("✅ 테스트용 조회수 데이터 생성 완료! (${views.size}개)")
         println("   🏥 간호 행사 현황:")
         println("      - 지난 행사: ${testEvents.count { it.endAt!! < today }}개")
         println("      - 진행 중인 행사: ${testEvents.count { it.startAt <= today && it.endAt!! >= today }}개") 

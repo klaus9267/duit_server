@@ -1,8 +1,8 @@
 package duit.server.infrastructure.external.webhook
 
-import duit.server.application.controller.dto.event.EventRequest
-import duit.server.application.controller.dto.googleform.GoogleFormResult
-import duit.server.application.controller.dto.host.HostRequest
+import duit.server.domain.event.dto.EventRequest
+import duit.server.infrastructure.external.webhook.dto.GoogleFormResult
+import duit.server.domain.host.dto.HostRequest
 import duit.server.domain.event.service.EventService
 import duit.server.domain.host.service.HostService
 import org.slf4j.LoggerFactory
