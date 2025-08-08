@@ -42,24 +42,6 @@ class UserService(
         val currentUserId = securityUtil.getCurrentUserId()
         val user = findUserById(currentUserId)
 
-        // 닉네임 중복 검증 (본인 제외)
-        if (user.nickname != request.nickname && userRepository.existsByNickname(request.nickname)) {
-            throw DuplicateNicknameException(request.nickname)
-        }
-
-        user.updateNickname(request.nickname)
-        return UserResponse.from(user)
-    }
-
-    /**
-     * 특정 사용자 닉네임 수정 (관리자용 - 필요시 권한 체크 추가)
-     */
-    @Transactional
-    fun updateNickname(request: UpdateNicknameRequest): UserResponse {
-        val currentUserId = securityUtil.getCurrentUserId()
-        val user = findUserById(currentUserId)
-
-        // 닉네임 중복 검증 (본인 제외)
         if (user.nickname != request.nickname && userRepository.existsByNickname(request.nickname)) {
             throw DuplicateNicknameException(request.nickname)
         }
