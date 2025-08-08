@@ -7,9 +7,6 @@ services:
     profiles: ["app", "full"]
     ports:
       - "8080:8080"
-    depends_on:
-      - db
-      - redis
     restart: unless-stopped
     networks:
       - duit-network-prod
