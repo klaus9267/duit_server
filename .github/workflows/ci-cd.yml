@@ -98,21 +98,20 @@ jobs:
                  "https://api.github.com/repos/${{ github.repository }}/contents/docker/docker-compose.yml"
 
             # .env 파일 생성 (GitHub Secrets에서)
-            cat > docker/.env << EOF
-           IMAGE_REGISTRY=${{ env.REGISTRY }}
-           IMAGE_NAME=${{ env.IMAGE_NAME }}
-           IMAGE_TAG=latest
-            JWT_SECRET=${{ secrets.JWT_SECRET }}
-            DB_HOST=${{ secrets.DB_HOST }}
-            DB_USERNAME=${{ secrets.DB_USERNAME }}
-            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-            DB_PORT=${{ secrets.DB_PORT }}
-            DB_NAME=${{ secrets.DB_NAME }}
-            REDIS_HOST=${{ secrets.REDIS_HOST }}
-            REDIS_PORT=${{ secrets.REDIS_PORT }}
-            REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
-            REDIS_TIMEOUT=${{ secrets.REDIS_TIMEOUT }}
-            EOF
+            : > docker/.env
+            echo "IMAGE_REGISTRY=${{ env.REGISTRY }}" >> docker/.env
+            echo "IMAGE_NAME=${{ env.IMAGE_NAME }}" >> docker/.env
+            echo "IMAGE_TAG=latest" >> docker/.env
+            echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> docker/.env
+            echo "DB_HOST=${{ secrets.DB_HOST }}" >> docker/.env
+            echo "DB_USERNAME=${{ secrets.DB_USERNAME }}" >> docker/.env
+            echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> docker/.env
+            echo "DB_PORT=${{ secrets.DB_PORT }}" >> docker/.env
+            echo "DB_NAME=${{ secrets.DB_NAME }}" >> docker/.env
+            echo "REDIS_HOST=${{ secrets.REDIS_HOST }}" >> docker/.env
+            echo "REDIS_PORT=${{ secrets.REDIS_PORT }}" >> docker/.env
+            echo "REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}" >> docker/.env
+            echo "REDIS_TIMEOUT=${{ secrets.REDIS_TIMEOUT }}" >> docker/.env
 
             # GHCR 로그인
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
