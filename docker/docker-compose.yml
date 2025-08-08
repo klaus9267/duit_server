@@ -1,8 +1,8 @@
-version: '3.8'
+version: "3.8"
 
 services:
   app:
-    image: ghcr.io/duit/du_it_server:${IMAGE_TAG:-latest}
+    image: ${IMAGE_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG:-latest}
     container_name: duit-server-prod
     profiles: ["app", "full"]
     ports:
@@ -46,7 +46,17 @@ services:
     networks:
       - duit-network-prod
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD}"]
+      test:
+        [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-h",
+          "localhost",
+          "-u",
+          "root",
+          "-p${DB_PASSWORD}",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
