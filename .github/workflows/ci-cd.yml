@@ -2,8 +2,8 @@ name: CI/CD with Profiles (Clean & Simple)
 
 on:
   pull_request:
-    branches: [ main ]
-    types: [ closed ]
+    branches: [main]
+    types: [closed]
 
 env:
   REGISTRY: ghcr.io
@@ -18,149 +18,151 @@ jobs:
       packages: write
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up JDK 17
-      uses: actions/setup-java@v4
-      with:
-        java-version: '17'
-        distribution: 'temurin'
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: "17"
+          distribution: "temurin"
 
-    - name: Cache Gradle packages
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.gradle/caches
-          ~/.gradle/wrapper
-        key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+      - name: Cache Gradle packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
 
-    - name: Grant execute permission for gradlew
-      run: chmod +x gradlew
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
 
-    - name: Run tests
-      run: ./gradlew test
+      - name: Run tests
+        run: ./gradlew test
 
-    - name: Login to GHCR
-      uses: docker/login-action@v3
-      with:
-        registry: ${{ env.REGISTRY }}
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Extract metadata
-      id: meta
-      uses: docker/metadata-action@v5
-      with:
-        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-        tags: |
-          type=ref,event=branch
-          type=sha,prefix={{branch}}-
-          type=raw,value=latest,enable={{is_default_branch}}
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-    # 🚀 멀티스테이지 빌드로 테스트 + 빌드 + 배포 한번에
-    - name: Build and push Docker image
-      uses: docker/build-push-action@v5
-      with:
-        context: .
-        file: ./docker/Dockerfile
-        platforms: linux/amd64
-        push: true
-        labels: ${{ steps.meta.outputs.labels }}
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
-        # Gradle 캐시를 Docker 빌드에서도 활용
-        build-args: |
-          GRADLE_USER_HOME=/github/workspace/.gradle
+      # 🚀 멀티스테이지 빌드로 테스트 + 빌드 + 배포 한번에
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./docker/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          # Gradle 캐시를 Docker 빌드에서도 활용
+          build-args: |
+            GRADLE_USER_HOME=/github/workspace/.gradle
 
-    # 🎯 깔끔한 Profiles 기반 배포
-    - name: Deploy with Profiles
-      uses: appleboy/ssh-action@v1.0.3
-      with:
-        host: ${{ secrets.DEPLOY_HOST }}
-        username: ${{ secrets.DEPLOY_USER }}
-        password: ${{ secrets.SSH_PASSWORD }}
-        port: ${{ secrets.DEPLOY_PORT }}
-        script: |
-          cd /home/vagom/duit-server || mkdir -p /home/vagom/duit-server && cd /home/vagom/duit-server
-          
-          # Docker 관련 파일들 정리
-          mkdir -p docker
-          
-          # docker-compose.yml 복사 (이미 있다면 업데이트)
-          curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-               -H "Accept: application/vnd.github.v3.raw" \
-               -o docker-compose.yml \
-               "https://api.github.com/repos/${{ github.repository }}/contents/docker/docker-compose.yml"
-          
-          # .env 파일 생성 (GitHub Secrets에서)
-          cat > docker/.env << EOF
-          IMAGE_TAG=latest
-          JWT_SECRET=${{ secrets.JWT_SECRET }}
-          DB_HOST=${{ secrets.DB_HOST }}
-          DB_USERNAME=${{ secrets.DB_USERNAME }}
-          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-          DB_PORT=${{ secrets.DB_PORT }}
-          DB_NAME=${{ secrets.DB_NAME }}
-          REDIS_HOST=${{ secrets.REDIS_HOST }}
-          REDIS_PORT=${{ secrets.REDIS_PORT }}
-          REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
-          REDIS_TIMEOUT=${{ secrets.REDIS_TIMEOUT }}
-          EOF
-          
-          # GHCR 로그인
-          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-          
-          # 최신 이미지 풀
-          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-          
-          # 🚀 Profiles 기반 스마트 배포
-          cd docker
-          if docker ps -q -f name=duit-mysql 2>/dev/null | grep -q .; then
-            echo "🎯 Rolling Update: App-only restart"
-            # 기존 앱 컨테이너 중지 및 제거
-            # docker-compose stop app || true
-            # docker-compose rm -f app || true
-            # 앱만 새로 시작
-            docker-compose up -d app
-          else
-            echo "🔄 Initial Deployment: Full stack startup"  
-            docker-compose --profile full up -d
-          fi
-          cd ..
-          
-          # 헬스 체크 (더 안정적으로)
-          echo "🏥 Health checking..."
-          cd docker
-          for i in {1..60}; do
-            if curl -f -s http://localhost:8080/actuator/health >/dev/null 2>&1; then
-              echo "✅ Application healthy after ${i} attempts!"
-              break
-            fi
-            if [ $i -eq 60 ]; then
-              echo "❌ Health check failed after 60 attempts"
-              echo "📋 Container logs:"
-              APP_CONTAINER=$(docker-compose ps -q app)
-              if [ -n "$APP_CONTAINER" ]; then
-                docker logs --tail 50 $APP_CONTAINER || true
-              else
-                echo "No app container found"
-                docker-compose ps
-              fi
+      # 🎯 깔끔한 Profiles 기반 배포
+      - name: Deploy with Profiles
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: ${{ secrets.DEPLOY_PORT }}
+          script: |
+            cd /home/vagom/duit-server || mkdir -p /home/vagom/duit-server && cd /home/vagom/duit-server
+
+            # Docker 관련 파일들 정리
+            mkdir -p docker
+
+            # docker-compose.yml 복사 (이미 있다면 업데이트)
+            curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                 -H "Accept: application/vnd.github.v3.raw" \
+                 -o docker/docker-compose.yml \
+                 "https://api.github.com/repos/${{ github.repository }}/contents/docker/docker-compose.yml"
+
+            # .env 파일 생성 (GitHub Secrets에서)
+            cat > docker/.env << EOF
+            IMAGE_TAG=latest
+            JWT_SECRET=${{ secrets.JWT_SECRET }}
+            DB_HOST=${{ secrets.DB_HOST }}
+            DB_USERNAME=${{ secrets.DB_USERNAME }}
+            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+            DB_PORT=${{ secrets.DB_PORT }}
+            DB_NAME=${{ secrets.DB_NAME }}
+            REDIS_HOST=${{ secrets.REDIS_HOST }}
+            REDIS_PORT=${{ secrets.REDIS_PORT }}
+            REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
+            REDIS_TIMEOUT=${{ secrets.REDIS_TIMEOUT }}
+            EOF
+
+            # GHCR 로그인
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+            # 최신 이미지 풀
+            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+
+            # 🚀 Profiles 기반 스마트 배포
+            cd docker
+            if docker ps -q -f name=duit-mysql-prod 2>/dev/null | grep -q .; then
+              echo "🎯 Rolling Update: App-only restart"
+              # 기존 앱 컨테이너 중지 및 제거
+              # docker-compose stop app || true
+              # docker-compose rm -f app || true
+              # 앱만 새로 시작
+              docker-compose pull app
+              docker-compose up -d app
             else
-              echo "⏳ Waiting... ($i/60)"
-              sleep 3
+              echo "🔄 Initial Deployment: Full stack startup"  
+              docker-compose --profile full up -d
             fi
-          done
-          cd ..
-          
-          # 상태 요약
-          echo "📊 Deployment Status:"
-          docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
-          
-          # 이전 이미지 정리
-          docker image prune -f
-          echo "🎉 Clean deployment completed!"
+            cd ..
+
+            # 헬스 체크 (더 안정적으로)
+            echo "🏥 Health checking..."
+            cd docker
+            for i in {1..60}; do
+              if curl -f -s http://localhost:8080/actuator/health >/dev/null 2>&1; then
+                echo "✅ Application healthy after ${i} attempts!"
+                break
+              fi
+              if [ $i -eq 60 ]; then
+                echo "❌ Health check failed after 60 attempts"
+                echo "📋 Container logs:"
+                APP_CONTAINER=$(docker-compose ps -q app)
+                if [ -n "$APP_CONTAINER" ]; then
+                  docker logs --tail 50 $APP_CONTAINER || true
+                else
+                  echo "No app container found"
+                  docker-compose ps
+                fi
+              else
+                echo "⏳ Waiting... ($i/60)"
+                sleep 3
+              fi
+            done
+            cd ..
+
+            # 상태 요약
+            echo "📊 Deployment Status:"
+            docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+
+            # 이전 이미지 정리
+            docker image prune -f
+            echo "🎉 Clean deployment completed!"
