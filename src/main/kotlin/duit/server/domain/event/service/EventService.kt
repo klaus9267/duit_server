@@ -22,10 +22,9 @@ class EventService(
 ) {
 
     @Transactional
-    fun createEvent(eventRequest: EventRequest): Event {
-        val event = eventRequest.toEntity()
+    fun createEvent(eventRequest: EventRequest) {
+        val event = eventRepository.save(eventRequest.toEntity())
         viewService.createView(event)
-        return eventRepository.save(event)
     }
 
     fun getEvent(eventId: Long): Event =
