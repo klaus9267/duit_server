@@ -167,3 +167,48 @@ jobs:
             # 이전 이미지 정리
             docker image prune -f
             echo "🎉 Clean deployment completed!"
+
+            # 상태 요약 파일 생성(민감정보 제거: 포트 등 제외)
+            STATUS_FILE=/home/vagom/duit-server/status_summary.md
+            echo "## Deployment Status" > $STATUS_FILE
+            status_line() {
+              local display_name="$1"; local cname="$2"
+              local st
+              st=$(docker ps -a --filter name="$cname" --format '{{.Status}}') || st="not found"
+              local health
+              health=$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{end}}' "$cname" 2>/dev/null || true)
+              if [ -n "$health" ]; then
+                echo "- ${display_name}: ${st:-not found}, health: ${health}" >> $STATUS_FILE
+              else
+                echo "- ${display_name}: ${st:-not found}" >> $STATUS_FILE
+              fi
+            }
+            status_line app duit-server-prod
+            status_line db duit-mysql-prod
+            status_line redis duit-redis-prod
+
+            echo "\nStatus summary written to $STATUS_FILE"
+
+      - name: Fetch deployment status from server
+        id: fetch_status
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y sshpass >/dev/null 2>&1 || true
+          STATUS=$(sshpass -p "${{ secrets.SSH_PASSWORD }}" \
+            ssh -o StrictHostKeyChecking=no -p "${{ secrets.DEPLOY_PORT }}" \
+            "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+            "cat /home/vagom/duit-server/status_summary.md" 2>/dev/null || echo "status unavailable")
+          echo "summary<<EOF" >> $GITHUB_OUTPUT
+          echo "$STATUS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Comment deployment status to PR
+        if: github.event.pull_request.number != ''
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: deployment-status
+          message: |
+            ### Deployment Status
+            ````
+            ${{ steps.fetch_status.outputs.summary }}
+            ````
