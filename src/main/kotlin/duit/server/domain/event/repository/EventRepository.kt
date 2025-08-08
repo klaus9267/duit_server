@@ -23,8 +23,10 @@ interface EventRepository : JpaRepository<Event, Long> {
 
     @Query(
         """
-        SELECT e
+        SELECT DISTINCT e
         FROM Event e
+        JOIN FETCH e.host
+        JOIN FETCH e.view
         JOIN Bookmark b ON b.event = e
         WHERE b.user.id = :userId
         AND e.isApproved = true

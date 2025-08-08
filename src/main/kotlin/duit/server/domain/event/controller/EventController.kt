@@ -3,6 +3,7 @@ package duit.server.domain.event.controller
 import duit.server.domain.event.dto.Event4CalendarRequest
 import duit.server.domain.event.dto.EventPaginationParam
 import duit.server.domain.event.dto.EventRequest
+import duit.server.domain.event.dto.EventResponse
 import duit.server.domain.event.entity.EventType
 import duit.server.domain.event.service.EventService
 import duit.server.domain.host.dto.HostRequest
@@ -92,5 +93,5 @@ class EventController(
     fun getEvents4Calendar(
         @Valid @ParameterObject
         param: Event4CalendarRequest
-    ) = eventService.getEvents4Calendar(param)
+    ): List<EventResponse> = eventService.getEvents4Calendar(param)
 }
