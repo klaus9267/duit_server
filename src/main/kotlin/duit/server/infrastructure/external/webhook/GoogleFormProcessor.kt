@@ -29,7 +29,5 @@ class GoogleFormProcessor(
 
         val eventRequest = EventRequest.from(formData, eventThumbnail, host)
         eventService.createEvent(eventRequest)
-
-        //TODO: discord alarm 연동
     }
 }
