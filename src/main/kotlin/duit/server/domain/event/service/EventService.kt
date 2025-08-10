@@ -11,6 +11,7 @@ import duit.server.domain.event.entity.Event
 import duit.server.domain.event.exception.EventNotFoundException
 import duit.server.domain.event.repository.EventRepository
 import duit.server.domain.view.service.ViewService
+import duit.server.infrastructure.external.discord.DiscordService
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDate
@@ -20,13 +21,18 @@ import java.time.LocalDate
 class EventService(
     private val eventRepository: EventRepository,
     private val viewService: ViewService,
-    private val securityUtil: SecurityUtil
+    private val securityUtil: SecurityUtil,
+    private val discordService: DiscordService
 ) {
 
     @Transactional
-    fun createEvent(eventRequest: EventRequest) {
+    fun createEvent(eventRequest: EventRequest): Event {
         val event = eventRepository.save(eventRequest.toEntity())
         viewService.createView(event)
+        
+        discordService.sendNewEventNotification(event)
+        
+        return event
     }
 
     fun getEvent(eventId: Long): Event =

@@ -1,7 +1,6 @@
 package duit.server.domain.user.entity
 
 import duit.server.domain.bookmark.entity.Bookmark
-import duit.server.domain.host.entity.Host
 import jakarta.persistence.*
 import org.hibernate.annotations.UpdateTimestamp
 import org.springframework.data.annotation.CreatedDate

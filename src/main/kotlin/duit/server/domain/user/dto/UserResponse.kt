@@ -6,6 +6,7 @@ data class UserResponse(
     val id: Long,
     val email: String?,
     val nickname: String,
+    val providerId: String,
     val allowPushAlarm: Boolean,
     val allowMarketingAlarm: Boolean,
 ) {
@@ -15,6 +16,7 @@ data class UserResponse(
                 id = user.id!!,
                 email = user.email,
                 nickname = user.nickname,
+                providerId = user.providerId!!,
                 allowPushAlarm = user.allowPushAlarm,
                 allowMarketingAlarm = user.allowMarketingAlarm
             )

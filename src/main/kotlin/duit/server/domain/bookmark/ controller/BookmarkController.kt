@@ -1,8 +1,11 @@
-package duit.server.domain.bookmark.` controller`
+package duit.server.domain.bookmark.controller
 
+import duit.server.application.docs.bookmark.BookmarkEventApi
+import duit.server.application.docs.bookmark.GetBookmarksApi
+import duit.server.application.docs.common.AuthApiResponses
+import duit.server.application.docs.common.CommonApiResponses
 import duit.server.domain.common.dto.pagination.PaginationParam
 import duit.server.domain.bookmark.service.BookmarkService
-import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.validation.Valid
 import org.springdoc.core.annotations.ParameterObject
@@ -21,7 +24,9 @@ class BookmarkController(
     private val bookmarkService: BookmarkService
 ) {
     @GetMapping
-    @Operation(summary = "북마크 목록 조회")
+    @GetBookmarksApi
+    @AuthApiResponses
+    @CommonApiResponses
     @ResponseStatus(HttpStatus.OK)
     fun getBookmarks(
         @Valid @ParameterObject
@@ -29,7 +34,9 @@ class BookmarkController(
     ) = bookmarkService.getBookmarks(param)
 
     @PostMapping("{eventId}")
-    @Operation(summary = "북마크 생성/취소")
+    @BookmarkEventApi
+    @AuthApiResponses
+    @CommonApiResponses
     @ResponseStatus(HttpStatus.NO_CONTENT)
     fun bookmarkEvent(
         @PathVariable eventId: Long

@@ -1,5 +1,10 @@
 package duit.server.domain.event.controller
 
+import duit.server.application.docs.common.AuthApiResponses
+import duit.server.application.docs.common.CommonApiResponses
+import duit.server.application.docs.event.CreateEventApi
+import duit.server.application.docs.event.GetEventsApi
+import duit.server.application.docs.event.GetEventsForCalendarApi
 import duit.server.domain.event.dto.Event4CalendarRequest
 import duit.server.domain.event.dto.EventPaginationParam
 import duit.server.domain.event.dto.EventRequest
@@ -8,7 +13,6 @@ import duit.server.domain.event.entity.EventType
 import duit.server.domain.event.service.EventService
 import duit.server.domain.host.dto.HostRequest
 import duit.server.domain.host.service.HostService
-import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.validation.Valid
@@ -26,7 +30,8 @@ class EventController(
 ) {
 
     @PostMapping
-    @Operation(summary = "개발용 더미 이벤트 생성 (랜덤 데이터)")
+    @CreateEventApi
+    @CommonApiResponses
     @ResponseStatus(HttpStatus.CREATED)
     fun createEvent() {
         // 랜덤 더미 데이터 생성
@@ -78,7 +83,8 @@ class EventController(
     }
 
     @GetMapping
-    @Operation(summary = "행사 목록 조회")
+    @GetEventsApi
+    @CommonApiResponses
     @ResponseStatus(HttpStatus.OK)
     fun getEvents(
         @Parameter(description = "행사 승인 여부", example = "true")
@@ -88,7 +94,9 @@ class EventController(
     ) = eventService.getEvents(param, isApproved)
 
     @GetMapping("calendar")
-    @Operation(summary = "현재 로그인한 사용자가 북마크한 년,월별 행사 목록 조회")
+    @GetEventsForCalendarApi
+    @AuthApiResponses
+    @CommonApiResponses
     @ResponseStatus(HttpStatus.OK)
     fun getEvents4Calendar(
         @Valid @ParameterObject

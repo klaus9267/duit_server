@@ -51,6 +51,7 @@ jobs:
           REDIS_PORT=${{ secrets.REDIS_PORT }}
           REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
           REDIS_TIMEOUT=${{ secrets.REDIS_TIMEOUT }}
+          DISCORD_WEBHOOK_URL=${{ secrets.DISCORD_WEBHOOK_URL }}
           EOF
 
       - name: Run tests
@@ -124,7 +125,6 @@ jobs:
               echo "IMAGE_REGISTRY=${{ env.REGISTRY }}" >> docker/.env
               echo "IMAGE_NAME=${{ env.IMAGE_NAME }}" >> docker/.env
               echo "IMAGE_TAG=latest" >> docker/.env
-              echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> docker/.env
               echo "DB_HOST=${{ secrets.DB_HOST }}" >> docker/.env
               echo "DB_USERNAME=${{ secrets.DB_USERNAME }}" >> docker/.env
               echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> docker/.env
