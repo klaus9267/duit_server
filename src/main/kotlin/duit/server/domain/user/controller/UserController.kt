@@ -1,11 +1,12 @@
 package duit.server.domain.user.controller
 
+import duit.server.application.docs.common.AuthApiResponses
+import duit.server.application.docs.common.CommonApiResponses
+import duit.server.application.docs.user.*
 import duit.server.domain.user.dto.UpdateNicknameRequest
 import duit.server.domain.user.dto.UserResponse
 import duit.server.domain.user.service.UserService
-import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
-import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
@@ -27,7 +28,8 @@ class UserController(
 ) {
 
     @GetMapping("/check-nickname")
-    @Operation(summary = "닉네임 중복 확인", description = "닉네임의 중복 여부를 확인합니다")
+    @CheckNicknameDuplicateApi
+    @CommonApiResponses
     @ResponseStatus(HttpStatus.OK)
     fun checkNicknameDuplicate(
         @Parameter(description = "확인할 닉네임", required = true)
@@ -35,20 +37,16 @@ class UserController(
     ): Unit = userService.checkNicknameAvailable(nickname)
 
     @GetMapping("/me")
-    @Operation(
-        summary = "현재 사용자 조회",
-        description = "현재 로그인한 사용자의 정보를 조회합니다",
-        security = [SecurityRequirement(name = "bearerAuth")]
-    )
+    @GetCurrentUserApi
+    @AuthApiResponses
+    @CommonApiResponses
     @ResponseStatus(HttpStatus.OK)
     fun getCurrentUser(): UserResponse = userService.getCurrentUser()
 
     @GetMapping("/{userId}")
-    @Operation(
-        summary = "사용자 조회",
-        description = "특정 사용자 정보를 조회합니다",
-        security = [SecurityRequirement(name = "bearerAuth")]
-    )
+    @GetUserApi
+    @AuthApiResponses
+    @CommonApiResponses
     @ResponseStatus(HttpStatus.OK)
     fun getUser(
         @Parameter(description = "사용자 ID", required = true)
@@ -56,23 +54,19 @@ class UserController(
     ): UserResponse = userService.getUser(userId)
 
     @PatchMapping("/nickname")
-    @Operation(
-        summary = "현재 사용자 닉네임 수정",
-        description = "현재 로그인한 사용자의 닉네임을 수정합니다",
-        security = [SecurityRequirement(name = "bearerAuth")]
-    )
+    @UpdateCurrentUserNicknameApi
+    @AuthApiResponses
+    @CommonApiResponses
     @ResponseStatus(HttpStatus.OK)
     fun updateCurrentUserNickname(
         @Valid @RequestBody request: UpdateNicknameRequest
     ): UserResponse = userService.updateCurrentUserNickname(request)
 
     @DeleteMapping("/{userId}")
+    @WithdrawApi
+    @AuthApiResponses
+    @CommonApiResponses
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    @Operation(
-        summary = "회원탈퇴",
-        description = "현재 로그인한 사용자를 탈퇴시킵니다",
-        security = [SecurityRequirement(name = "bearerAuth")]
-    )
     fun withdraw(
         @Parameter(description = "사용자 ID", required = true)
         @PathVariable userId: Long

@@ -1,8 +1,9 @@
 package duit.server.domain.common.controller
 
+import duit.server.application.docs.auth.IssueTokenApi
+import duit.server.application.docs.common.CommonApiResponses
 import duit.server.application.security.JwtTokenProvider
 import duit.server.domain.user.service.UserService
-import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.tags.Tag
 import org.springframework.http.HttpStatus
@@ -21,10 +22,8 @@ class AuthController(
      * 실제 운영에서는 소셜 로그인이나 이메일/비밀번호 인증 후 토큰 발급
      */
     @PostMapping("/token")
-    @Operation(
-        summary = "JWT 토큰 발급", 
-        description = "개발/테스트용 JWT 토큰을 발급합니다. 실제 운영에서는 소셜 로그인 등으로 대체될 예정입니다."
-    )
+    @IssueTokenApi
+    @CommonApiResponses
     @ResponseStatus(HttpStatus.OK)
     fun issueToken(
         @Parameter(description = "사용자 ID", required = true)
