@@ -20,6 +20,10 @@ class SwaggerConfig {
                 Info()
                     .version("1.0.0")
                     .title("DuIt API 명세서")
+                    .description("""
+google form : [link](https://docs.google.com/forms/d/e/1FAIpQLSdqCHTNlfXnDm7gYuLtnx-LGxKJhJGvPCdiZ5Ui4QkAmeEdxw/viewform?usp=dialog)
+- https://docs.google.com/forms/d/e/1FAIpQLSdqCHTNlfXnDm7gYuLtnx-LGxKJhJGvPCdiZ5Ui4QkAmeEdxw/viewform?usp=dialog
+                    """.trimMargin())
             )
             .addSecurityItem(securityRequirement)
             .components(
