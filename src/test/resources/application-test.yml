@@ -54,3 +54,8 @@ spring.data.redis:
   host: localhost
   port: 16379  # 다른 포트 (실제 Redis와 충돌 방지)
   timeout: 1000ms
+
+# Discord 설정 (테스트용)
+discord:
+  webhook:
+    url: "https://discord.com/api/webhooks/test"  # 테스트용 더미 URL
