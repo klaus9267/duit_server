@@ -1,7 +1,5 @@
 package duit.server.domain.event.entity
 
-import duit.server.domain.event.exception.InvalidEventTypeException
-
 enum class EventType(val displayName: String) {
     CONFERENCE("컨퍼런스/학술대회"),
     SEMINAR("세미나"),
@@ -13,7 +11,7 @@ enum class EventType(val displayName: String) {
     companion object {
         fun of(type: String): EventType {
             if (type.isBlank()) {
-                throw InvalidEventTypeException(type)
+                throw IllegalArgumentException("이벤트 타입이 비어있습니다: $type")
             }
 
             return entries.find { it.displayName == type } ?: EventType.ETC

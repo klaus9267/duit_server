@@ -2,7 +2,7 @@ package duit.server.domain.view.service
 
 import duit.server.domain.event.entity.Event
 import duit.server.domain.view.entity.View
-import duit.server.domain.view.exception.ViewNotFoundException
+import jakarta.persistence.EntityNotFoundException
 import duit.server.domain.view.repository.ViewRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -16,7 +16,7 @@ class ViewService(
     @Transactional
     fun increaseCount(eventId: Long) {
         val view = viewRepository.findByEventId(eventId)
-            ?: throw ViewNotFoundException(eventId)
+            ?: throw EntityNotFoundException("조회수 정보를 찾을 수 없습니다: $eventId")
         view.increaseCount()
     }
 }

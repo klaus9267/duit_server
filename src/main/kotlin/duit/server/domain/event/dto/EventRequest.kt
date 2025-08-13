@@ -4,9 +4,6 @@ import duit.server.infrastructure.external.webhook.dto.FileInfo
 import duit.server.domain.event.entity.Event
 import duit.server.domain.event.entity.EventType
 import duit.server.domain.host.entity.Host
-import duit.server.infrastructure.external.webhook.exception.InvalidURI
-import duit.server.infrastructure.external.webhook.exception.PastDateException
-import duit.server.infrastructure.external.webhook.exception.PastTimeException
 import java.net.URI
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -43,7 +40,7 @@ data class EventRequest(
             val uri = URI(trimmed)
 
             if (uri.host.isNullOrBlank() || uri.scheme !in listOf("http", "https")) {
-                throw InvalidURI(uri)
+                throw IllegalArgumentException("잘못된 URI입니다: $uri")
             }
 
             return uri.toString()
@@ -57,7 +54,7 @@ data class EventRequest(
             val parsedDate = LocalDate.parse(trimmed, formatter)
 
             if (parsedDate.isBefore(LocalDate.now())) {
-                throw PastDateException(parsedDate)
+                throw IllegalArgumentException("입력된 날짜는 미래여야 합니다. 입력값: $parsedDate")
             }
 
             return parsedDate
@@ -71,7 +68,7 @@ data class EventRequest(
             val parsedTime = LocalDateTime.parse(trimmed, formatter)
 
             if (parsedTime.isBefore(LocalDateTime.now())) {
-                throw PastTimeException(parsedTime)
+                throw IllegalArgumentException("입력된 시간은 미래여야 합니다. 입력값: $parsedTime")
             }
 
             return parsedTime

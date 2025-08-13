@@ -4,8 +4,7 @@ import duit.server.domain.user.dto.UpdateNicknameRequest
 import duit.server.domain.user.dto.UserResponse
 import duit.server.application.security.SecurityUtil
 import duit.server.domain.user.entity.User
-import duit.server.domain.user.exception.DuplicateNicknameException
-import duit.server.domain.user.exception.UserNotFoundException
+import jakarta.persistence.EntityNotFoundException
 import duit.server.domain.user.repository.UserRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -43,7 +42,7 @@ class UserService(
         val user = findUserById(currentUserId)
 
         if (user.nickname != request.nickname && userRepository.existsByNickname(request.nickname)) {
-            throw DuplicateNicknameException(request.nickname)
+            throw IllegalArgumentException("이미 사용 중인 닉네임입니다: ${request.nickname}")
         }
 
         user.updateNickname(request.nickname)
@@ -66,12 +65,12 @@ class UserService(
      */
     fun checkNicknameAvailable(nickname: String) {
         if (userRepository.existsByNickname(nickname)) {
-            throw DuplicateNicknameException(nickname)
+            throw IllegalArgumentException("이미 사용 중인 닉네임입니다: $nickname")
         }
     }
 
     fun findUserById(userId: Long): User {
         return userRepository.findById(userId)
-            .orElseThrow { UserNotFoundException(userId) }
+            .orElseThrow { EntityNotFoundException("사용자를 찾을 수 없습니다: $userId") }
     }
 }
