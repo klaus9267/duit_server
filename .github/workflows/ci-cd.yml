@@ -54,8 +54,7 @@ jobs:
           DISCORD_WEBHOOK_URL=${{ secrets.DISCORD_WEBHOOK_URL }}
           EOF
           
-          # Firebase 서비스 계정 키 JSON 파일 생성
-          cat > src/main/resources/firebase-key.json << 'EOF'
+          cat > src/main/resources/firebase-key.json << EOF
           ${{ secrets.FIREBASE_KEY }}
           EOF
 
