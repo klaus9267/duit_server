@@ -139,9 +139,6 @@ jobs:
               echo "REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}" >> docker/.env
               echo "REDIS_TIMEOUT=${{ secrets.REDIS_TIMEOUT }}" >> docker/.env
               echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> docker/.env
-              
-              # Firebase 서비스 계정 키를 Docker 볼륨에 저장
-              echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}' > docker/firebase-service-account.json
   
               # GHCR 로그인
               echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
