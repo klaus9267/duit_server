@@ -33,6 +33,11 @@ enum class ErrorCode(
     EVENT_CAPACITY_EXCEEDED("EVENT_002", "이벤트 정원을 초과했습니다.", HttpStatus.CONFLICT),
     EVENT_REGISTRATION_CLOSED("EVENT_003", "이벤트 등록이 마감되었습니다.", HttpStatus.CONFLICT),
     
+    // Firebase 관련 에러
+    INVALID_FIREBASE_TOKEN("FIREBASE_001", "유효하지 않은 Firebase 토큰입니다.", HttpStatus.BAD_REQUEST),
+    FIREBASE_VERIFICATION_FAILED("FIREBASE_002", "Firebase 토큰 검증에 실패했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
+    FIREBASE_USER_NOT_FOUND("FIREBASE_003", "Firebase 사용자를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+    
     // 애플리케이션 서비스 에러
     EXTERNAL_SERVICE_ERROR("APP_001", "외부 서비스 연동 중 오류가 발생했습니다.", HttpStatus.BAD_GATEWAY),
     DATA_ACCESS_ERROR("APP_002", "데이터 접근 중 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR);
