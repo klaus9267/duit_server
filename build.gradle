@@ -45,6 +45,10 @@ dependencies {
 	
 	// Redis
 	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+	
+	// Firebase Admin SDK
+	implementation 'com.google.firebase:firebase-admin:9.2.0'
+	
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testImplementation 'org.jetbrains.kotlin:kotlin-test-junit5'
 	testImplementation 'org.springframework.security:spring-security-test'

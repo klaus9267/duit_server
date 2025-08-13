@@ -3,10 +3,10 @@ package duit.server.application.exception
 import duit.server.application.common.ErrorCode
 import duit.server.domain.common.dto.ErrorResponse
 import duit.server.domain.common.dto.FieldError
-import duit.server.domain.common.exception.DomainException
+import jakarta.persistence.EntityNotFoundException
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.validation.ConstraintViolationException
-import org.springframework.core.annotation.Order
+import org.slf4j.LoggerFactory
 import org.springframework.dao.DataAccessException
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.http.ResponseEntity
@@ -21,45 +21,78 @@ import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
 import org.springframework.web.servlet.NoHandlerFoundException
-import java.sql.SQLException
 import java.time.LocalDateTime
+import java.util.*
 
-/**
- * 전역 예외 처리 핸들러 - 도메인별 핸들러에서 처리하지 않은 모든 예외 처리
- */
 @RestControllerAdvice
-@Order(10) // 우선순위 10 - 도메인별 핸들러 이후 fallback 역할
-class GlobalExceptionHandler(
-    private val errorResponseBuilder: ErrorResponseBuilder
-) {
+class GlobalExceptionHandler {
     
-    // ===== 🎯 도메인/애플리케이션 예외 fallback =====
+    private val log = LoggerFactory.getLogger(GlobalExceptionHandler::class.java)
     
-    @ExceptionHandler(DomainException::class)
-    fun handleDomainException(
-        ex: DomainException,
+    @ExceptionHandler(EntityNotFoundException::class)
+    fun handleEntityNotFoundException(
+        ex: EntityNotFoundException,
         request: HttpServletRequest
     ): ResponseEntity<ErrorResponse> {
-        return errorResponseBuilder.buildDomainErrorResponse(
+        return buildErrorResponse(
+            errorCode = ErrorCode.NOT_FOUND,
+            message = ex.message,
+            request = request,
+            ex = ex
+        )
+    }
+    
+    @ExceptionHandler(IllegalArgumentException::class)
+    fun handleIllegalArgumentException(
+        ex: IllegalArgumentException,
+        request: HttpServletRequest
+    ): ResponseEntity<ErrorResponse> {
+        return buildErrorResponse(
+            errorCode = ErrorCode.INVALID_REQUEST,
+            message = ex.message,
+            request = request,
+            ex = ex
+        )
+    }
+    
+    @ExceptionHandler(IllegalStateException::class)
+    fun handleIllegalStateException(
+        ex: IllegalStateException,
+        request: HttpServletRequest
+    ): ResponseEntity<ErrorResponse> {
+        return buildErrorResponse(
             errorCode = ErrorCode.CONFLICT,
-            exception = ex,
-            request = request
+            message = ex.message,
+            request = request,
+            ex = ex
         )
     }
     
-    @ExceptionHandler(ApplicationException::class)
-    fun handleApplicationException(
-        ex: ApplicationException,
+    @ExceptionHandler(AuthenticationException::class)
+    fun handleAuthenticationException(
+        ex: AuthenticationException,
         request: HttpServletRequest
     ): ResponseEntity<ErrorResponse> {
-        return errorResponseBuilder.buildApplicationErrorResponse(
-            errorCode = ErrorCode.INTERNAL_SERVER_ERROR,
-            exception = ex,
-            request = request
+        return buildErrorResponse(
+            errorCode = ErrorCode.UNAUTHORIZED,
+            message = null,
+            request = request,
+            ex = ex
         )
     }
     
-    // ===== 🎯 HTTP/Validation 예외들 =====
+    @ExceptionHandler(AccessDeniedException::class)
+    fun handleAccessDeniedException(
+        ex: AccessDeniedException,
+        request: HttpServletRequest
+    ): ResponseEntity<ErrorResponse> {
+        return buildErrorResponse(
+            errorCode = ErrorCode.FORBIDDEN,
+            message = null,
+            request = request,
+            ex = ex
+        )
+    }
     
     @ExceptionHandler(MethodArgumentNotValidException::class)
     fun handleValidationException(
@@ -75,14 +108,15 @@ class GlobalExceptionHandler(
         }
         
         val errorResponse = ErrorResponse(
-            code = ErrorCode.VALIDATION_FAILED.code,
+            code = ErrorCode.VALIDATION_FAILED.name,
             message = ErrorCode.VALIDATION_FAILED.message,
             fieldErrors = fieldErrors,
             timestamp = LocalDateTime.now(),
             path = request.requestURI,
-            traceId = errorResponseBuilder.generateTraceId()
+            traceId = UUID.randomUUID().toString()
         )
         
+        log.warn("Validation failed for request: {} - {}", request.requestURI, ex.message)
         return ResponseEntity.badRequest().body(errorResponse)
     }
     
@@ -110,44 +144,17 @@ class GlobalExceptionHandler(
         }
         
         val errorResponse = ErrorResponse(
-            code = ErrorCode.VALIDATION_FAILED.code,
+            code = ErrorCode.VALIDATION_FAILED.name,
             message = ErrorCode.VALIDATION_FAILED.message,
             fieldErrors = fieldErrors,
             timestamp = LocalDateTime.now(),
             path = request.requestURI,
-            traceId = errorResponseBuilder.generateTraceId()
+            traceId = UUID.randomUUID().toString()
         )
         
+        log.warn("Binding failed for request: {} - {}", request.requestURI, ex.message)
         return ResponseEntity.badRequest().body(errorResponse)
     }
-    
-    // ===== 🎯 Spring Security 예외들 =====
-    
-    @ExceptionHandler(AuthenticationException::class)
-    fun handleAuthenticationException(
-        ex: AuthenticationException,
-        request: HttpServletRequest
-    ): ResponseEntity<ErrorResponse> {
-        return errorResponseBuilder.buildSystemErrorResponse(
-            errorCode = ErrorCode.UNAUTHORIZED,
-            exception = ex,
-            request = request
-        )
-    }
-    
-    @ExceptionHandler(AccessDeniedException::class)
-    fun handleAccessDeniedException(
-        ex: AccessDeniedException,
-        request: HttpServletRequest
-    ): ResponseEntity<ErrorResponse> {
-        return errorResponseBuilder.buildSystemErrorResponse(
-            errorCode = ErrorCode.FORBIDDEN,
-            exception = ex,
-            request = request
-        )
-    }
-    
-    // ===== 🎯 HTTP 관련 예외들 =====
     
     @ExceptionHandler(
         HttpRequestMethodNotSupportedException::class,
@@ -160,86 +167,76 @@ class GlobalExceptionHandler(
         ex: Exception,
         request: HttpServletRequest
     ): ResponseEntity<ErrorResponse> {
-        val (errorCode, details) = when (ex) {
-            is HttpRequestMethodNotSupportedException -> 
-                ErrorCode.METHOD_NOT_ALLOWED to "Supported methods: ${ex.supportedHttpMethods?.joinToString(", ")}"
-            is NoHandlerFoundException -> 
-                ErrorCode.NOT_FOUND to "No handler found for ${ex.httpMethod} ${ex.requestURL}"
-            is MethodArgumentTypeMismatchException -> 
-                ErrorCode.INVALID_REQUEST to "Parameter '${ex.name}' should be of type ${ex.requiredType?.simpleName}"
-            is MissingServletRequestParameterException -> 
-                ErrorCode.INVALID_REQUEST to "Required parameter '${ex.parameterName}' is missing"
-            is HttpMessageNotReadableException -> 
-                ErrorCode.INVALID_REQUEST to "Malformed JSON request"
-            else -> ErrorCode.INVALID_REQUEST to null
+        val errorCode = when (ex) {
+            is HttpRequestMethodNotSupportedException -> ErrorCode.METHOD_NOT_ALLOWED
+            is NoHandlerFoundException -> ErrorCode.NOT_FOUND
+            else -> ErrorCode.INVALID_REQUEST
         }
         
-        return errorResponseBuilder.buildSystemErrorResponse(
+        return buildErrorResponse(
             errorCode = errorCode,
-            exception = ex,
+            message = null,
             request = request,
-            details = details
+            ex = ex
         )
     }
     
-    // ===== 🎯 데이터베이스 예외들 =====
-    
-    @ExceptionHandler(DataAccessException::class, SQLException::class)
+    @ExceptionHandler(DataAccessException::class, DataIntegrityViolationException::class)
     fun handleDataAccessException(
         ex: Exception,
         request: HttpServletRequest
     ): ResponseEntity<ErrorResponse> {
-        return errorResponseBuilder.buildSystemErrorResponse(
-            errorCode = ErrorCode.DATA_ACCESS_ERROR,
-            exception = ex,
-            request = request
-        )
-    }
-    
-    @ExceptionHandler(DataIntegrityViolationException::class)
-    fun handleDataIntegrityViolationException(
-        ex: DataIntegrityViolationException,
-        request: HttpServletRequest
-    ): ResponseEntity<ErrorResponse> {
-        // 중복 키 에러인지 확인
-        val isDuplicateKey = ex.cause?.message?.let { message ->
-            message.contains("Duplicate", ignoreCase = true) ||
-            message.contains("duplicate", ignoreCase = true) ||
-            message.contains("UNIQUE", ignoreCase = true)
-        } ?: false
+        log.error("Database error occurred: ", ex)
         
-        val errorCode = if (isDuplicateKey) ErrorCode.CONFLICT else ErrorCode.DATA_ACCESS_ERROR
-        val details = if (isDuplicateKey) "Duplicate data detected" else null
+        val errorCode = if (ex is DataIntegrityViolationException) {
+            ErrorCode.DATA_INTEGRITY_VIOLATION
+        } else {
+            ErrorCode.DATA_ACCESS_ERROR
+        }
         
-        return errorResponseBuilder.buildSystemErrorResponse(
+        return buildErrorResponse(
             errorCode = errorCode,
-            exception = ex,
+            message = null,
             request = request,
-            details = details
+            ex = ex
         )
     }
     
-    // ===== 🎯 일반적인 Java 예외들 =====
-    
-    @ExceptionHandler(
-        IllegalArgumentException::class,
-        IllegalStateException::class,
-        NullPointerException::class,
-        Exception::class
-    )
+    @ExceptionHandler(Exception::class)
     fun handleGenericException(
         ex: Exception,
         request: HttpServletRequest
     ): ResponseEntity<ErrorResponse> {
-        val errorCode = when (ex) {
-            is IllegalArgumentException -> ErrorCode.INVALID_REQUEST
-            else -> ErrorCode.INTERNAL_SERVER_ERROR
+        log.error("Unexpected error occurred: ", ex)
+        
+        return buildErrorResponse(
+            errorCode = ErrorCode.INTERNAL_SERVER_ERROR,
+            message = null,
+            request = request,
+            ex = ex
+        )
+    }
+    
+    private fun buildErrorResponse(
+        errorCode: ErrorCode,
+        message: String?,
+        request: HttpServletRequest,
+        ex: Exception
+    ): ResponseEntity<ErrorResponse> {
+        val errorResponse = ErrorResponse(
+            code = errorCode.name,
+            message = message ?: errorCode.message,
+            fieldErrors = emptyList(),
+            timestamp = LocalDateTime.now(),
+            path = request.requestURI,
+            traceId = UUID.randomUUID().toString()
+        )
+        
+        when (errorCode.httpStatus.value()) {
+            in 400..499 -> log.warn("Client error: {} - {}", request.requestURI, ex.message)
+            in 500..599 -> log.error("Server error: {} - {}", request.requestURI, ex.message, ex)
         }
         
-        return errorResponseBuilder.buildSystemErrorResponse(
-            errorCode = errorCode,
-            exception = ex,
-            request = request
-        )
+        return ResponseEntity.status(errorCode.httpStatus).body(errorResponse)
     }
 }

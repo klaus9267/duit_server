@@ -4,8 +4,6 @@ import duit.server.domain.event.entity.Event
 import duit.server.infrastructure.external.discord.dto.DiscordEmbed
 import duit.server.infrastructure.external.discord.dto.DiscordThumbnail
 import duit.server.infrastructure.external.discord.dto.DiscordWebhookMessage
-import duit.server.infrastructure.external.discord.exception.DiscordNotificationFailedException
-import duit.server.infrastructure.external.discord.exception.DiscordWebhookUrlNotConfiguredException
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Service
@@ -23,7 +21,7 @@ class DiscordService(
 
     fun sendNewEventNotification(event: Event) {
         if (discordWebhookUrl.isNullOrBlank()) {
-            throw DiscordWebhookUrlNotConfiguredException()
+            throw IllegalStateException("Discord webhook URL이 설정되지 않았습니다")
         }
 
         CompletableFuture.runAsync {
@@ -37,7 +35,7 @@ class DiscordService(
                     .retrieve()
                     .toBodilessEntity()
             } catch (e: Exception) {
-                throw DiscordNotificationFailedException(event.title, e)
+                throw RuntimeException("Discord 알림 전송에 실패했습니다: ${event.title}", e)
             }
         }
     }

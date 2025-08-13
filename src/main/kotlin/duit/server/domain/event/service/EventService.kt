@@ -8,7 +8,7 @@ import duit.server.domain.event.dto.EventPaginationParam
 import duit.server.domain.event.dto.EventRequest
 import duit.server.domain.event.dto.EventResponse
 import duit.server.domain.event.entity.Event
-import duit.server.domain.event.exception.EventNotFoundException
+import jakarta.persistence.EntityNotFoundException
 import duit.server.domain.event.repository.EventRepository
 import duit.server.domain.view.service.ViewService
 import duit.server.infrastructure.external.discord.DiscordService
@@ -37,7 +37,7 @@ class EventService(
 
     fun getEvent(eventId: Long): Event =
         eventRepository.findById(eventId)
-            .orElseThrow { EventNotFoundException(eventId) }
+            .orElseThrow { EntityNotFoundException("이벤트를 찾을 수 없습니다: $eventId") }
 
     fun getEvents(param: EventPaginationParam, isApproved: Boolean?): PageResponse<EventResponse> {
         val events =

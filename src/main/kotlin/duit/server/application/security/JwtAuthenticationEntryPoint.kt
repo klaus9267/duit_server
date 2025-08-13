@@ -25,7 +25,7 @@ class JwtAuthenticationEntryPoint(
         authException: AuthenticationException
     ) {
         val errorResponse = ErrorResponse(
-            code = ErrorCode.UNAUTHORIZED.code,
+            code = ErrorCode.UNAUTHORIZED.name,
             message = ErrorCode.UNAUTHORIZED.message,
             fieldErrors = emptyList(),
             timestamp = LocalDateTime.now(),

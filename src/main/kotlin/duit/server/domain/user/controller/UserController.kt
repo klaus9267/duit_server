@@ -43,16 +43,6 @@ class UserController(
     @ResponseStatus(HttpStatus.OK)
     fun getCurrentUser(): UserResponse = userService.getCurrentUser()
 
-    @GetMapping("/{userId}")
-    @GetUserApi
-    @AuthApiResponses
-    @CommonApiResponses
-    @ResponseStatus(HttpStatus.OK)
-    fun getUser(
-        @Parameter(description = "사용자 ID", required = true)
-        @PathVariable userId: Long
-    ): UserResponse = userService.getUser(userId)
-
     @PatchMapping("/nickname")
     @UpdateCurrentUserNicknameApi
     @AuthApiResponses

@@ -4,6 +4,7 @@ import duit.server.application.security.JwtAuthenticationEntryPoint
 import duit.server.application.security.JwtAuthenticationFilter
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.http.HttpMethod
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
 import org.springframework.security.config.http.SessionCreationPolicy
@@ -45,9 +46,11 @@ class SecurityConfig(
                         "/actuator/**",
                         "/api/v1/auth/**",
                         "/api/v1/users/check-nickname",
-                        "/api/v1/webhooks/**"
+                        "/api/v1/webhooks/**",
                     ).permitAll()
-                    
+                    .requestMatchers(HttpMethod.POST, "api/v1/auth/social").permitAll()
+                    .requestMatchers(HttpMethod.GET, "api/v1/events").permitAll()
+
                     // 나머지 모든 요청은 인증 필요
                     .anyRequest().authenticated()
             }
