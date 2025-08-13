@@ -1,4 +1,4 @@
-name: CI - Test & Build
+name: CI
 
 on:
   pull_request:
@@ -11,6 +11,7 @@ env:
 
 jobs:
   test:
+    name: Run Test
     uses: ./.github/workflows/test.yml
     with:
       upload-artifacts: true
@@ -18,6 +19,7 @@ jobs:
 
   # 🐳 테스트 성공 시에만 Docker 이미지 빌드
   build:
+    name: Docker Image Build
     needs: test
     if: needs.test.outputs.test-result == 'success'
     runs-on: ubuntu-latest
