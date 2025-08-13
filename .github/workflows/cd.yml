@@ -1,0 +1,178 @@
+name: CD - Deploy
+
+on:
+  pull_request:
+    branches: [main]
+    types: [closed]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  deploy:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Tag and push latest image
+        run: |
+          # PR에서 빌드된 이미지를 latest로 태그
+          PR_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:pr-${{ github.event.number }}-${{ github.sha }}"
+          LATEST_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
+          
+          echo "🔄 PR 이미지를 latest로 태그 변경 중..."
+          docker pull $PR_IMAGE
+          docker tag $PR_IMAGE $LATEST_IMAGE
+          docker push $LATEST_IMAGE
+          echo "✅ 이미지 태그 완료: $LATEST_IMAGE"
+
+      - name: Deploy to production server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: ${{ secrets.DEPLOY_PORT }}
+          script: |
+            echo "🚀 배포 시작..."
+            cd /home/vagom/duit-server || mkdir -p /home/vagom/duit-server && cd /home/vagom/duit-server
+
+            # Compose 명령어 확인
+            if docker compose version >/dev/null 2>&1; then
+              COMPOSE_CMD="docker compose"
+            else
+              COMPOSE_CMD="docker-compose"
+            fi
+            echo "사용할 Compose 명령어: $COMPOSE_CMD"
+  
+            # 필요한 디렉토리 생성
+            mkdir -p docker
+  
+            # docker-compose.yml 다운로드
+            echo "📋 docker-compose.yml 업데이트 중..."
+            curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                 -H "Accept: application/vnd.github.v3.raw" \
+                 -o docker/docker-compose.yml \
+                 "https://api.github.com/repos/${{ github.repository }}/contents/docker/docker-compose.yml"
+  
+            # 환경변수 파일 생성
+            echo "🔧 환경변수 설정 중..."
+            : > docker/.env
+            echo "IMAGE_REGISTRY=${{ env.REGISTRY }}" >> docker/.env
+            echo "IMAGE_NAME=${{ env.IMAGE_NAME }}" >> docker/.env
+            echo "IMAGE_TAG=latest" >> docker/.env
+            echo "DB_HOST=${{ secrets.DB_HOST }}" >> docker/.env
+            echo "DB_USERNAME=${{ secrets.DB_USERNAME }}" >> docker/.env
+            echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> docker/.env
+            echo "DB_PORT=${{ secrets.DB_PORT }}" >> docker/.env
+            echo "DB_NAME=${{ secrets.DB_NAME }}" >> docker/.env
+            echo "REDIS_HOST=${{ secrets.REDIS_HOST }}" >> docker/.env
+            echo "REDIS_PORT=${{ secrets.REDIS_PORT }}" >> docker/.env
+            echo "REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}" >> docker/.env
+            echo "REDIS_TIMEOUT=${{ secrets.REDIS_TIMEOUT }}" >> docker/.env
+            echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> docker/.env
+            echo "DISCORD_WEBHOOK_URL=${{ secrets.DISCORD_WEBHOOK_URL }}" >> docker/.env
+  
+            # Docker 레지스트리 로그인
+            echo "🔑 Docker 레지스트리 로그인 중..."
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+  
+            # 최신 이미지 다운로드
+            echo "📦 최신 이미지 다운로드 중..."
+            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+  
+            # 배포 실행
+            cd docker
+            if docker ps -q -f name=duit-mysql-prod 2>/dev/null | grep -q .; then
+                echo "🎯 기존 인프라 감지 - 앱만 재시작"
+                $COMPOSE_CMD pull app
+                $COMPOSE_CMD up -d --no-deps app
+            else
+                echo "🔄 초기 배포 - 전체 스택 시작"  
+                $COMPOSE_CMD --profile full up -d
+            fi
+            cd ..
+
+      - name: Health check and verification
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: ${{ secrets.DEPLOY_PORT }}
+          script: |
+            cd /home/vagom/duit-server
+            
+            # Compose 명령어 확인
+            if docker compose version >/dev/null 2>&1; then
+              COMPOSE_CMD="docker compose"
+            else
+              COMPOSE_CMD="docker-compose"
+            fi
+            
+            echo "🏥 헬스체크 시작..."
+            cd docker
+            
+            # 헬스체크 (3분 대기)
+            for i in {1..60}; do
+              if curl -f -s http://localhost:8080/actuator/health >/dev/null 2>&1; then
+                echo "✅ 애플리케이션이 정상적으로 구동되었습니다! (${i}번째 시도)"
+                break
+              fi
+              
+              if [ $i -eq 60 ]; then
+                echo "❌ 헬스체크 실패 (60회 시도 후 타임아웃)"
+                echo "📋 컨테이너 로그 확인:"
+                APP_CONTAINER=$($COMPOSE_CMD ps -q app)
+                if [ -n "$APP_CONTAINER" ]; then
+                  docker logs --tail 50 $APP_CONTAINER || true
+                else
+                  echo "앱 컨테이너를 찾을 수 없습니다"
+                  $COMPOSE_CMD ps
+                fi
+                exit 1
+              else
+                echo "⏳ 대기 중... (${i}/60)"
+                sleep 3
+              fi
+            done
+            
+            cd ..
+            
+            # 배포 상태 확인
+            echo ""
+            echo "📊 최종 배포 상태:"
+            docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep duit
+            
+            # 이전 이미지 정리
+            echo ""
+            echo "🧹 이전 이미지 정리 중..."
+            docker image prune -f
+            
+            echo ""
+            echo "🎉 배포가 성공적으로 완료되었습니다!"
+
+      - name: Create deployment summary
+        run: |
+          echo "### 🚀 배포 완료!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**배포된 이미지:** \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest\`" >> $GITHUB_STEP_SUMMARY
+          echo "**PR 번호:** #${{ github.event.number }}" >> $GITHUB_STEP_SUMMARY
+          echo "**커밋 SHA:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**배포 시간:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🔗 **서비스 URL:** http://${{ secrets.DEPLOY_HOST }}:8080" >> $GITHUB_STEP_SUMMARY

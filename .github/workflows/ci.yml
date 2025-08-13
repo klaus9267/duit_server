@@ -1,0 +1,159 @@
+name: CI - Test & Build
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  test:
+    uses: ./.github/workflows/test.yml
+    with:
+      upload-artifacts: true
+    secrets: inherit
+
+  # 🐳 테스트 성공 시에만 Docker 이미지 빌드
+  build:
+    needs: test
+    if: needs.test.outputs.test-result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=pr
+            type=sha,prefix=pr-${{ github.event.number }}-
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Create build configuration
+        run: |
+          # Docker 빌드용 설정 파일 생성
+          cat > src/main/resources/application.properties << EOF
+          JWT_SECRET=${{ secrets.JWT_SECRET }}
+          DB_HOST=${{ secrets.DB_HOST }}
+          DB_USERNAME=${{ secrets.DB_USERNAME }}
+          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+          DB_PORT=${{ secrets.DB_PORT }}
+          DB_NAME=${{ secrets.DB_NAME }}
+          REDIS_HOST=${{ secrets.REDIS_HOST }}
+          REDIS_PORT=${{ secrets.REDIS_PORT }}
+          REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
+          REDIS_TIMEOUT=${{ secrets.REDIS_TIMEOUT }}
+          DISCORD_WEBHOOK_URL=${{ secrets.DISCORD_WEBHOOK_URL }}
+          EOF
+          
+          cat > src/main/resources/firebase-key.json << EOF
+          ${{ secrets.FIREBASE_KEY }}
+          EOF
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./docker/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Comment PR with success
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const output = `## 🎉 CI 성공!
+            
+            ### ✅ 테스트 결과
+            - **상태**: 모든 테스트 통과
+            - **결과**: ${{ needs.test.outputs.test-result }}
+            
+            ### 🐳 Docker 이미지
+            \`\`\`
+            ${{ steps.meta.outputs.tags }}
+            \`\`\`
+            
+            ### 📊 빌드 정보
+            - **커밋**: \`${{ github.sha }}\`
+            - **PR**: #${{ github.event.number }}
+            - **브랜치**: \`${{ github.head_ref }}\`
+            
+            > 🚀 이 PR이 머지되면 자동으로 배포됩니다!
+            `;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            });
+
+  # ❌ 테스트 실패 시 알림
+  notify-failure:
+    needs: test
+    if: always() && needs.test.outputs.test-result != 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+
+    steps:
+      - name: Comment PR with failure
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const testResult = '${{ needs.test.outputs.test-result }}';
+            let failureReason = '';
+            
+            if (testResult === 'failure') {
+              failureReason = '테스트가 실패했습니다';
+            } else if (testResult === 'no-tests') {
+              failureReason = '테스트 결과를 찾을 수 없습니다';
+            } else {
+              failureReason = '알 수 없는 오류가 발생했습니다';
+            }
+            
+            const output = `## ❌ CI 실패
+            
+            ### 🔍 실패 원인
+            - ${failureReason}
+            - 상세한 로그는 [여기](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})에서 확인하세요
+            
+            ### 🛠️ 해결 방법
+            1. 로컬에서 \`./gradlew test\` 실행하여 테스트 확인
+            2. 테스트 오류 수정 후 다시 푸시
+            3. 빌드 오류가 있다면 \`./gradlew compileKotlin\` 확인
+            
+            ### 📊 테스트 상태
+            - **결과**: ${testResult}
+            `;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            });
