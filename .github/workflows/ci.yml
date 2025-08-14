@@ -11,7 +11,7 @@ env:
 
 jobs:
   test:
-    name: Run Test
+    name: 테스트 실행
     uses: ./.github/workflows/test.yml
     with:
       upload-artifacts: true
@@ -19,7 +19,7 @@ jobs:
 
   # 🐳 테스트 성공 시에만 Docker 이미지 빌드
   build:
-    name: Docker Image Build
+    name: 도커 이미지 빌드
     needs: test
     if: needs.test.outputs.test-result == 'success'
     runs-on: ubuntu-latest
@@ -98,13 +98,6 @@ jobs:
             \`\`\`
             ${{ steps.meta.outputs.tags }}
             \`\`\`
-            
-            ### 📊 빌드 정보
-            - **커밋**: \`${{ github.sha }}\`
-            - **PR**: #${{ github.event.number }}
-            - **브랜치**: \`${{ github.head_ref }}\`
-            
-            > 🚀 이 PR이 머지되면 자동으로 배포됩니다!
             `;
             
             github.rest.issues.createComment({

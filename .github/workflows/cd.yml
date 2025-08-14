@@ -31,7 +31,7 @@ jobs:
       - name: Tag and push latest image
         run: |
           # PR에서 빌드된 이미지를 latest로 태그
-          PR_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:pr-${{ github.event.number }}-${{ github.sha }}"
+          PR_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:pr-${{ github.event.number }}"
           LATEST_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
           
           echo "🔄 PR 이미지를 latest로 태그 변경 중..."
