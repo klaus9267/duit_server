@@ -114,7 +114,7 @@ services:
     container_name: duit-mysql-exporter-prod
     profiles: ["monitoring", "full"]
     environment:
-      - DATA_SOURCE_NAME=${DB_USERNAME}:${DB_PASSWORD}@(duit-mysql-prod:3306)/${DB_NAME}
+      - DATA_SOURCE_NAME=${DB_USERNAME}:${DB_PASSWORD}@tcp(duit-mysql-prod:3306)/${DB_NAME}
     depends_on:
       - db
     restart: unless-stopped
