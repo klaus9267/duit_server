@@ -69,10 +69,66 @@ services:
       retries: 5
       start_period: 30s
 
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: duit-prometheus-prod
+    profiles: ["monitoring", "full"]
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data_prod:/prometheus
+    restart: unless-stopped
+    networks:
+      - duit-network-prod
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: duit-grafana-prod
+    profiles: ["monitoring", "full"]
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data_prod:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    restart: unless-stopped
+    networks:
+      - duit-network-prod
+
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    container_name: duit-redis-exporter-prod
+    profiles: ["monitoring", "full"]
+    environment:
+      - REDIS_ADDR=redis://duit-redis-prod:6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+    depends_on:
+      - redis
+    restart: unless-stopped
+    networks:
+      - duit-network-prod
+
+  mysql-exporter:
+    image: prom/mysqld-exporter:latest
+    container_name: duit-mysql-exporter-prod
+    profiles: ["monitoring", "full"]
+    environment:
+      - DATA_SOURCE_NAME=${DB_USERNAME}:${DB_PASSWORD}@(duit-mysql-prod:3306)/${DB_NAME}
+    depends_on:
+      - db
+    restart: unless-stopped
+    networks:
+      - duit-network-prod
+
 volumes:
   mysql_data_prod:
     driver: local
   redis_data_prod:
+    driver: local
+  prometheus_data_prod:
+    driver: local
+  grafana_data_prod:
     driver: local
 
 networks:

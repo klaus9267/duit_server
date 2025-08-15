@@ -171,8 +171,7 @@ jobs:
           echo "### 🚀 배포 완료!" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**배포된 이미지:** \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest\`" >> $GITHUB_STEP_SUMMARY
-          echo "**PR 번호:** #${{ github.event.number }}" >> $GITHUB_STEP_SUMMARY
+          echo "**PR 번호:** #${{ github.event.number }}" >> $GITHUB_STEP_SUMMARY 
           echo "**커밋 SHA:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
           echo "**배포 시간:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "🔗 **서비스 URL:** http://${{ secrets.DEPLOY_HOST }}:8080" >> $GITHUB_STEP_SUMMARY
