@@ -60,7 +60,7 @@ jobs:
             echo "사용할 Compose 명령어: $COMPOSE_CMD"
   
             # 필요한 디렉토리 생성
-            mkdir -p docker
+            mkdir -p docker/monitoring
   
             # docker-compose.yml 다운로드
             echo "📋 docker-compose.yml 업데이트 중..."
@@ -68,6 +68,13 @@ jobs:
                  -H "Accept: application/vnd.github.v3.raw" \
                  -o docker/docker-compose.yml \
                  "https://api.github.com/repos/${{ github.repository }}/contents/docker/docker-compose.yml"
+            
+            # prometheus.yml 다운로드
+            echo "📋 prometheus.yml 업데이트 중..."
+            curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                 -H "Accept: application/vnd.github.v3.raw" \
+                 -o docker/monitoring/prometheus.yml \
+                 "https://api.github.com/repos/${{ github.repository }}/contents/docker/monitoring/prometheus.yml"
   
             # 환경변수 파일 생성
             echo "🔧 환경변수 설정 중..."
