@@ -30,11 +30,8 @@ jobs:
     needs: test
     if: always()
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}test-reports/pr-${{ github.event.number }}/
     outputs:
-      page-url: ${{ steps.deployment.outputs.page_url }}test-reports/pr-${{ github.event.number }}/
+      page-url: ${{ steps.deployment.outputs.page_url }}test-reports/latest/
     
     steps:
       - name: Download test artifacts
@@ -45,8 +42,8 @@ jobs:
 
       - name: Create Pages structure
         run: |
-          mkdir -p pages/test-reports/pr-${{ github.event.number }}
-          cp -r test-results/* pages/test-reports/pr-${{ github.event.number }}/
+          mkdir -p pages/test-reports/latest
+          cp -r test-results/* pages/test-reports/latest/
           
           # 인덱스 페이지 생성
           cat > pages/index.html << 'EOF'
@@ -61,13 +58,15 @@ jobs:
                   a { color: #0366d6; text-decoration: none; }
                   a:hover { text-decoration: underline; }
                   .report-link { display: block; padding: 10px; margin: 10px 0; border: 1px solid #e1e4e8; border-radius: 6px; }
+                  .info { color: #586069; font-size: 14px; margin-top: 10px; }
               </style>
           </head>
           <body>
               <h1>🧪 Test Reports</h1>
-              <a href="test-reports/pr-${{ github.event.number }}/" class="report-link">
-                  📊 PR #${{ github.event.number }} 테스트 결과 보기
+              <a href="test-reports/latest/" class="report-link">
+                  📊 최신 테스트 결과 보기
               </a>
+              <p class="info">마지막 업데이트: PR #${{ github.event.number }} ($(date -u '+%Y-%m-%d %H:%M:%S UTC'))</p>
           </body>
           </html>
           EOF
