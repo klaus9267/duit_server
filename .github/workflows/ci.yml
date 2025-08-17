@@ -9,6 +9,13 @@ env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
+# Pages 배포를 위한 전체 권한 설정
+permissions:
+  contents: read
+  pull-requests: write
+  pages: write
+  id-token: write
+
 jobs:
   test:
     name: 테스트 실행
@@ -17,15 +24,17 @@ jobs:
       upload-artifacts: true
     secrets: inherit
 
-  upload-test-results:
-    name: 테스트 결과 업로드
+  # 📊 테스트 결과를 GitHub Pages에 배포
+  deploy-test-results:
+    name: 테스트 결과 Pages 배포
     needs: test
     if: always()
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}test-reports/pr-${{ github.event.number }}/
     outputs:
-      artifact-url: ${{ steps.upload.outputs.artifact-url }}
+      page-url: ${{ steps.deployment.outputs.page_url }}test-reports/pr-${{ github.event.number }}/
     
     steps:
       - name: Download test artifacts
@@ -34,9 +43,68 @@ jobs:
           name: test-results-${{ github.run_id }}
           path: test-results/
 
-      - name: Upload test results as Pages artifact
-        id: upload
+      - name: Create Pages structure
+        run: |
+          mkdir -p pages/test-reports/pr-${{ github.event.number }}
+          cp -r test-results/* pages/test-reports/pr-${{ github.event.number }}/
+          
+          # 인덱스 페이지 생성
+          cat > pages/index.html << 'EOF'
+          <!DOCTYPE html>
+          <html>
+          <head>
+              <title>Test Reports</title>
+              <meta charset="utf-8">
+              <style>
+                  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; margin: 40px; }
+                  h1 { color: #24292e; }
+                  a { color: #0366d6; text-decoration: none; }
+                  a:hover { text-decoration: underline; }
+                  .report-link { display: block; padding: 10px; margin: 10px 0; border: 1px solid #e1e4e8; border-radius: 6px; }
+              </style>
+          </head>
+          <body>
+              <h1>🧪 Test Reports</h1>
+              <a href="test-reports/pr-${{ github.event.number }}/" class="report-link">
+                  📊 PR #${{ github.event.number }} 테스트 결과 보기
+              </a>
+          </body>
+          </html>
+          EOF
+
+      - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          name: test-report-${{ github.run_id }}
-          path: test-results/
+          path: pages/
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  # ✅ 테스트 성공 시 PR 코멘트
+  comment-success:
+    name: 테스트 성공 알림
+    needs: [test, deploy-test-results]
+    if: needs.test.outputs.test-result == 'success'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Comment PR with success
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const testReportUrl = '${{ needs.deploy-test-results.outputs.page-url }}';
+            
+            const output = `## ✅ 테스트 성공!
+            
+            ### 🧪 테스트 결과
+            - **상태**: 모든 테스트 통과
+            - **결과**: ${{ needs.test.outputs.test-result }}
+            - **📊 상세 리포트**: [테스트 결과 웹에서 보기](${testReportUrl}) 🌐
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            });
