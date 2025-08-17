@@ -1,42 +1,85 @@
 name: CI
 
 on:
+  push:
+    branches:
+      - main
+      - develop
   pull_request:
-    branches: [main]
-    types: [opened, synchronize, reopened]
+    branches:
+      - main
+      - develop
 
-env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+  actions: read
 
 jobs:
   test:
-    name: 테스트 실행
-    uses: ./.github/workflows/test.yml
-    with:
-      upload-artifacts: true
-    secrets: inherit
-
-  upload-test-results:
-    name: 테스트 결과 업로드
-    needs: test
-    if: always()
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    outputs:
-      artifact-url: ${{ steps.upload.outputs.artifact-url }}
     
     steps:
-      - name: Download test artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: test-results-${{ github.run_id }}
-          path: test-results/
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Upload test results as Pages artifact
-        id: upload
-        uses: actions/upload-pages-artifact@v3
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
         with:
-          name: test-report-${{ github.run_id }}
-          path: test-results/
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Grant execute permission
+        run: chmod +x gradlew
+
+      - name: Setup configuration
+        run: |
+          cat > src/main/resources/application.properties << EOF
+          JWT_SECRET=${{ secrets.JWT_SECRET }}
+          DB_HOST=${{ secrets.DB_HOST }}
+          DB_USERNAME=${{ secrets.DB_USERNAME }}
+          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+          DB_PORT=${{ secrets.DB_PORT }}
+          DB_NAME=${{ secrets.DB_NAME }}
+          REDIS_HOST=${{ secrets.REDIS_HOST }}
+          REDIS_PORT=${{ secrets.REDIS_PORT }}
+          REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
+          REDIS_TIMEOUT=${{ secrets.REDIS_TIMEOUT }}
+          DISCORD_WEBHOOK_URL=${{ secrets.DISCORD_WEBHOOK_URL }}
+          EOF
+          
+          cat > src/main/resources/firebase-key.json << EOF
+          ${{ secrets.FIREBASE_KEY }}
+          EOF
+
+      - name: Run build
+        run: ./gradlew build
+
+      - name: Publish test results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always()
+        with:
+          files: '**/build/test-results/test/TEST-*.xml'
+          comment_title: 'Test Results'
+          check_name: 'Test Results'
+          report_individual_runs: true
+          
+      - name: Report test failures
+        uses: mikepenz/action-junit-report@v4
+        if: always()
+        with:
+          report_paths: '**/build/test-results/test/TEST-*.xml'
+          token: ${{ github.token }}
+          check_name: 'Test Report'
+          fail_on_failure: true
