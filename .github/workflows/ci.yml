@@ -9,7 +9,6 @@ env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
-# Pages 배포를 위한 전체 권한 설정
 permissions:
   contents: read
   pull-requests: write
@@ -24,7 +23,6 @@ jobs:
       upload-artifacts: true
     secrets: inherit
 
-  # 📊 테스트 결과를 GitHub Pages에 배포
   deploy-test-results:
     name: 테스트 결과 Pages 배포
     needs: test
@@ -80,30 +78,22 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
 
-  # ✅ 테스트 성공 시 PR 코멘트
-  comment-success:
-    name: 테스트 성공 알림
-    needs: [test, deploy-test-results]
-    if: needs.test.outputs.test-result == 'success'
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Comment PR with success
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const testReportUrl = '${{ needs.deploy-test-results.outputs.page-url }}';
-            
-            const output = `## ✅ 테스트 성공!
-            
-            ### 🧪 테스트 결과
-            - **상태**: 모든 테스트 통과
-            - **결과**: ${{ needs.test.outputs.test-result }}
-            - **📊 상세 리포트**: [테스트 결과 웹에서 보기](${testReportUrl}) 🌐
-            
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: output
-            });
+      - name: Create deployment summary
+        if: always()
+        run: |
+          echo "# 🌐 테스트 결과 Pages 배포 완료" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ steps.deployment.outcome }}" == "success" ]; then
+            echo "## ✅ 배포 성공!" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "🔗 **[테스트 결과 웹에서 보기](${{ steps.deployment.outputs.page_url }}test-reports/latest/)** 🌐" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "- **배포 URL**: \`${{ steps.deployment.outputs.page_url }}test-reports/latest/\`" >> $GITHUB_STEP_SUMMARY
+            echo "- **테스트 결과**: ${{ needs.test.outputs.test-result }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **PR 번호**: #${{ github.event.number }}" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## ❌ 배포 실패!" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "배포 중 오류가 발생했습니다. 로그를 확인해주세요." >> $GITHUB_STEP_SUMMARY
+          fi
