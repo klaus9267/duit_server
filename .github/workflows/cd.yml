@@ -82,50 +82,7 @@ jobs:
           port: ${{ secrets.DEPLOY_PORT }}
           script: |
             echo "🚀 배포 시작..."
-            cd /home/vagom/duit-server || mkdir -p /home/vagom/duit-server && cd /home/vagom/duit-server
-
-            # Compose 명령어 확인
-            if docker compose version >/dev/null 2>&1; then
-              COMPOSE_CMD="docker compose"
-            else
-              COMPOSE_CMD="docker-compose"
-            fi
-            echo "사용할 Compose 명령어: $COMPOSE_CMD"
-  
-            # 필요한 디렉토리 생성
-            mkdir -p docker/monitoring
-  
-            # docker-compose.yml 다운로드
-            echo "📋 docker-compose.yml 업데이트 중..."
-            curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-                 -H "Accept: application/vnd.github.v3.raw" \
-                 -o docker/docker-compose.yml \
-                 "https://api.github.com/repos/${{ github.repository }}/contents/docker/docker-compose.yml"
-            
-            # prometheus.yml 다운로드
-            echo "📋 prometheus.yml 업데이트 중..."
-            curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-                 -H "Accept: application/vnd.github.v3.raw" \
-                 -o docker/monitoring/prometheus.yml \
-                 "https://api.github.com/repos/${{ github.repository }}/contents/docker/monitoring/prometheus.yml"
-  
-            # 환경변수 파일 생성
-            echo "🔧 환경변수 설정 중..."
-            : > docker/.env
-            echo "IMAGE_REGISTRY=${{ env.REGISTRY }}" >> docker/.env
-            echo "IMAGE_NAME=${{ env.IMAGE_NAME }}" >> docker/.env
-            echo "IMAGE_TAG=latest" >> docker/.env
-            echo "DB_HOST=${{ secrets.DB_HOST }}" >> docker/.env
-            echo "DB_USERNAME=${{ secrets.DB_USERNAME }}" >> docker/.env
-            echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> docker/.env
-            echo "DB_PORT=${{ secrets.DB_PORT }}" >> docker/.env
-            echo "DB_NAME=${{ secrets.DB_NAME }}" >> docker/.env
-            echo "REDIS_HOST=${{ secrets.REDIS_HOST }}" >> docker/.env
-            echo "REDIS_PORT=${{ secrets.REDIS_PORT }}" >> docker/.env
-            echo "REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}" >> docker/.env
-            echo "REDIS_TIMEOUT=${{ secrets.REDIS_TIMEOUT }}" >> docker/.env
-            echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> docker/.env
-            echo "DISCORD_WEBHOOK_URL=${{ secrets.DISCORD_WEBHOOK_URL }}" >> docker/.env
+            cd /home/vagom/duit-server
   
             # Docker 레지스트리 로그인
             echo "🔑 Docker 레지스트리 로그인 중..."
@@ -136,16 +93,8 @@ jobs:
             docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
   
             # 배포 실행
-            cd docker
-            if docker ps -q -f name=duit-mysql-prod 2>/dev/null | grep -q .; then
-                echo "🎯 기존 인프라 감지 - 앱만 재시작"
-                $COMPOSE_CMD pull app
-                $COMPOSE_CMD up -d --no-deps app
-            else
-                echo "🔄 초기 배포 - 전체 스택 시작"  
-                $COMPOSE_CMD --profile full up -d
-            fi
-            cd ..
+            docker compose pull app
+            docker compose up -d --no-deps app
 
       - name: Health check and verification
         uses: appleboy/ssh-action@v1.0.3
@@ -157,16 +106,6 @@ jobs:
           script: |
             cd /home/vagom/duit-server
             
-            # Compose 명령어 확인
-            if docker compose version >/dev/null 2>&1; then
-              COMPOSE_CMD="docker compose"
-            else
-              COMPOSE_CMD="docker-compose"
-            fi
-            
-            echo "🏥 헬스체크 시작..."
-            cd docker
-            
             # 헬스체크 (3분 대기)
             for i in {1..60}; do
               if curl -f -s http://localhost:8080/actuator/health >/dev/null 2>&1; then
@@ -177,12 +116,12 @@ jobs:
               if [ $i -eq 60 ]; then
                 echo "❌ 헬스체크 실패 (60회 시도 후 타임아웃)"
                 echo "📋 컨테이너 로그 확인:"
-                APP_CONTAINER=$($COMPOSE_CMD ps -q app)
+                APP_CONTAINER=$(docker composes  ps -q app)
                 if [ -n "$APP_CONTAINER" ]; then
                   docker logs --tail 50 $APP_CONTAINER || true
                 else
                   echo "앱 컨테이너를 찾을 수 없습니다"
-                  $COMPOSE_CMD ps
+                  docker composes ps
                 fi
                 exit 1
               else
@@ -209,9 +148,5 @@ jobs:
       - name: Create deployment summary
         run: |
           echo "### 🚀 배포 완료!" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**배포된 이미지:** \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest\`" >> $GITHUB_STEP_SUMMARY
-          echo "**PR 번호:** #${{ github.event.number }}" >> $GITHUB_STEP_SUMMARY 
-          echo "**커밋 SHA:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
           echo "**배포 시간:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
