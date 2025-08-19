@@ -95,6 +95,40 @@ services:
     restart: unless-stopped
     networks:
       - duit-network-prod
+    depends_on:
+      - prometheus
+      - loki
+
+  loki:
+    image: grafana/loki:latest
+    container_name: duit-loki-prod
+    profiles: ["monitoring", "full"]
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./monitoring/loki.yml:/etc/loki/local-config.yaml
+      - loki_data_prod:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    restart: unless-stopped
+    networks:
+      - duit-network-prod
+
+  promtail:
+    image: grafana/promtail:latest
+    container_name: duit-promtail-prod
+    profiles: ["monitoring", "full"]
+    volumes:
+      - ./monitoring/promtail.yml:/etc/promtail/config.yml
+      # Linux 서버용 볼륨 매핑
+      - /var/log:/var/log:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: -config.file=/etc/promtail/config.yml
+    restart: unless-stopped
+    networks:
+      - duit-network-prod
+    depends_on:
+      - loki
 
 volumes:
   mysql_data_prod:
@@ -104,6 +138,8 @@ volumes:
   prometheus_data_prod:
     driver: local
   grafana_data_prod:
+    driver: local
+  loki_data_prod:
     driver: local
 
 networks:

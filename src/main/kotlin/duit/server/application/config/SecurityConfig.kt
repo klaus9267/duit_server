@@ -47,6 +47,7 @@ class SecurityConfig(
                         "/api/v1/auth/**",
                         "/api/v1/users/check-nickname",
                         "/api/v1/webhooks/**",
+                        "/actuator/**",
                     ).permitAll()
                     .requestMatchers(HttpMethod.POST, "api/v1/auth/social").permitAll()
                     .requestMatchers(HttpMethod.GET, "api/v1/events").permitAll()
