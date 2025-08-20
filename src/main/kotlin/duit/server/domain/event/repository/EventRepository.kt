@@ -17,9 +17,27 @@ interface EventRepository : JpaRepository<Event, Long> {
         WHERE isApproved = :isApproved
         AND (:hostId IS NULL OR h.id = :hostId)
         AND (:type IS NULL OR e.eventType = :type)
+        AND (:searchKeyword IS NULL OR e.title LIKE %:searchKeyword% OR h.name LIKE %:searchKeyword%)
         """
     )
-    fun findWithFilter(type: EventType?, hostId: Long?, isApproved: Boolean, pageable: Pageable): Page<Event>
+    fun findWithFilter(
+        type: EventType?, 
+        hostId: Long?, 
+        isApproved: Boolean, 
+        searchKeyword: String?,
+        pageable: Pageable
+    ): Page<Event>
+
+    @Query(
+        """
+        SELECT e.id
+        FROM Event e
+        JOIN Bookmark b ON b.event.id = e.id
+        WHERE b.user.id = :userId
+        AND e.id IN :eventIds
+        """
+    )
+    fun findBookmarkedEventIds(userId: Long, eventIds: List<Long>): List<Long>
 
     @Query(
         """

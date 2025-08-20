@@ -40,12 +40,34 @@ class EventService(
             .orElseThrow { EntityNotFoundException("이벤트를 찾을 수 없습니다: $eventId") }
 
     fun getEvents(param: EventPaginationParam, isApproved: Boolean?): PageResponse<EventResponse> {
-        val events =
-            eventRepository.findWithFilter(param.type, param.hostId, isApproved ?: true, param.toPageable())
-                .map { EventResponse.from(it) }
+        val events = eventRepository.findWithFilter(
+            param.type, 
+            param.hostId, 
+            isApproved ?: true, 
+            param.searchKeyword,
+            param.toPageable()
+        )
+
+        // 인증된 사용자의 경우 북마크 정보 포함
+        val currentUserId = try {
+            securityUtil.getCurrentUserId()
+        } catch (e: Exception) {
+            null // 비로그인 사용자
+        }
+
+        val eventResponses = if (currentUserId != null) {
+            val eventIds = events.content.map { it.id!! }
+            val bookmarkedEventIds = eventRepository.findBookmarkedEventIds(currentUserId, eventIds).toSet()
+            
+            events.content.map { event ->
+                EventResponse.from(event, bookmarkedEventIds.contains(event.id))
+            }
+        } else {
+            events.content.map { EventResponse.from(it) }
+        }
 
         return PageResponse(
-            content = events.content,
+            content = eventResponses,
             pageInfo = PageInfo.from(events)
         )
     }
@@ -54,7 +76,9 @@ class EventService(
         val currentUserId = securityUtil.getCurrentUserId()
         val startDate = LocalDate.of(request.year, request.month, 1)
         val endDate = startDate.withDayOfMonth(startDate.lengthOfMonth())
-        return eventRepository.findEvents4Calendar(currentUserId, startDate, endDate, request.type)
-            .map { EventResponse.from(it) }
+        val events = eventRepository.findEvents4Calendar(currentUserId, startDate, endDate, request.type)
+        
+        // 모든 캘린더 이벤트는 북마크된 이벤트이므로 true로 설정
+        return events.map { EventResponse.from(it, true) }
     }
 }

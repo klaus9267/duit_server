@@ -18,10 +18,11 @@ data class EventResponse(
     val isApproved: Boolean,
     val eventType: EventType,
     val host: HostResponse,
-    val viewCount: Int
+    val viewCount: Int,
+    val isBookmarked: Boolean = false
 ) {
     companion object {
-        fun from(event: Event) = EventResponse(
+        fun from(event: Event, isBookmarked: Boolean = false) = EventResponse(
             id = event.id!!,
             title = event.title,
             startAt = event.startAt,
@@ -33,7 +34,8 @@ data class EventResponse(
             isApproved = event.isApproved,
             eventType = event.eventType,
             host = HostResponse.from(event.host),
-            viewCount = event.view?.count ?: 0
+            viewCount = event.view?.count ?: 0,
+            isBookmarked = isBookmarked
         )
     }
 }

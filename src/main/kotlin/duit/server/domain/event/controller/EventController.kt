@@ -1,10 +1,10 @@
 package duit.server.domain.event.controller
 
-import duit.server.application.docs.common.AuthApiResponses
-import duit.server.application.docs.common.CommonApiResponses
-import duit.server.application.docs.event.CreateEventApi
-import duit.server.application.docs.event.GetEventsApi
-import duit.server.application.docs.event.GetEventsForCalendarApi
+import duit.server.domain.common.docs.AuthApiResponses
+import duit.server.domain.common.docs.CommonApiResponses
+import duit.server.domain.event.controller.docs.CreateEventApi
+import duit.server.domain.event.controller.docs.GetEventsApi
+import duit.server.domain.event.controller.docs.GetEventsForCalendarApi
 import duit.server.domain.event.dto.Event4CalendarRequest
 import duit.server.domain.event.dto.EventPaginationParam
 import duit.server.domain.event.dto.EventRequest

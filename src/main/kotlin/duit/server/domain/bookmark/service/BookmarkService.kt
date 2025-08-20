@@ -2,6 +2,7 @@ package duit.server.domain.bookmark.service
 
 import duit.server.application.security.SecurityUtil
 import duit.server.domain.bookmark.dto.BookmarkResponse
+import duit.server.domain.bookmark.dto.BookmarkToggleResponse
 import duit.server.domain.bookmark.entity.Bookmark
 import duit.server.domain.bookmark.repository.BookmarkRepository
 import duit.server.domain.common.dto.pagination.PageInfo
@@ -21,22 +22,26 @@ class BookmarkService(
     private val securityUtil: SecurityUtil
 ) {
     @Transactional
-    fun bookmarkEvent(eventId: Long) {
+    fun bookmarkEvent(eventId: Long): BookmarkToggleResponse {
         val currentUserId = securityUtil.getCurrentUserId()
         val bookmark = bookmarkRepository.findByEventIdAndUserId(eventId, currentUserId)
-        if (bookmark != null) {
+        
+        val isBookmarked = if (bookmark != null) {
             bookmarkRepository.delete(bookmark)
-            return
+            false
+        } else {
+            val event = eventService.getEvent(eventId)
+            val currentUser = userService.findUserById(currentUserId)
+
+            val newBookmark = Bookmark(
+                event = event,
+                user = currentUser
+            )
+            bookmarkRepository.save(newBookmark)
+            true
         }
 
-        val event = eventService.getEvent(eventId)
-        val currentUser = userService.findUserById(currentUserId)
-
-        val newBookmark = Bookmark(
-            event = event,
-            user = currentUser
-        )
-        bookmarkRepository.save(newBookmark)
+        return BookmarkToggleResponse(eventId, isBookmarked)
     }
 
     fun getBookmarks(param: PaginationParam): PageResponse<BookmarkResponse> {

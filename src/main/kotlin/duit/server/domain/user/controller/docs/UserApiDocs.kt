@@ -1,7 +1,6 @@
-package duit.server.application.docs.user
+package duit.server.domain.user.controller.docs
 
 import duit.server.domain.common.dto.ErrorResponse
-import duit.server.domain.user.dto.UserResponse
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.ExampleObject
@@ -74,25 +73,7 @@ JWT 토큰을 기반으로 현재 로그인한 사용자의 정보를 조회합�
         ApiResponse(
             responseCode = "200",
             description = "사용자 정보 조회 성공",
-            content = [Content(
-                mediaType = "application/json",
-                schema = Schema(implementation = UserResponse::class),
-                examples = [ExampleObject(
-                    name = "성공 응답",
-                    value = """
-                    {
-                        "id": 1,
-                        "email": "nurse@example.com",
-                        "nickname": "간호사김간호",
-                        "providerType": "GOOGLE",
-                        "allowPushAlarm": true,
-                        "allowMarketingAlarm": false,
-                        "createdAt": "2024-01-01T10:00:00",
-                        "updatedAt": "2024-01-15T14:30:00"
-                    }
-                    """
-                )]
-            )]
+            useReturnTypeSchema = true
         )
     ]
 )
@@ -121,20 +102,7 @@ annotation class GetCurrentUserApi
         ApiResponse(
             responseCode = "200",
             description = "닉네임 수정 성공",
-            content = [Content(
-                mediaType = "application/json",
-                schema = Schema(implementation = UserResponse::class),
-                examples = [ExampleObject(
-                    name = "성공 응답",
-                    value = """
-                    {
-                        "id": 1,
-                        "nickname": "새로운닉네임",
-                        "updatedAt": "2024-01-15T14:30:00"
-                    }
-                    """
-                )]
-            )]
+            useReturnTypeSchema = true
         ),
         ApiResponse(
             responseCode = "409",
