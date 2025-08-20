@@ -1,8 +1,6 @@
-package duit.server.application.docs.bookmark
+package duit.server.domain.bookmark.` controller`.docs
 
-import duit.server.domain.bookmark.dto.BookmarkResponse
 import duit.server.domain.common.dto.ErrorResponse
-import duit.server.domain.common.dto.pagination.PageResponse
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.ExampleObject
@@ -37,44 +35,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement
         ApiResponse(
             responseCode = "200",
             description = "북마크 목록 조회 성공",
-            content = [Content(
-                mediaType = "application/json",
-                schema = Schema(implementation = PageResponse::class),
-                examples = [ExampleObject(
-                    name = "성공 응답",
-                    value = """
-                    {
-                        "content": [
-                            {
-                                "id": 1,
-                                "event": {
-                                    "id": 5,
-                                    "title": "응급실 간호실무 향상 워크숍",
-                                    "startAt": "2024-12-15",
-                                    "endAt": "2024-12-16",
-                                    "uri": "https://example.com/event/123",
-                                    "thumbnail": "https://example.com/image.jpg",
-                                    "eventType": "WORKSHOP",
-                                    "host": {
-                                        "id": 1,
-                                        "name": "서울대학교병원"
-                                    }
-                                },
-                                "createdAt": "2024-01-10T14:30:00"
-                            }
-                        ],
-                        "pageInfo": {
-                            "currentPage": 0,
-                            "totalPages": 3,
-                            "totalElements": 25,
-                            "pageSize": 20,
-                            "hasNext": true,
-                            "hasPrevious": false
-                        }
-                    }
-                    """
-                )]
-            )]
+            useReturnTypeSchema = true
         )
     ]
 )
@@ -106,7 +67,7 @@ annotation class GetBookmarksApi
     value = [
         ApiResponse(
             responseCode = "204",
-            description = "북마크 생성/취소 성공"
+            description = "북마크 생성/취소 성공",
         ),
         ApiResponse(
             responseCode = "404",

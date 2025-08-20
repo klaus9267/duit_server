@@ -1,7 +1,7 @@
 package duit.server.domain.bookmark.controller
 
-import duit.server.application.docs.bookmark.BookmarkEventApi
-import duit.server.application.docs.bookmark.GetBookmarksApi
+import duit.server.domain.bookmark.` controller`.docs.BookmarkEventApi
+import duit.server.domain.bookmark.` controller`.docs.GetBookmarksApi
 import duit.server.application.docs.common.AuthApiResponses
 import duit.server.application.docs.common.CommonApiResponses
 import duit.server.domain.common.dto.pagination.PaginationParam

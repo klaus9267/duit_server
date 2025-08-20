@@ -1,12 +1,6 @@
 package duit.server.application.docs.event
 
-import duit.server.domain.common.dto.pagination.PageResponse
-import duit.server.domain.event.dto.EventResponse
 import io.swagger.v3.oas.annotations.Operation
-import io.swagger.v3.oas.annotations.media.ArraySchema
-import io.swagger.v3.oas.annotations.media.Content
-import io.swagger.v3.oas.annotations.media.ExampleObject
-import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.responses.ApiResponses
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
@@ -56,44 +50,7 @@ annotation class CreateEventApi
         ApiResponse(
             responseCode = "200",
             description = "행사 목록 조회 성공",
-            content = [Content(
-                mediaType = "application/json",
-                schema = Schema(implementation = PageResponse::class),
-                examples = [ExampleObject(
-                    name = "성공 응답",
-                    value = """
-                    {
-                        "content": [
-                            {
-                                "id": 1,
-                                "title": "응급실 간호실무 향상 워크숍",
-                                "startAt": "2024-12-15",
-                                "endAt": "2024-12-16",
-                                "recruitmentStartAt": "2024-12-01T09:00:00",
-                                "recruitmentEndAt": "2024-12-10T18:00:00",
-                                "uri": "https://example.com/event/123",
-                                "thumbnail": "https://example.com/image.jpg",
-                                "eventType": "WORKSHOP",
-                                "host": {
-                                    "id": 1,
-                                    "name": "서울대학교병원",
-                                    "thumbnail": "https://example.com/logo.jpg"
-                                },
-                                "isApproved": true
-                            }
-                        ],
-                        "pageInfo": {
-                            "currentPage": 0,
-                            "totalPages": 5,
-                            "totalElements": 100,
-                            "pageSize": 20,
-                            "hasNext": true,
-                            "hasPrevious": false
-                        }
-                    }
-                    """
-                )]
-            )]
+            useReturnTypeSchema = true
         )
     ]
 )
@@ -122,27 +79,7 @@ annotation class GetEventsApi
         ApiResponse(
             responseCode = "200",
             description = "달력 행사 조회 성공",
-            content = [Content(
-                mediaType = "application/json",
-                array = ArraySchema(schema = Schema(implementation = EventResponse::class)),
-                examples = [ExampleObject(
-                    name = "성공 응답",
-                    value = """
-                    [
-                        {
-                            "id": 1,
-                            "title": "응급실 간호실무 향상 워크숍",
-                            "startAt": "2024-12-15",
-                            "endAt": "2024-12-16",
-                            "eventType": "WORKSHOP",
-                            "host": {
-                                "name": "서울대학교병원"
-                            }
-                        }
-                    ]
-                    """
-                )]
-            )]
+            useReturnTypeSchema = true
         )
     ]
 )
