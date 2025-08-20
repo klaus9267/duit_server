@@ -2,7 +2,7 @@ package duit.server.domain.auth.controller
 
 import duit.server.domain.auth.controller.docs.IssueTokenApi
 import duit.server.domain.auth.controller.docs.SocialLoginApi
-import duit.server.application.docs.common.CommonApiResponses
+import duit.server.domain.common.docs.CommonApiResponses
 import duit.server.application.security.JwtTokenProvider
 import duit.server.domain.auth.dto.AuthResponse
 import duit.server.domain.auth.service.AuthService

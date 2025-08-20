@@ -1,4 +1,4 @@
-package duit.server.domain.bookmark.` controller`.docs
+package duit.server.domain.bookmark.controller.docs
 
 import duit.server.domain.common.dto.ErrorResponse
 import io.swagger.v3.oas.annotations.Operation

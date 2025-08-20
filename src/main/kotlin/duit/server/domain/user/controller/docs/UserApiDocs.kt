@@ -1,7 +1,6 @@
-package duit.server.application.docs.user
+package duit.server.domain.user.controller.docs
 
 import duit.server.domain.common.dto.ErrorResponse
-import duit.server.domain.user.dto.UserResponse
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.ExampleObject

@@ -1,4 +1,4 @@
-package duit.server.application.docs.common
+package duit.server.domain.common.docs
 
 import duit.server.domain.common.dto.ErrorResponse
 import io.swagger.v3.oas.annotations.media.Content

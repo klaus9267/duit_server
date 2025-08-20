@@ -25,5 +25,7 @@ data class EventPaginationParam(
     @field:Schema(description = "주최")
     val hostId: Long?,
 
+    @field:Schema(description = "검색 키워드 (제목, 주최기관명 검색)")
+    val searchKeyword: String?
 
 ) : PaginationParam(page, size, sortDirection, field)

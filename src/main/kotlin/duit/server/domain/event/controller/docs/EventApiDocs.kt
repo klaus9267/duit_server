@@ -1,4 +1,4 @@
-package duit.server.application.docs.event
+package duit.server.domain.event.controller.docs
 
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.responses.ApiResponse
