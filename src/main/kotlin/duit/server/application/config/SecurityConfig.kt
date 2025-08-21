@@ -48,7 +48,11 @@ class SecurityConfig(
                         "/api/v1/webhooks/**",
                         "/actuator/**",
                     ).permitAll()
-                    .requestMatchers(HttpMethod.POST, "api/v1/auth/social").permitAll()
+                    .requestMatchers(
+                        HttpMethod.POST,
+                        "api/v1/auth/social",
+                        "api/v1/auth/token"
+                    ).permitAll()
                     .requestMatchers(HttpMethod.GET, "api/v1/events").permitAll()
 
                     // 나머지 모든 요청은 인증 필요
