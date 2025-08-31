@@ -89,9 +89,11 @@ class EventController(
     fun getEvents(
         @Parameter(description = "행사 승인 여부", example = "true")
         isApproved: Boolean? = true,
+        @Parameter(description = "종료된 행사 포함 여부", example = "false")
+        includeFinished: Boolean? = true,
         @Valid @ParameterObject
         param: EventPaginationParam
-    ) = eventService.getEvents(param, isApproved)
+    ) = eventService.getEvents(param, isApproved, includeFinished)
 
     @GetMapping("calendar")
     @GetEventsForCalendarApi
