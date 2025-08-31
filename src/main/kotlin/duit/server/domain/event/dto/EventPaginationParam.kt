@@ -20,7 +20,7 @@ data class EventPaginationParam(
     override val field: PaginationField?,
 
     @field:Schema(description = "행사 종류 null 입력 시 전체 행사 조회")
-    val type: EventType?,
+    val type: List<EventType>?,
 
     @field:Schema(description = "주최")
     val hostId: Long?,

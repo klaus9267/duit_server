@@ -8,10 +8,10 @@ import duit.server.domain.event.dto.EventPaginationParam
 import duit.server.domain.event.dto.EventRequest
 import duit.server.domain.event.dto.EventResponse
 import duit.server.domain.event.entity.Event
-import jakarta.persistence.EntityNotFoundException
 import duit.server.domain.event.repository.EventRepository
 import duit.server.domain.view.service.ViewService
 import duit.server.infrastructure.external.discord.DiscordService
+import jakarta.persistence.EntityNotFoundException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDate
@@ -29,9 +29,9 @@ class EventService(
     fun createEvent(eventRequest: EventRequest): Event {
         val event = eventRepository.save(eventRequest.toEntity())
         viewService.createView(event)
-        
+
         discordService.sendNewEventNotification(event)
-        
+
         return event
     }
 
@@ -39,11 +39,12 @@ class EventService(
         eventRepository.findById(eventId)
             .orElseThrow { EntityNotFoundException("이벤트를 찾을 수 없습니다: $eventId") }
 
-    fun getEvents(param: EventPaginationParam, isApproved: Boolean?): PageResponse<EventResponse> {
+    fun getEvents(param: EventPaginationParam, isApproved: Boolean?, includeFinished: Boolean?): PageResponse<EventResponse> {
         val events = eventRepository.findWithFilter(
-            param.type, 
-            param.hostId, 
-            isApproved ?: true, 
+            param.type,
+            param.hostId,
+            isApproved ?: true,
+            includeFinished ?: false,
             param.searchKeyword,
             param.toPageable()
         )
@@ -58,7 +59,7 @@ class EventService(
         val eventResponses = if (currentUserId != null) {
             val eventIds = events.content.map { it.id!! }
             val bookmarkedEventIds = eventRepository.findBookmarkedEventIds(currentUserId, eventIds).toSet()
-            
+
             events.content.map { event ->
                 EventResponse.from(event, bookmarkedEventIds.contains(event.id))
             }
@@ -77,7 +78,7 @@ class EventService(
         val startDate = LocalDate.of(request.year, request.month, 1)
         val endDate = startDate.withDayOfMonth(startDate.lengthOfMonth())
         val events = eventRepository.findEvents4Calendar(currentUserId, startDate, endDate, request.type)
-        
+
         // 모든 캘린더 이벤트는 북마크된 이벤트이므로 true로 설정
         return events.map { EventResponse.from(it, true) }
     }

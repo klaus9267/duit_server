@@ -90,8 +90,10 @@ services:
       - "3000:3000"
     volumes:
       - grafana_data_prod:/var/lib/grafana
+      - ./monitoring/grafana-datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
     restart: unless-stopped
     networks:
       - duit-network-prod
@@ -127,8 +129,6 @@ services:
     restart: unless-stopped
     networks:
       - duit-network-prod
-    depends_on:
-      - loki
 
 volumes:
   mysql_data_prod:

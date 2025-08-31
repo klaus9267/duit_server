@@ -16,14 +16,16 @@ interface EventRepository : JpaRepository<Event, Long> {
         JOIN e.host h
         WHERE isApproved = :isApproved
         AND (:hostId IS NULL OR h.id = :hostId)
-        AND (:type IS NULL OR e.eventType = :type)
+        AND (:type IS NULL OR e.eventType IN :type)
+        AND (:includeFinished = false OR (e.endAt IS NOT NULL AND e.endAt < CURRENT_DATE) OR (e.endAt IS NULL AND e.startAt < CURRENT_DATE))
         AND (:searchKeyword IS NULL OR e.title LIKE %:searchKeyword% OR h.name LIKE %:searchKeyword%)
         """
     )
     fun findWithFilter(
-        type: EventType?, 
-        hostId: Long?, 
-        isApproved: Boolean, 
+        type: List <EventType>?,
+        hostId: Long?,
+        isApproved: Boolean,
+        includeFinished: Boolean,
         searchKeyword: String?,
         pageable: Pageable
     ): Page<Event>
