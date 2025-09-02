@@ -14,7 +14,8 @@ interface EventRepository : JpaRepository<Event, Long> {
         SELECT e
         FROM Event e
         JOIN e.host h
-        WHERE isApproved = :isApproved
+        LEFT JOIN e.view v
+        WHERE e.isApproved = :isApproved
         AND (:hostId IS NULL OR h.id = :hostId)
         AND (:type IS NULL OR e.eventType IN :type)
         AND (:includeFinished = false OR (e.endAt IS NOT NULL AND e.endAt < CURRENT_DATE) OR (e.endAt IS NULL AND e.startAt < CURRENT_DATE))
