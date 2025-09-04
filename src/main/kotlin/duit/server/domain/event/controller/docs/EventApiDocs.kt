@@ -59,34 +59,6 @@ annotation class GetEventsApi
 @Target(AnnotationTarget.FUNCTION)
 @Retention(AnnotationRetention.RUNTIME)
 @Operation(
-    summary = "북마크된 행사 목록 조회",
-    description = """
-북마크된 행사 목록을 페이지네이션으로 조회합니다.
-
-**조회 조건:**
-- 행사 승인 여부 필터링 가능
-- 행사 유형별 필터링 가능
-- 주최기관별 필터링 가능
-- 페이지 단위 조회 (기본 20개)
-
-**정렬 기준:**
-- 기본: 행사 시작일 내림차순
-"""
-)
-@ApiResponses(
-    value = [
-        ApiResponse(
-            responseCode = "200",
-            description = "북마크된 행사 목록 조회 성공",
-            useReturnTypeSchema = true
-        )
-    ]
-)
-annotation class GetBookmarkedEventsApi
-
-@Target(AnnotationTarget.FUNCTION)
-@Retention(AnnotationRetention.RUNTIME)
-@Operation(
     summary = "북마크한 행사 달력 조회",
     description = """
 현재 로그인한 사용자가 북마크한 행사들을 월별 달력 형태로 조회합니다.
