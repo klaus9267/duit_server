@@ -10,6 +10,7 @@ import duit.server.domain.common.dto.pagination.PageResponse
 import duit.server.domain.common.dto.pagination.PaginationParam
 import duit.server.domain.event.service.EventService
 import duit.server.domain.user.service.UserService
+import org.springframework.security.access.AccessDeniedException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -25,12 +26,15 @@ class BookmarkService(
     fun bookmarkEvent(eventId: Long): BookmarkToggleResponse {
         val currentUserId = securityUtil.getCurrentUserId()
         val bookmark = bookmarkRepository.findByEventIdAndUserId(eventId, currentUserId)
-        
+
         val isBookmarked = if (bookmark != null) {
             bookmarkRepository.delete(bookmark)
             false
         } else {
             val event = eventService.getEvent(eventId)
+            if (!event.isApproved) {
+                throw AccessDeniedException("승인되지 않은 행사입니다.")
+            }
             val currentUser = userService.findUserById(currentUserId)
 
             val newBookmark = Bookmark(
