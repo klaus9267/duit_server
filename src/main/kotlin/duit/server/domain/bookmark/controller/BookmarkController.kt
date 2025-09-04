@@ -5,6 +5,7 @@ import duit.server.domain.bookmark.controller.docs.GetBookmarksApi
 import duit.server.domain.bookmark.dto.BookmarkToggleResponse
 import duit.server.domain.bookmark.service.BookmarkService
 import duit.server.domain.common.dto.pagination.PaginationParam
+import io.swagger.v3.oas.annotations.Hidden
 import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.validation.Valid
 import org.springdoc.core.annotations.ParameterObject
@@ -17,6 +18,8 @@ import org.springframework.web.bind.annotation.*
 class BookmarkController(
     private val bookmarkService: BookmarkService
 ) {
+    // 엔드포인트 숨김
+    @Hidden
     @GetMapping
     @GetBookmarksApi
     @ResponseStatus(HttpStatus.OK)

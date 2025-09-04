@@ -91,9 +91,11 @@ class EventController(
         isApproved: Boolean? = true,
         @Parameter(description = "종료된 행사 포함 여부", example = "false")
         includeFinished: Boolean? = true,
+        @Parameter(description = "북마크된 행사 출력 여부", example = "false")
+        isBookmarked: Boolean? = false,
         @Valid @ParameterObject
         param: EventPaginationParam
-    ) = eventService.getEvents(param, isApproved, includeFinished)
+    ) = eventService.getEvents(param, isApproved, isBookmarked, includeFinished)
 
     @GetMapping("calendar")
     @GetEventsForCalendarApi

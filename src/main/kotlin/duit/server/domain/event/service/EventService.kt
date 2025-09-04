@@ -39,22 +39,31 @@ class EventService(
         eventRepository.findById(eventId)
             .orElseThrow { EntityNotFoundException("이벤트를 찾을 수 없습니다: $eventId") }
 
-    fun getEvents(param: EventPaginationParam, isApproved: Boolean?, includeFinished: Boolean?): PageResponse<EventResponse> {
-        val events = eventRepository.findWithFilter(
-            param.type,
-            param.hostId,
-            isApproved ?: true,
-            includeFinished ?: false,
-            param.searchKeyword,
-            param.toPageable()
-        )
-
-        // 인증된 사용자의 경우 북마크 정보 포함
+    fun getEvents(
+        param: EventPaginationParam,
+        isApproved: Boolean?,
+        isBookmarked: Boolean?,
+        includeFinished: Boolean?
+    ): PageResponse<EventResponse> {
+        // 현재 사용자 ID 가져오기 (북마크 필터링에 필요)
         val currentUserId = try {
             securityUtil.getCurrentUserId()
         } catch (e: Exception) {
             null // 비로그인 사용자
         }
+
+        val events = eventRepository.findWithFilter(
+            param.type,
+            param.hostId,
+            isApproved ?: true,
+            isBookmarked ?: false,
+            includeFinished ?: false,
+            param.searchKeyword,
+            currentUserId,
+            param.toPageable()
+        )
+
+        // 인증된 사용자의 경우 북마크 정보 포함
 
         val eventResponses = if (currentUserId != null) {
             val eventIds = events.content.map { it.id!! }
