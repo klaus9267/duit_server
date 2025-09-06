@@ -1,33 +1,59 @@
 package duit.server.domain.event.dto
 
-import duit.server.infrastructure.external.webhook.dto.FileInfo
 import duit.server.domain.event.entity.Event
 import duit.server.domain.event.entity.EventType
 import duit.server.domain.host.entity.Host
+import duit.server.infrastructure.external.webhook.dto.FileInfo
+import io.swagger.v3.oas.annotations.Hidden
+import io.swagger.v3.oas.annotations.media.Schema
+import jakarta.validation.constraints.Future
+import jakarta.validation.constraints.NotNull
 import java.net.URI
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
 data class EventRequest(
+    @field:NotNull
     val title: String,
+
+    @field:Future
+    @field:NotNull
     val startAt: LocalDate,
+
+    @field:Future
     val endAt: LocalDate?,
+
+    @field:Future
+    @field:Schema(example = "9999-01-01T01:00:59")
     val recruitmentStartAt: LocalDateTime?,
+
+    @field:Future
+    @field:Schema(example = "9999-01-01T01:30:59")
     val recruitmentEndAt: LocalDateTime?,
+
+    @field:NotNull
     val uri: String,
-    val thumbnail: String?,
+
+    val eventThumbnail: String?,
+
+    @field:NotNull
     val eventType: EventType,
-    val host: Host
+
+    @field:NotNull
+    val hostName: String,
+
+    @Hidden
+    val hostThumbnail: String?
 ) {
-    fun toEntity() = Event(
+    fun toEntity(host: Host) = Event(
         title = title,
         startAt = startAt,
         endAt = endAt,
         recruitmentStartAt = recruitmentStartAt,
         recruitmentEndAt = recruitmentEndAt,
         uri = uri,
-        thumbnail = thumbnail,
+        thumbnail = eventThumbnail,
         eventType = eventType,
         host = host
     )
@@ -74,7 +100,7 @@ data class EventRequest(
             return parsedTime
         }
 
-        fun from(formData: Map<String, String>, fileInfo: FileInfo?, host: Host) = EventRequest(
+        fun from(formData: Map<String, String>, eventThumbnail: FileInfo?, hostThumbnail: FileInfo? = null) = EventRequest(
             title = formData.getValue("행사 제목"),
             startAt = parseDate(formData.getValue("행사 시작 날짜"))!!,
             endAt = formData["행사 종료 날짜"]?.let { parseDate(it) },
@@ -82,8 +108,9 @@ data class EventRequest(
             eventType = EventType.of(formData.getValue("행사 종류")),
             recruitmentStartAt = formData["모집 시작 날짜"]?.let { parseTime(it) },
             recruitmentEndAt = formData["모집 종료 날짜"]?.let { parseTime(it) },
-            thumbnail = fileInfo?.directDownloadUrl,
-            host = host,
+            eventThumbnail = eventThumbnail?.directDownloadUrl,
+            hostName = formData["주최 기관명"]!!,
+            hostThumbnail = hostThumbnail?.directDownloadUrl,
         )
     }
 }

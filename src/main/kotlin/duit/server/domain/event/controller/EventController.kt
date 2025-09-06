@@ -3,6 +3,7 @@ package duit.server.domain.event.controller
 import duit.server.domain.common.docs.AuthApiResponses
 import duit.server.domain.common.docs.CommonApiResponses
 import duit.server.domain.event.controller.docs.CreateEventApi
+import duit.server.domain.event.controller.docs.CreateRandomEventApi
 import duit.server.domain.event.controller.docs.GetEventsApi
 import duit.server.domain.event.controller.docs.GetEventsForCalendarApi
 import duit.server.domain.event.dto.Event4CalendarRequest
@@ -11,8 +12,7 @@ import duit.server.domain.event.dto.EventRequest
 import duit.server.domain.event.dto.EventResponse
 import duit.server.domain.event.entity.EventType
 import duit.server.domain.event.service.EventService
-import duit.server.domain.host.dto.HostRequest
-import duit.server.domain.host.service.HostService
+import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.validation.Valid
@@ -25,15 +25,14 @@ import java.time.LocalDate
 @RequestMapping("api/v1/events")
 @Tag(name = "Event", description = "행사 관련 API")
 class EventController(
-    private val eventService: EventService,
-    private val hostService: HostService
+    private val eventService: EventService
 ) {
 
-    @PostMapping
-    @CreateEventApi
+    @PostMapping("random")
+    @CreateRandomEventApi
     @CommonApiResponses
     @ResponseStatus(HttpStatus.CREATED)
-    fun createEvent() {
+    fun createRandomEvent() {
         // 랜덤 더미 데이터 생성
         val dummyTitles = listOf(
             "응급실 간호실무 향상 워크숍",
@@ -60,11 +59,6 @@ class EventController(
         val randomEventType = eventTypes.random()
         val today = LocalDate.now()
 
-        // Host 찾거나 생성
-        val host = hostService.findOrCreateHost(
-            HostRequest(name = randomHost, thumbnail = null)
-        )
-
         // EventRequest 생성 (필수값만 사용)
         val eventRequest = EventRequest(
             title = randomTitle,
@@ -73,14 +67,22 @@ class EventController(
             recruitmentStartAt = null,
             recruitmentEndAt = null,
             uri = "https://example.com/events/${randomTitle.hashCode().toString().takeLast(6)}",
-            thumbnail = null,
+            eventThumbnail = null,
             eventType = randomEventType,
-            host = host
+            hostName = randomHost,
+            hostThumbnail = null
         )
 
-        // 이벤트 생성 (View도 자동 생성됨)
-        val createdEvent = eventService.createEvent(eventRequest)
+        eventService.createEvent(eventRequest)
     }
+
+    @PostMapping
+    @CreateEventApi
+    @CommonApiResponses
+    @ResponseStatus(HttpStatus.CREATED)
+    fun createEvent(
+        @Valid @RequestBody eventRequest: EventRequest,
+    ) = eventService.createEvent4Admin(eventRequest)
 
     @GetMapping
     @GetEventsApi
@@ -106,4 +108,9 @@ class EventController(
         @Valid @ParameterObject
         param: Event4CalendarRequest
     ): List<EventResponse> = eventService.getEvents4Calendar(param)
+
+    @DeleteMapping("{eventId}")
+    @Operation(summary = "행사 삭제")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    fun deleteEvent(@PathVariable eventId: Long) = eventService.deleteEvent(eventId)
 }

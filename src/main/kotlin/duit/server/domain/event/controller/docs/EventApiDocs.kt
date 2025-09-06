@@ -26,6 +26,45 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement
         )
     ]
 )
+annotation class CreateRandomEventApi
+
+@Target(AnnotationTarget.FUNCTION)
+@Retention(AnnotationRetention.RUNTIME)
+@Operation(
+    summary = "행사 생성",
+    description = """
+관리자가 직접 행사를 생성합니다.
+
+**주의사항:**
+- 이 API는 개발 환경에서만 사용하세요
+- 각 항목 뒤 (선택)이 있는 항목은 선택항목으로 누락가능합니다. 
+
+
+- title : 행사 제목
+- startAt : 행사 시작일
+- endAt : 행사 종료일 (선택)
+- recruitmentStartAt : 모집 시작일 (선택)
+- recruitmentEndAt : 모집 종료일 (선택)
+- uri : 행사 상세 주소
+- eventThumbnail : 행사 썸네일 or 포스터 (선택)
+- eventType : 행사 종류
+  - CONFERENCE("컨퍼런스/학술대회")
+  - SEMINAR("세미나")
+  - WEBINAR("웨비나")
+  - WORKSHOP("워크숍")
+  - CONTEST("공모전")
+  - ETC("기타")
+- hostName : 주최 기관 이름
+"""
+)
+@ApiResponses(
+    value = [
+        ApiResponse(
+            responseCode = "201",
+            description = "이벤트 생성 성공"
+        )
+    ]
+)
 annotation class CreateEventApi
 
 @Target(AnnotationTarget.FUNCTION)
