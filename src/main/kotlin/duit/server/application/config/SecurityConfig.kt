@@ -54,6 +54,8 @@ class SecurityConfig(
                         "/api/v1/auth/token"
                     ).permitAll()
                     .requestMatchers(HttpMethod.GET, "/api/v1/events").permitAll()
+                    .requestMatchers(HttpMethod.POST, "/api/v1/events").permitAll()
+                    .requestMatchers(HttpMethod.DELETE, "/api/v1/events/{eventId}").permitAll()
 
                     // 나머지 모든 요청은 인증 필요
                     .anyRequest().authenticated()

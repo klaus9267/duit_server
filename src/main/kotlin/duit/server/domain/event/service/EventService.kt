@@ -9,6 +9,8 @@ import duit.server.domain.event.dto.EventRequest
 import duit.server.domain.event.dto.EventResponse
 import duit.server.domain.event.entity.Event
 import duit.server.domain.event.repository.EventRepository
+import duit.server.domain.host.dto.HostRequest
+import duit.server.domain.host.service.HostService
 import duit.server.domain.view.service.ViewService
 import duit.server.infrastructure.external.discord.DiscordService
 import jakarta.persistence.EntityNotFoundException
@@ -22,17 +24,35 @@ class EventService(
     private val eventRepository: EventRepository,
     private val viewService: ViewService,
     private val securityUtil: SecurityUtil,
-    private val discordService: DiscordService
+    private val discordService: DiscordService,
+    private val hostService: HostService
 ) {
 
     @Transactional
     fun createEvent(eventRequest: EventRequest): Event {
-        val event = eventRepository.save(eventRequest.toEntity())
+        val host = hostService.findOrCreateHost(
+            HostRequest(name = eventRequest.hostName, thumbnail = null)
+        )
+        val event = eventRepository.save(eventRequest.toEntity(host))
         viewService.createView(event)
 
         discordService.sendNewEventNotification(event)
 
         return event
+    }
+
+    @Transactional
+    fun createEvent4Admin(eventRequest: EventRequest): Event {
+        val host = hostService.findOrCreateHost(
+            HostRequest(name = eventRequest.hostName, thumbnail = null)
+        )
+        val event = eventRequest.toEntity(host)
+        event.isApproved = true
+        val savedEvent = eventRepository.save(event)
+
+        viewService.createView(event)
+
+        return savedEvent
     }
 
     fun getEvent(eventId: Long): Event =
@@ -91,4 +111,7 @@ class EventService(
         // 모든 캘린더 이벤트는 북마크된 이벤트이므로 true로 설정
         return events.map { EventResponse.from(it, true) }
     }
+
+    @Transactional
+    fun deleteEvent(eventId: Long) = eventRepository.deleteById(eventId)
 }
