@@ -5,7 +5,7 @@ import duit.server.domain.common.docs.CommonApiResponses
 import duit.server.domain.user.controller.docs.CheckNicknameDuplicateApi
 import duit.server.domain.user.controller.docs.GetCurrentUserApi
 import duit.server.domain.user.controller.docs.UpdateCurrentUserNicknameApi
-import duit.server.domain.user.controller.docs.WithdrawApi
+import duit.server.domain.user.controller.docs.UpdateDevice
 import duit.server.domain.user.dto.UpdateNicknameRequest
 import duit.server.domain.user.dto.UserResponse
 import duit.server.domain.user.service.UserService
@@ -47,8 +47,15 @@ class UserController(
         @Valid @RequestBody request: UpdateNicknameRequest
     ): UserResponse = userService.updateCurrentUserNickname(request)
 
+    @PatchMapping("/device/{token}")
+    @UpdateCurrentUserNicknameApi
+    @AuthApiResponses
+    @CommonApiResponses
+    @ResponseStatus(HttpStatus.OK)
+    fun updateDevice(@PathVariable token: String) = userService.updateDevice(token)
+
     @DeleteMapping("/{userId}")
-    @WithdrawApi
+    @UpdateDevice
     @AuthApiResponses
     @CommonApiResponses
     @ResponseStatus(HttpStatus.NO_CONTENT)
