@@ -35,6 +35,7 @@ data class EventRequest(
     @field:NotNull
     val uri: String,
 
+    @Hidden
     val eventThumbnail: String?,
 
     @field:NotNull
