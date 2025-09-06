@@ -18,6 +18,7 @@ class User(
     val providerId: String? = null,
     val allowPushAlarm: Boolean = true,
     val allowMarketingAlarm: Boolean = true,
+    var deviceToken: String? = null,
 
     @CreatedDate
     val createdAt: LocalDateTime = LocalDateTime.now(),
@@ -27,7 +28,7 @@ class User(
 ) {
     @OneToMany(mappedBy = "user", cascade = [CascadeType.ALL], orphanRemoval = true)
     val bookmarks: MutableList<Bookmark> = mutableListOf()
-    
+
     /**
      * 닉네임 업데이트
      */
