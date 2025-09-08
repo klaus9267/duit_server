@@ -9,6 +9,9 @@ import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
 import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
+import org.hibernate.annotations.UpdateTimestamp
+import org.springframework.data.annotation.CreatedDate
+import java.time.LocalDateTime
 
 @Entity
 @Table(name = "bookmarks")
@@ -21,6 +24,8 @@ class Bookmark(
     val user: User,
 
     @ManyToOne(fetch = FetchType.LAZY)
-    val event: Event
+    val event: Event,
+
+    var isAddedToCalendar: Boolean = false,
 ) {
 }
