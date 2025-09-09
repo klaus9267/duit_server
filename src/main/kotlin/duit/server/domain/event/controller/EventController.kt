@@ -2,10 +2,7 @@ package duit.server.domain.event.controller
 
 import duit.server.domain.common.docs.AuthApiResponses
 import duit.server.domain.common.docs.CommonApiResponses
-import duit.server.domain.event.controller.docs.CreateEventApi
-import duit.server.domain.event.controller.docs.CreateRandomEventApi
-import duit.server.domain.event.controller.docs.GetEventsApi
-import duit.server.domain.event.controller.docs.GetEventsForCalendarApi
+import duit.server.domain.event.controller.docs.*
 import duit.server.domain.event.dto.Event4CalendarRequest
 import duit.server.domain.event.dto.EventPaginationParam
 import duit.server.domain.event.dto.EventRequest
@@ -108,6 +105,13 @@ class EventController(
         @Valid @ParameterObject
         param: Event4CalendarRequest
     ): List<EventResponse> = eventService.getEvents4Calendar(param)
+
+    @PatchMapping("{eventId}/approve")
+    @ApproveEventApi
+    @CommonApiResponses
+    @AuthApiResponses
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    fun approveEvent(@PathVariable eventId: Long) = eventService.approveEvent(eventId)
 
     @DeleteMapping("{eventId}")
     @Operation(summary = "행사 삭제")

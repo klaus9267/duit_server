@@ -1,5 +1,6 @@
 package duit.server.domain.event.service
 
+import duit.server.application.scheduler.EventAlarmScheduler
 import duit.server.application.security.SecurityUtil
 import duit.server.domain.common.dto.pagination.PageInfo
 import duit.server.domain.common.dto.pagination.PageResponse
@@ -25,7 +26,8 @@ class EventService(
     private val viewService: ViewService,
     private val securityUtil: SecurityUtil,
     private val discordService: DiscordService,
-    private val hostService: HostService
+    private val hostService: HostService,
+    private val eventAlarmScheduler: EventAlarmScheduler
 ) {
 
     @Transactional
@@ -114,4 +116,19 @@ class EventService(
 
     @Transactional
     fun deleteEvent(eventId: Long) = eventRepository.deleteById(eventId)
+
+    /**
+     * 행사 승인
+     */
+    @Transactional
+    fun approveEvent(eventId: Long) {
+        val event = getEvent(eventId)
+
+        if (event.isApproved) {
+            throw IllegalStateException("이미 승인된 행사입니다: $eventId")
+        }
+
+        event.isApproved = true
+        eventRepository.save(event)
+    }
 }

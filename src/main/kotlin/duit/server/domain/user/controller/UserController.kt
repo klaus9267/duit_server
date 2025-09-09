@@ -5,8 +5,9 @@ import duit.server.domain.common.docs.CommonApiResponses
 import duit.server.domain.user.controller.docs.CheckNicknameDuplicateApi
 import duit.server.domain.user.controller.docs.GetCurrentUserApi
 import duit.server.domain.user.controller.docs.UpdateCurrentUserNicknameApi
-import duit.server.domain.user.controller.docs.WithdrawApi
+import duit.server.domain.user.controller.docs.UpdateDevice
 import duit.server.domain.user.dto.UpdateNicknameRequest
+import duit.server.domain.user.dto.UpdateUserSettingsRequest
 import duit.server.domain.user.dto.UserResponse
 import duit.server.domain.user.service.UserService
 import io.swagger.v3.oas.annotations.Parameter
@@ -47,8 +48,27 @@ class UserController(
         @Valid @RequestBody request: UpdateNicknameRequest
     ): UserResponse = userService.updateCurrentUserNickname(request)
 
+    @PatchMapping("/device/{token}")
+    @UpdateDevice
+    @AuthApiResponses
+    @CommonApiResponses
+    @ResponseStatus(HttpStatus.OK)
+    fun updateDevice(@PathVariable token: String) = userService.updateDevice(token)
+
+    @PatchMapping("/settings")
+    @io.swagger.v3.oas.annotations.Operation(
+        summary = "사용자 설정 수정", 
+        description = "현재 사용자의 알림 설정 및 캘린더 자동 추가 설정을 수정합니다."
+    )
+    @AuthApiResponses
+    @CommonApiResponses
+    @ResponseStatus(HttpStatus.OK)
+    fun updateUserSettings(
+        @Valid @RequestBody request: UpdateUserSettingsRequest
+    ): UserResponse = userService.updateUserSettings(request)
+
     @DeleteMapping("/{userId}")
-    @WithdrawApi
+    @UpdateDevice
     @AuthApiResponses
     @CommonApiResponses
     @ResponseStatus(HttpStatus.NO_CONTENT)

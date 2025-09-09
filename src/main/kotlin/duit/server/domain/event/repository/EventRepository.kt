@@ -7,6 +7,7 @@ import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
 import java.time.LocalDate
+import java.time.LocalDateTime
 
 interface EventRepository : JpaRepository<Event, Long> {
     @Query(
@@ -66,4 +67,30 @@ interface EventRepository : JpaRepository<Event, Long> {
         endDate: LocalDate,
         eventType: EventType?
     ): List<Event>
+
+    @Query(
+        """
+        SELECT DISTINCT e
+        FROM Event e
+        JOIN FETCH e.host
+        WHERE e.isApproved = true
+        AND e.startAt = :today
+        ORDER BY e.startAt ASC
+        """
+    )
+    fun findEventsStartingToday(today: LocalDate): List<Event>
+
+    @Query(
+        """
+        SELECT DISTINCT e
+        FROM Event e
+        JOIN FETCH e.host
+        WHERE e.isApproved = true
+        AND e.recruitmentStartAt >= :today
+        AND e.recruitmentStartAt < :nextDay
+        AND e.recruitmentStartAt IS NOT NULL
+        ORDER BY e.recruitmentStartAt ASC
+        """
+    )
+    fun findRecruitmentStartingToday(today: LocalDateTime, nextDay: LocalDateTime): List<Event>
 }

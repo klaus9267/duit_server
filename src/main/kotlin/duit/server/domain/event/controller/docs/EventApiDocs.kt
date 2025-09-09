@@ -1,6 +1,9 @@
 package duit.server.domain.event.controller.docs
 
+import duit.server.domain.event.dto.EventResponse
 import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.media.Content
+import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.responses.ApiResponses
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
@@ -123,3 +126,30 @@ annotation class GetEventsApi
     ]
 )
 annotation class GetEventsForCalendarApi
+
+@Operation(
+    summary = "행사 승인",
+    description = "미승인 상태의 행사를 승인 상태로 변경합니다. 승인 완료 시 Discord 및 FCM 알림이 전송됩니다."
+)
+@ApiResponses(
+    value = [
+        ApiResponse(
+            responseCode = "200",
+            description = "행사 승인 성공",
+            content = [Content(schema = Schema(implementation = EventResponse::class))]
+        ),
+        ApiResponse(
+            responseCode = "404",
+            description = "행사를 찾을 수 없음",
+            content = [Content()]
+        ),
+        ApiResponse(
+            responseCode = "400",
+            description = "이미 승인된 행사",
+            content = [Content()]
+        )
+    ]
+)
+@Target(AnnotationTarget.FUNCTION)
+@Retention(AnnotationRetention.RUNTIME)
+annotation class ApproveEventApi

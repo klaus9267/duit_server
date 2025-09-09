@@ -154,3 +154,12 @@ annotation class UpdateCurrentUserNicknameApi
     ]
 )
 annotation class WithdrawApi
+
+@Target(AnnotationTarget.FUNCTION)
+@Retention(AnnotationRetention.RUNTIME)
+@Operation(
+    summary = "사용자 기기 등록 / 수정",
+    description = """현재 로그인한 사용자의 기기를 등록 / 수정합니다.""",
+    security = [SecurityRequirement(name = "bearerAuth")]
+)
+annotation class UpdateDevice

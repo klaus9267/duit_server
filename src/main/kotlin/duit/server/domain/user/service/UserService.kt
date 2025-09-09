@@ -1,11 +1,12 @@
 package duit.server.domain.user.service
 
-import duit.server.domain.user.dto.UpdateNicknameRequest
-import duit.server.domain.user.dto.UserResponse
 import duit.server.application.security.SecurityUtil
+import duit.server.domain.user.dto.UpdateNicknameRequest
+import duit.server.domain.user.dto.UpdateUserSettingsRequest
+import duit.server.domain.user.dto.UserResponse
 import duit.server.domain.user.entity.User
-import jakarta.persistence.EntityNotFoundException
 import duit.server.domain.user.repository.UserRepository
+import jakarta.persistence.EntityNotFoundException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -46,6 +47,27 @@ class UserService(
         }
 
         user.updateNickname(request.nickname)
+        return UserResponse.from(user)
+    }
+
+    @Transactional
+    fun updateDevice(token: String) {
+        val currentUserId = securityUtil.getCurrentUserId()
+        val user = findUserById(currentUserId)
+        user.deviceToken = token
+    }
+
+    /**
+     * 현재 사용자 설정 통합 수정 (알림 + 캘린더)
+     */
+    @Transactional
+    fun updateUserSettings(request: UpdateUserSettingsRequest): UserResponse {
+        val currentUserId = securityUtil.getCurrentUserId()
+        val user = findUserById(currentUserId)
+        user.updateSettings(
+            newAlarmSettings = request.alarmSettings.toAlarmSettings(),
+            autoAddBookmarkToCalendar = request.autoAddBookmarkToCalendar
+        )
         return UserResponse.from(user)
     }
 

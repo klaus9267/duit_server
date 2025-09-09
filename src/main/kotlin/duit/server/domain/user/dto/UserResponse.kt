@@ -1,5 +1,6 @@
 package duit.server.domain.user.dto
 
+import duit.server.domain.user.entity.AlarmSettings
 import duit.server.domain.user.entity.User
 
 data class UserResponse(
@@ -7,8 +8,8 @@ data class UserResponse(
     val email: String?,
     val nickname: String,
     val providerId: String,
-    val allowPushAlarm: Boolean,
-    val allowMarketingAlarm: Boolean,
+    val autoAddBookmarkToCalendar: Boolean,
+    val alarmSettings: AlarmSettings,
 ) {
     companion object {
         fun from(user: User) =
@@ -17,8 +18,8 @@ data class UserResponse(
                 email = user.email,
                 nickname = user.nickname,
                 providerId = user.providerId!!,
-                allowPushAlarm = user.allowPushAlarm,
-                allowMarketingAlarm = user.allowMarketingAlarm
+                autoAddBookmarkToCalendar = user.autoAddBookmarkToCalendar,
+                alarmSettings = user.alarmSettings
             )
     }
 }

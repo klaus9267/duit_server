@@ -41,6 +41,12 @@ class BookmarkService(
                 event = event,
                 user = currentUser
             )
+
+            // 사용자가 자동 캘린더 추가를 설정한 경우
+            if (currentUser.autoAddBookmarkToCalendar) {
+                newBookmark.isAddedToCalendar = true
+            }
+
             bookmarkRepository.save(newBookmark)
             true
         }
