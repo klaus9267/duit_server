@@ -25,7 +25,7 @@ class EventService(
     private val viewService: ViewService,
     private val securityUtil: SecurityUtil,
     private val discordService: DiscordService,
-    private val hostService: HostService
+    private val hostService: HostService,
 ) {
 
     @Transactional
@@ -114,4 +114,21 @@ class EventService(
 
     @Transactional
     fun deleteEvent(eventId: Long) = eventRepository.deleteById(eventId)
+
+    /**
+     * 행사 승인
+     */
+    @Transactional
+    fun approveEvent(eventId: Long): Event {
+        val event = getEvent(eventId)
+
+        if (event.isApproved) {
+            throw IllegalStateException("이미 승인된 행사입니다: $eventId")
+        }
+
+        event.isApproved = true
+        val approvedEvent = eventRepository.save(event)
+
+        return approvedEvent
+    }
 }
