@@ -1,5 +1,6 @@
 package duit.server.domain.event.service
 
+import duit.server.application.scheduler.EventAlarmScheduler
 import duit.server.application.security.SecurityUtil
 import duit.server.domain.common.dto.pagination.PageInfo
 import duit.server.domain.common.dto.pagination.PageResponse
@@ -26,6 +27,7 @@ class EventService(
     private val securityUtil: SecurityUtil,
     private val discordService: DiscordService,
     private val hostService: HostService,
+    private val eventAlarmScheduler: EventAlarmScheduler
 ) {
 
     @Transactional
@@ -119,7 +121,7 @@ class EventService(
      * 행사 승인
      */
     @Transactional
-    fun approveEvent(eventId: Long): Event {
+    fun approveEvent(eventId: Long) {
         val event = getEvent(eventId)
 
         if (event.isApproved) {
@@ -127,8 +129,6 @@ class EventService(
         }
 
         event.isApproved = true
-        val approvedEvent = eventRepository.save(event)
-
-        return approvedEvent
+        eventRepository.save(event)
     }
 }

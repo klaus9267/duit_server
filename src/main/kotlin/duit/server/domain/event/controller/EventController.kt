@@ -110,11 +110,8 @@ class EventController(
     @ApproveEventApi
     @CommonApiResponses
     @AuthApiResponses
-    @ResponseStatus(HttpStatus.OK)
-    fun approveEvent(@PathVariable eventId: Long): EventResponse {
-        val approvedEvent = eventService.approveEvent(eventId)
-        return EventResponse.from(approvedEvent)
-    }
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    fun approveEvent(@PathVariable eventId: Long) = eventService.approveEvent(eventId)
 
     @DeleteMapping("{eventId}")
     @Operation(summary = "행사 삭제")
