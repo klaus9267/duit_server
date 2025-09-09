@@ -35,7 +35,7 @@ class AlarmController(
             throw RuntimeException("디바이스 토큰이 없습니다")
         }
 
-        fcmService.sendNotification(
+        fcmService.sendAlarm(
             deviceToken = user.deviceToken!!,
             title = title,
             body = body,
