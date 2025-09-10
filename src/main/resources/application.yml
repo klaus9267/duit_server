@@ -9,6 +9,7 @@ spring:
   jackson:
     serialization:
       indent-output: true
+    time-zone: Asia/Seoul
 
 # JWT 설정
 jwt:
