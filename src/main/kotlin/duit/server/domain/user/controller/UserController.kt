@@ -6,6 +6,7 @@ import duit.server.domain.user.controller.docs.CheckNicknameDuplicateApi
 import duit.server.domain.user.controller.docs.GetCurrentUserApi
 import duit.server.domain.user.controller.docs.UpdateCurrentUserNicknameApi
 import duit.server.domain.user.controller.docs.UpdateDevice
+import duit.server.domain.user.controller.docs.WithdrawApi
 import duit.server.domain.user.dto.UpdateNicknameRequest
 import duit.server.domain.user.dto.UpdateUserSettingsRequest
 import duit.server.domain.user.dto.UserResponse
@@ -68,7 +69,7 @@ class UserController(
     ): UserResponse = userService.updateUserSettings(request)
 
     @DeleteMapping("/{userId}")
-    @UpdateDevice
+    @WithdrawApi
     @AuthApiResponses
     @CommonApiResponses
     @ResponseStatus(HttpStatus.NO_CONTENT)

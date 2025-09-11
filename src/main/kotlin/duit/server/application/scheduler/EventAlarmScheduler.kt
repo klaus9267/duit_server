@@ -50,7 +50,7 @@ class EventAlarmScheduler(
         recruitmentEvents.forEach { event ->
             event.recruitmentStartAt?.let { recruitmentStartTime ->
                 if (recruitmentStartTime.isAfter(LocalDateTime.now())) {
-                    val instant = recruitmentStartTime.atZone(ZoneId.systemDefault()).toInstant()
+                    val instant = recruitmentStartTime.atZone(ZoneId.of("Asia/Seoul")).toInstant()
 
                     taskScheduler.schedule({
                         alarmService.sendAlarm(AlarmType.RECRUITMENT_START, event)
@@ -67,10 +67,9 @@ class EventAlarmScheduler(
         val startingEvents = eventRepository.findEventsStartingToday(today)
 
         startingEvents.forEach { event ->
-            // 행사 시작일 오전 9시에 알림 (설정 가능)
             val alarmTime = today.atTime(9, 0)
             if (alarmTime.isAfter(LocalDateTime.now())) {
-                val instant = alarmTime.atZone(ZoneId.systemDefault()).toInstant()
+                val instant = alarmTime.atZone(ZoneId.of("Asia/Seoul")).toInstant()
 
                 taskScheduler.schedule({
                     alarmService.sendAlarm(AlarmType.EVENT_START, event)
