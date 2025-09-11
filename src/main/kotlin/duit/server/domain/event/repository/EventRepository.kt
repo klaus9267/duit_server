@@ -12,7 +12,7 @@ import java.time.LocalDateTime
 interface EventRepository : JpaRepository<Event, Long> {
     @Query(
         """
-        SELECT DISTINCT e
+        SELECT e
         FROM Event e
         JOIN e.host h
         LEFT JOIN e.view v
@@ -23,6 +23,7 @@ interface EventRepository : JpaRepository<Event, Long> {
         AND (:includeFinished = true OR (e.endAt IS NOT NULL AND e.endAt >= CURRENT_DATE) OR (e.endAt IS NULL AND e.startAt >= CURRENT_DATE))
         AND (:searchKeyword IS NULL OR e.title LIKE %:searchKeyword% OR h.name LIKE %:searchKeyword%)
         AND (:isBookmarked = false OR b.id IS NOT NULL)
+        GROUP BY e.id
         """
     )
     fun findWithFilter(
