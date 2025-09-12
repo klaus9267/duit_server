@@ -28,4 +28,28 @@ data class EventPaginationParam(
     @field:Schema(description = "검색 키워드 (제목, 주최기관명 검색)")
     val searchKeyword: String?
 
-) : PaginationParam(page, size, sortDirection, field)
+) : PaginationParam(page, size, sortDirection, field) {
+    fun toFilter(
+        currentUserId: Long?,
+        isApproved: Boolean = true,
+        isBookmarked: Boolean = false,
+        includeFinished: Boolean = false
+    ): EventSearchFilter {
+        val sortField = this.field?.displayName?.lowercase()
+        val sortDirection = this.sortDirection?.name?.lowercase() ?: "asc"
+        val eventTypesString = this.type?.joinToString(",") { it.name }
+
+        return EventSearchFilter(
+            eventTypes = eventTypesString,
+            hostId = this.hostId,
+            isApproved = isApproved,
+            isBookmarked = isBookmarked,
+            includeFinished = includeFinished,
+            searchKeyword = this.searchKeyword,
+            userId = currentUserId,
+            sortField = sortField,
+            sortDirection = sortDirection
+        )
+    }
+}
+
