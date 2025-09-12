@@ -27,5 +27,11 @@ class Bookmark(
     val event: Event,
 
     var isAddedToCalendar: Boolean = false,
+
+    @CreatedDate
+    val createdAt: LocalDateTime = LocalDateTime.now(),
+
+    @UpdateTimestamp
+    var updatedAt: LocalDateTime = LocalDateTime.now(),
 ) {
 }
