@@ -15,6 +15,7 @@ import duit.server.domain.host.service.HostService
 import duit.server.domain.view.service.ViewService
 import duit.server.infrastructure.external.discord.DiscordService
 import jakarta.persistence.EntityNotFoundException
+import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDate
@@ -74,16 +75,19 @@ class EventService(
             null // 비로그인 사용자
         }
 
-        val events = eventRepository.findWithFilter(
-            param.type,
-            param.hostId,
-            isApproved ?: true,
-            isBookmarked ?: false,
-            includeFinished ?: false,
-            param.searchKeyword,
-            currentUserId,
-            param.toPageable()
+        // Sort 없는 Pageable 생성 (네이티브 쿼리에서 ORDER BY 처리하므로)
+        val pageable = PageRequest.of(
+            param.page ?: 0,
+            param.size ?: 10
         )
+        val filter = param.toFilter(
+            currentUserId = currentUserId,
+            isApproved = isApproved ?: true,
+            isBookmarked = isBookmarked ?: false,
+            includeFinished = includeFinished ?: false
+        )
+
+        val events = eventRepository.findWithFilter(filter, pageable)
 
         // 인증된 사용자의 경우 북마크 정보 포함
 
@@ -103,6 +107,7 @@ class EventService(
             pageInfo = PageInfo.from(events)
         )
     }
+
 
     fun getEvents4Calendar(request: Event4CalendarRequest): List<EventResponse> {
         val currentUserId = securityUtil.getCurrentUserId()
