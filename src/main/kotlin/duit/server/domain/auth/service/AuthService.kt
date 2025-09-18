@@ -1,6 +1,7 @@
 package duit.server.domain.auth.service
 
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseToken
 import duit.server.application.security.JwtTokenProvider
 import duit.server.domain.auth.dto.AuthResponse
 import duit.server.domain.user.dto.UserResponse
@@ -22,13 +23,16 @@ class AuthService(
     fun socialLogin(idToken: String): AuthResponse {
         val token = firebaseAuth.verifyIdToken(idToken)
         val existingUser = userRepository.findByProviderId(token.uid)
+        val userRecord = FirebaseAuth.getInstance().getUser(token.uid)
+        
         val user = existingUser ?: run {
+            val providerType = determineProviderType(token)
             val newUser = User(
-                email = token.email,
+                email = userRecord.providerData.first().email,
                 nickname = generateNickname(
                     token.name ?: token.email?.substringBefore("@") ?: "사용자"
                 ),
-                providerType = ProviderType.KAKAO,
+                providerType = providerType,
                 providerId = token.uid
             )
             userRepository.save(newUser)
@@ -53,5 +57,23 @@ class AuthService(
         }
 
         return nickname
+    }
+
+    /**
+     * Firebase 토큰에서 프로바이더 타입을 결정합니다.
+     */
+    private fun determineProviderType(token: FirebaseToken): ProviderType {
+        val providerId = token.claims["firebase"]?.let {
+            (it as? Map<*, *>)?.get("sign_in_provider") as? String
+        }
+
+        return when {
+            providerId == "google.com" -> ProviderType.GOOGLE
+            providerId == "apple.com" -> ProviderType.APPLE
+            providerId == "oidc.kakao" -> ProviderType.KAKAO
+            else -> {
+                throw RuntimeException("")
+            }
+        }
     }
 }
