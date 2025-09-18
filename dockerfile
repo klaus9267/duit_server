@@ -1,7 +1,7 @@
 FROM gradle:8.14.3-jdk17 AS builder
 
 WORKDIR /app
-COPY docker .
+COPY . .
 RUN chmod +x gradlew && ./gradlew bootJar
 
 FROM openjdk:17.0.2-jdk
