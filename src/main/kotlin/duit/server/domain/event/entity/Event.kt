@@ -3,13 +3,15 @@ package duit.server.domain.event.entity
 import duit.server.domain.host.entity.Host
 import duit.server.domain.view.entity.View
 import jakarta.persistence.*
-import org.hibernate.annotations.UpdateTimestamp
 import org.springframework.data.annotation.CreatedDate
+import org.springframework.data.annotation.LastModifiedDate
+import org.springframework.data.jpa.domain.support.AuditingEntityListener
 import java.time.LocalDate
 import java.time.LocalDateTime
 
 @Entity
 @Table(name = "events")
+@EntityListeners(AuditingEntityListener::class)
 class Event(
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -29,7 +31,7 @@ class Event(
     @CreatedDate
     val createdAt: LocalDateTime = LocalDateTime.now(),
 
-    @UpdateTimestamp
+    @LastModifiedDate
     var updatedAt: LocalDateTime = LocalDateTime.now(),
 
     @ManyToOne(fetch = FetchType.LAZY)

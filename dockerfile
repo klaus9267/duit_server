@@ -1,7 +1,7 @@
 FROM gradle:8.14.3-jdk17 AS builder
 
 WORKDIR /app
-COPY . .
+COPY docker .
 RUN chmod +x gradlew && ./gradlew bootJar
 
 FROM openjdk:17.0.2-jdk
@@ -14,3 +14,4 @@ COPY --from=builder /app/build/libs/*.jar app.jar
 EXPOSE 8080
 
 ENTRYPOINT ["java", "-jar", "app.jar"]
+

@@ -10,7 +10,7 @@
 *.iws
 
 # Build
-build/
+#build/
 target/
 .gradle/
 
@@ -20,7 +20,7 @@ Thumbs.db
 *.log
 
 # Docker
-Dockerfile
+dockerfile-local
 docker-compose*.yml
 .dockerignore
 

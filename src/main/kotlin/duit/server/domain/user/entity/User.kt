@@ -2,12 +2,14 @@ package duit.server.domain.user.entity
 
 import duit.server.domain.bookmark.entity.Bookmark
 import jakarta.persistence.*
-import org.hibernate.annotations.UpdateTimestamp
 import org.springframework.data.annotation.CreatedDate
+import org.springframework.data.annotation.LastModifiedDate
+import org.springframework.data.jpa.domain.support.AuditingEntityListener
 import java.time.LocalDateTime
 
 @Entity
 @Table(name = "users")
+@EntityListeners(AuditingEntityListener::class)
 class User(
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -24,7 +26,7 @@ class User(
     @CreatedDate
     val createdAt: LocalDateTime = LocalDateTime.now(),
 
-    @UpdateTimestamp
+    @LastModifiedDate
     var updatedAt: LocalDateTime = LocalDateTime.now(),
 ) {
     @OneToMany(mappedBy = "user", cascade = [CascadeType.ALL], orphanRemoval = true)
