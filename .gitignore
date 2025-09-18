@@ -44,7 +44,6 @@ out/
 
 ### Environment Variables ###
 .env
-docker/.env
 docker/.env.*
 !docker/.env.example
 
