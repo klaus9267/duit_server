@@ -46,8 +46,8 @@ class AlarmService(
     ): Triple<String, String, Map<String, String>> {
         return when (alarmType) {
             AlarmType.EVENT_START -> Triple(
-                "북마크한 행사가 시작됩니다",
-                "[${event.host.name}] ${event.title}",
+                "내일 북마크한 행사가 시작됩니다 ",
+                "듀근 듀근 ☺️❤️ [${event.title}]가 내일 시작됩니다! ",
                 mapOf(
                     "type" to "event_start",
                     "eventId" to event.id.toString(),
@@ -56,8 +56,18 @@ class AlarmService(
             )
 
             AlarmType.RECRUITMENT_START -> Triple(
-                "관심 행사 모집이 시작되었습니다",
-                "[${event.host.name}] ${event.title}",
+                "내일 북마크한 행사의 모집이 시작됩니다",
+                "\uD83D\uDCE2[${event.title}]의 모집이 내일 ${event.recruitmentStartAt}시부터 시작됩니다! 잊지말고 신청하세요!",
+                mapOf(
+                    "type" to "recruitment_start",
+                    "eventId" to event.id.toString(),
+                    "hostName" to event.host.name
+                )
+            )
+
+            AlarmType.RECRUITMENT_END -> Triple(
+                "내일 북마크한 행사의 모집이 마감됩니다.",
+                "⏰[${event.title}]의 모집이 내일 ${event.recruitmentEndAt}시에 마감됩니다. 잊진 않으셨죠?🫨",
                 mapOf(
                     "type" to "recruitment_start",
                     "eventId" to event.id.toString(),

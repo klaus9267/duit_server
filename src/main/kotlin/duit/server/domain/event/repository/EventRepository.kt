@@ -110,11 +110,11 @@ interface EventRepository : JpaRepository<Event, Long> {
         FROM Event e
         JOIN FETCH e.host
         WHERE e.isApproved = true
-        AND e.startAt = :today
+        AND e.startAt = :tomorrow
         ORDER BY e.startAt ASC
         """
     )
-    fun findEventsStartingToday(today: LocalDate): List<Event>
+    fun findEventsStartingTomorrow(tomorrow: LocalDate): List<Event>
 
     @Query(
         """
@@ -122,11 +122,25 @@ interface EventRepository : JpaRepository<Event, Long> {
         FROM Event e
         JOIN FETCH e.host
         WHERE e.isApproved = true
-        AND e.recruitmentStartAt >= :today
+        AND e.recruitmentStartAt >= :tomorrow
         AND e.recruitmentStartAt < :nextDay
         AND e.recruitmentStartAt IS NOT NULL
         ORDER BY e.recruitmentStartAt ASC
         """
     )
-    fun findRecruitmentStartingToday(today: LocalDateTime, nextDay: LocalDateTime): List<Event>
+    fun findRecruitmentStartingTomorrow(tomorrow: LocalDateTime, nextDay: LocalDateTime): List<Event>
+
+    @Query(
+        """
+        SELECT DISTINCT e
+        FROM Event e
+        JOIN FETCH e.host
+        WHERE e.isApproved = true
+        AND e.recruitmentEndAt >= :tomorrow
+        AND e.recruitmentEndAt < :nextDay
+        AND e.recruitmentEndAt IS NOT NULL
+        ORDER BY e.recruitmentEndAt ASC
+        """
+    )
+    fun findRecruitmentEndingTomorrow(tomorrow: LocalDateTime, nextDay: LocalDateTime): List<Event>
 }
