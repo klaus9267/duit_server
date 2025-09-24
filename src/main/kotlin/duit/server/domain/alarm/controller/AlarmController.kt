@@ -1,8 +1,11 @@
 package duit.server.domain.alarm.controller
 
 import duit.server.application.security.SecurityUtil
+import duit.server.domain.alarm.entity.AlarmType
+import duit.server.domain.alarm.service.AlarmService
 import duit.server.domain.common.docs.AuthApiResponses
 import duit.server.domain.common.docs.CommonApiResponses
+import duit.server.domain.event.service.EventService
 import duit.server.domain.user.service.UserService
 import duit.server.infrastructure.external.firebase.FCMService
 import io.swagger.v3.oas.annotations.Operation
@@ -16,7 +19,9 @@ import org.springframework.web.bind.annotation.*
 class AlarmController(
     private val fcmService: FCMService,
     private val securityUtil: SecurityUtil,
-    private val userService: UserService
+    private val userService: UserService,
+    private val alarmService: AlarmService,
+    private val eventService: EventService
 ) {
 
     @PostMapping("/test/custom")
@@ -41,5 +46,26 @@ class AlarmController(
             body = body,
             data = mapOf("type" to "custom_test")
         )
+    }
+
+    @PostMapping("/test/custom2")
+    @Operation(summary = "푸시 알림 테스트", description = "현재 로그인한 사용자의 디바이스로 특정 행사 푸시 알림을 전송합니다.")
+    @AuthApiResponses
+    @CommonApiResponses
+    @ResponseStatus(HttpStatus.OK)
+    fun sendCustomTestNotification2(
+        @RequestParam alarmType: AlarmType,
+        @RequestParam eventId: Long,
+    ) {
+        val currentUserId = securityUtil.getCurrentUserId()
+        val user = userService.findUserById(currentUserId)
+
+        if (user.deviceToken.isNullOrBlank()) {
+            throw RuntimeException("디바이스 토큰이 없습니다")
+        }
+
+        val event = eventService.getEvent(eventId)
+
+        alarmService.sendAlarm(alarmType, event)
     }
 }

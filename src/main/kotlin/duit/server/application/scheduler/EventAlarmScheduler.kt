@@ -25,9 +25,10 @@ class EventAlarmScheduler(
      */
     @Scheduled(cron = "0 0 0 * * *")
     fun scheduleDailyAlarms() {
-        val today = LocalDate.now()
+        val today = LocalDate.now().plusDays(1)
 
         scheduleRecruitmentStartAlarms(today)
+        scheduleRecruitmentEndAlarms(today)
         scheduleEventStartAlarms(today)
     }
 
@@ -40,12 +41,12 @@ class EventAlarmScheduler(
     }
 
     /**
-     * 오늘 모집 시작하는 행사들의 알림 스케줄링
+     * 내일 모집 시작하는 행사들의 알림 스케줄링
      */
-    private fun scheduleRecruitmentStartAlarms(today: LocalDate) {
-        val startOfDay = today.atStartOfDay()
-        val startOfNextDay = today.plusDays(1).atStartOfDay()
-        val recruitmentEvents = eventRepository.findRecruitmentStartingToday(startOfDay, startOfNextDay)
+    private fun scheduleRecruitmentStartAlarms(tomorrow: LocalDate) {
+        val startOfDay = tomorrow.atStartOfDay()
+        val startOfNextDay = tomorrow.plusDays(1).atStartOfDay()
+        val recruitmentEvents = eventRepository.findRecruitmentStartingTomorrow(startOfDay, startOfNextDay)
 
         recruitmentEvents.forEach { event ->
             event.recruitmentStartAt?.let { recruitmentStartTime ->
@@ -61,13 +62,34 @@ class EventAlarmScheduler(
     }
 
     /**
-     * 오늘 시작하는 행사들의 알림 스케줄링
+     * 내일 모집 마감하는 행사들의 알림 스케줄링
      */
-    private fun scheduleEventStartAlarms(today: LocalDate) {
-        val startingEvents = eventRepository.findEventsStartingToday(today)
+    private fun scheduleRecruitmentEndAlarms(tomorrow: LocalDate) {
+        val startOfDay = tomorrow.atStartOfDay()
+        val startOfNextDay = tomorrow.plusDays(1).atStartOfDay()
+        val recruitmentEvents = eventRepository.findRecruitmentEndingTomorrow(startOfDay, startOfNextDay)
+
+        recruitmentEvents.forEach { event ->
+            event.recruitmentEndAt?.let { recruitmentEndTime ->
+                if (recruitmentEndTime.isAfter(LocalDateTime.now())) {
+                    val instant = recruitmentEndTime.atZone(ZoneId.of("Asia/Seoul")).toInstant()
+
+                    taskScheduler.schedule({
+                        alarmService.sendAlarm(AlarmType.RECRUITMENT_END, event)
+                    }, instant)
+                }
+            }
+        }
+    }
+
+    /**
+     * 내일 시작하는 행사들의 알림 스케줄링
+     */
+    private fun scheduleEventStartAlarms(tomorrow: LocalDate) {
+        val startingEvents = eventRepository.findEventsStartingTomorrow(tomorrow)
 
         startingEvents.forEach { event ->
-            val alarmTime = today.atTime(9, 0)
+            val alarmTime = tomorrow.atTime(9, 0)
             if (alarmTime.isAfter(LocalDateTime.now())) {
                 val instant = alarmTime.atZone(ZoneId.of("Asia/Seoul")).toInstant()
 
