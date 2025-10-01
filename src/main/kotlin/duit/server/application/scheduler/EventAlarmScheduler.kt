@@ -25,11 +25,11 @@ class EventAlarmScheduler(
      */
     @Scheduled(cron = "0 0 0 * * *")
     fun scheduleDailyAlarms() {
-        val today = LocalDate.now().plusDays(1)
+        val tomorrow = LocalDate.now().plusDays(1)
 
-        scheduleRecruitmentStartAlarms(today)
-        scheduleRecruitmentEndAlarms(today)
-        scheduleEventStartAlarms(today)
+        scheduleRecruitmentStartAlarms(tomorrow)
+        scheduleRecruitmentEndAlarms(tomorrow)
+        scheduleEventStartAlarms(tomorrow)
     }
 
     /**
