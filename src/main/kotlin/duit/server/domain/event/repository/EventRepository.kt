@@ -28,7 +28,7 @@ interface EventRepository : JpaRepository<Event, Long> {
         ORDER BY 
             -- 1순위: 진행 상태 (진행중/예정이 먼저)
             CASE 
-                WHEN (e.end_at IS NOT NULL AND e.end_at >= CURDATE()) OR (e.start_at IS NULL AND e.start_at >= CURDATE()) THEN 0
+                WHEN e.start_at IS NULL AND e.start_at >= CURDATE() THEN 0
                 ELSE 1
             END ASC,
             -- 2순위: 사용자 지정 정렬 (음수 처리로 동적 정렬)
