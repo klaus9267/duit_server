@@ -50,6 +50,12 @@ docker/.env.*
 ### Firebase ###
 firebase-key.json
 
+### JOOQ Generated Code ###
+src/main/kotlin/jooq/
+
+### Gradle Properties (contains DB credentials) ###
+gradle.properties
+
 ### Docker Compose Files ###
 docker-compose.yml.backup
 docker-compose-env.yml
