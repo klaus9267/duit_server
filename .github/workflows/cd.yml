@@ -56,22 +56,35 @@ jobs:
           REDIS_TIMEOUT=${{ secrets.REDIS_TIMEOUT }}
           DISCORD_WEBHOOK_URL=${{ secrets.DISCORD_WEBHOOK_URL }}
           EOF
-          
+
           cat > src/main/resources/firebase-key.json << EOF
           ${{ secrets.FIREBASE_KEY }}
+          EOF
+
+          # JOOQ 코드 생성용 gradle.properties 생성
+          cat > gradle.properties << EOF
+          DB_URL=${{ secrets.DB_URL }}
+          DB_USERNAME=${{ secrets.DB_USERNAME }}
+          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+          DB_NAME=${{ secrets.DB_NAME }}
           EOF
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./dockerfile
+          file: ./Dockerfile
           platforms: linux/amd64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          build-args: |
+            DB_URL=${{ secrets.DB_URL }}
+            DB_USERNAME=${{ secrets.DB_USERNAME }}
+            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+            DB_NAME=${{ secrets.DB_NAME }}
 
       - name: Deploy to production server
         uses: appleboy/ssh-action@v1.0.3
