@@ -50,8 +50,8 @@ docker/.env.*
 ### Firebase ###
 firebase-key.json
 
-### JOOQ Generated Code ###
-src/main/kotlin/jooq/
+# ### JOOQ Generated Code ###
+# src/main/kotlin/jooq/
 
 ### Gradle Properties (contains DB credentials) ###
 gradle.properties
