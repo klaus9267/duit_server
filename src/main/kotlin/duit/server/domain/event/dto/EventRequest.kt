@@ -72,32 +72,69 @@ data class EventRequest(
             return uri.toString()
         }
 
-        fun parseTime(time: String): LocalDateTime? {
-            if (time.isBlank()) return null
-
-            val trimmed = time.trim()
-            val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
-            val parsedTime = LocalDateTime.parse(trimmed, formatter)
-
-            if (parsedTime.isBefore(LocalDateTime.now())) {
-                throw IllegalArgumentException("입력된 시간은 미래여야 합니다. 입력값: $parsedTime")
-            }
-
-            return parsedTime
+        private fun parseDate(date: String): java.time.LocalDate {
+            val trimmed = date.trim()
+            val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
+            return java.time.LocalDate.parse(trimmed, formatter)
         }
 
-        fun from(formData: Map<String, String>, eventThumbnail: FileInfo?, hostThumbnail: FileInfo? = null) = EventRequest(
-            title = formData.getValue("행사 제목"),
-            startAt = formData["행사 시작 날짜"]?.let { parseTime(it) }!!,
-            endAt = formData["행사 종료 날짜"]?.let { parseTime(it) },
-            uri = parseAndValidateUrl(formData.getValue("행사 정보 상세 정보 페이지 주소")),
-            eventType = EventType.of(formData.getValue("행사 종류")),
-            recruitmentStartAt = formData["모집 시작 날짜"]?.let { parseTime(it) },
-            recruitmentEndAt = formData["모집 종료 날짜"]?.let { parseTime(it) },
-            eventThumbnail = eventThumbnail?.directDownloadUrl,
-            hostName = formData["주최 기관명"]!!,
-            hostThumbnail = hostThumbnail?.directDownloadUrl,
-        )
+        private fun parseTime(time: String): java.time.LocalTime {
+            val trimmed = time.trim()
+            val formatter = DateTimeFormatter.ofPattern("HH:mm")
+            return java.time.LocalTime.parse(trimmed, formatter)
+        }
+
+        private fun combineDateAndTime(date: String?, time: String?): LocalDateTime? {
+            if (date.isNullOrBlank()) return null
+
+            val parsedDate = parseDate(date)
+            val parsedTime = if (time.isNullOrBlank()) {
+                java.time.LocalTime.of(0, 0) // 시간이 없으면 00:00
+            } else {
+                parseTime(time)
+            }
+
+            return LocalDateTime.of(parsedDate, parsedTime)
+        }
+
+        fun from(
+            formData: Map<String, String>,
+            eventThumbnail: FileInfo?,
+            hostThumbnail: FileInfo? = null
+        ): EventRequest {
+            val startAt = combineDateAndTime(
+                formData["행사 시작 날짜"],
+                formData["행사 시작 시간"]
+            ) ?: throw IllegalArgumentException("행사 시작 날짜는 필수입니다")
+
+            val endAt = combineDateAndTime(
+                formData["행사 종료 날짜"],
+                formData["행사 종료 시간"]
+            )
+
+            val recruitmentStartAt = combineDateAndTime(
+                formData["모집 시작 날짜"],
+                formData["모집 시작 시간"]
+            )
+
+            val recruitmentEndAt = combineDateAndTime(
+                formData["모집 종료 날짜"],
+                formData["모집 종료 시간"]
+            )
+
+            return EventRequest(
+                title = formData.getValue("행사 제목"),
+                startAt = startAt,
+                endAt = endAt,
+                uri = parseAndValidateUrl(formData.getValue("행사 정보 상세 정보 페이지 주소")),
+                eventType = EventType.of(formData.getValue("행사 종류")),
+                recruitmentStartAt = recruitmentStartAt,
+                recruitmentEndAt = recruitmentEndAt,
+                eventThumbnail = eventThumbnail?.directDownloadUrl,
+                hostName = formData["주최 기관명"]!!,
+                hostThumbnail = hostThumbnail?.directDownloadUrl,
+            )
+        }
     }
 }
 

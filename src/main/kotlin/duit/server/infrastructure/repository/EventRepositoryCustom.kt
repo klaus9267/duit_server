@@ -46,7 +46,9 @@ class EventRepositoryCustom(
 
         return when (dateField) {
             EventDate.START_AT -> {
-                EVENTS.START_AT.eq(tomorrow.toLocalDate())
+                EVENTS.START_AT.ge(tomorrow)
+                    .and(EVENTS.START_AT.lt(nextDay))
+                    .and(EVENTS.START_AT.isNotNull)
             }
 
             EventDate.RECRUITMENT_START_AT -> {
