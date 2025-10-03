@@ -34,7 +34,7 @@ class EventService(
     @Transactional
     fun createEvent(eventRequest: EventRequest): Event {
         val host = hostService.findOrCreateHost(
-            HostRequest(name = eventRequest.hostName, thumbnail = null)
+            HostRequest(name = eventRequest.hostName, thumbnail = eventRequest.hostThumbnail)
         )
         val event = eventRepository.save(eventRequest.toEntity(host))
         viewService.createView(event)
