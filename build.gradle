@@ -96,7 +96,7 @@ jooq {
             }
             target {
                 packageName = "jooq"
-                directory = 'src/main/kotlin/'
+                directory = 'src/main/java/'
                 clean = true
             }
             generate {
@@ -106,9 +106,6 @@ jooq {
                 pojos = true
                 immutablePojos = false
                 fluentSetters = true
-                pojosAsKotlinDataClasses = true
-                kotlinNotNullPojoAttributes = true
-                kotlinNotNullRecordAttributes = true
             }
         }
     }

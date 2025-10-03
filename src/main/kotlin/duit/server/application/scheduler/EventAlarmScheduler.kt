@@ -4,7 +4,7 @@ import duit.server.domain.alarm.entity.AlarmType
 import duit.server.domain.alarm.service.AlarmService
 import duit.server.domain.event.entity.EventDate
 import duit.server.domain.event.repository.EventRepository
-import duit.server.infrastructure.repository.EventRepositoryCustom
+import duit.server.domain.event.repository.EventRepositoryCustom
 import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.TaskScheduler

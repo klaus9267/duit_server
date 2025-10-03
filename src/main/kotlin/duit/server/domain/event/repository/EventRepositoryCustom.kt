@@ -1,10 +1,9 @@
-package duit.server.infrastructure.repository
+package duit.server.domain.event.repository
 
 import duit.server.domain.event.dto.EventSearchFilter
 import duit.server.domain.event.entity.Event
 import duit.server.domain.event.entity.EventDate
-import jooq.Tables.EVENTS
-import jooq.Tables.HOSTS
+import jooq.Tables
 import org.jooq.Condition
 import org.jooq.DSLContext
 import org.springframework.data.domain.Page
@@ -32,9 +31,9 @@ class EventRepositoryCustom(
 
         return dsl
             .select()
-            .from(EVENTS)
-            .join(HOSTS).on(HOSTS.ID.eq(EVENTS.HOST_ID))
-            .where(EVENTS.IS_APPROVED.eq(true))
+            .from(Tables.EVENTS)
+            .join(Tables.HOSTS).on(Tables.HOSTS.ID.eq(Tables.EVENTS.HOST_ID))
+            .where(Tables.EVENTS.IS_APPROVED.eq(true))
             .and(dateCondition)
             .orderBy(eventDate.toField())
             .fetchInto(Event::class.java)
@@ -46,21 +45,21 @@ class EventRepositoryCustom(
 
         return when (dateField) {
             EventDate.START_AT -> {
-                EVENTS.START_AT.ge(tomorrow)
-                    .and(EVENTS.START_AT.lt(nextDay))
-                    .and(EVENTS.START_AT.isNotNull)
+                Tables.EVENTS.START_AT.ge(tomorrow)
+                    .and(Tables.EVENTS.START_AT.lt(nextDay))
+                    .and(Tables.EVENTS.START_AT.isNotNull)
             }
 
             EventDate.RECRUITMENT_START_AT -> {
-                EVENTS.RECRUITMENT_START_AT.ge(tomorrow)
-                    .and(EVENTS.RECRUITMENT_START_AT.lt(nextDay))
-                    .and(EVENTS.RECRUITMENT_START_AT.isNotNull)
+                Tables.EVENTS.RECRUITMENT_START_AT.ge(tomorrow)
+                    .and(Tables.EVENTS.RECRUITMENT_START_AT.lt(nextDay))
+                    .and(Tables.EVENTS.RECRUITMENT_START_AT.isNotNull)
             }
 
             EventDate.RECRUITMENT_END_AT -> {
-                EVENTS.RECRUITMENT_END_AT.ge(tomorrow)
-                    .and(EVENTS.RECRUITMENT_END_AT.lt(nextDay))
-                    .and(EVENTS.RECRUITMENT_END_AT.isNotNull)
+                Tables.EVENTS.RECRUITMENT_END_AT.ge(tomorrow)
+                    .and(Tables.EVENTS.RECRUITMENT_END_AT.lt(nextDay))
+                    .and(Tables.EVENTS.RECRUITMENT_END_AT.isNotNull)
             }
         }
     }
