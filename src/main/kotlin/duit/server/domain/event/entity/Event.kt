@@ -6,7 +6,6 @@ import jakarta.persistence.*
 import org.springframework.data.annotation.CreatedDate
 import org.springframework.data.annotation.LastModifiedDate
 import org.springframework.data.jpa.domain.support.AuditingEntityListener
-import java.time.LocalDate
 import java.time.LocalDateTime
 
 @Entity
@@ -17,8 +16,8 @@ class Event(
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long? = null,
     val title: String,
-    val startAt: LocalDate,
-    val endAt: LocalDate?,
+    val startAt: LocalDateTime,
+    val endAt: LocalDateTime?,
     val recruitmentStartAt: LocalDateTime?,
     val recruitmentEndAt: LocalDateTime?,
     val uri: String,

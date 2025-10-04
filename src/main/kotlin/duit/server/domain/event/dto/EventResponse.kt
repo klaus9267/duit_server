@@ -9,8 +9,8 @@ import java.time.LocalDateTime
 data class EventResponse(
     val id: Long,
     val title: String,
-    val startAt: LocalDate,
-    val endAt: LocalDate?,
+    val startAt: LocalDateTime,
+    val endAt: LocalDateTime?,
     val recruitmentStartAt: LocalDateTime?,
     val recruitmentEndAt: LocalDateTime?,
     val uri: String,
