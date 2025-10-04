@@ -7,6 +7,8 @@ build/
 application.properties
 application-*.properties
 !application-*.properties.example
+.mcp.json
+CLAUDE.md
 
 ### STS ###
 .apt_generated
@@ -60,3 +62,4 @@ gradle.properties
 docker-compose.yml.backup
 docker-compose-env.yml
 /src/main/resources/application.properties
+/.claude/
