@@ -59,3 +59,11 @@ spring.data.redis:
 discord:
   webhook:
     url: "https://discord.com/api/webhooks/test"  # 테스트용 더미 URL
+
+# JOOQ 비활성화 (H2에서는 JOOQ 쿼리 사용 안 함)
+jooq:
+  enabled: false
+
+# 스케줄러 비활성화 (테스트에서는 스케줄러 실행 안 함)
+scheduler:
+  enabled: false
