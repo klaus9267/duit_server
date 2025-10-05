@@ -4,7 +4,6 @@ plugins {
     id 'org.springframework.boot' version '3.5.4'
     id 'io.spring.dependency-management' version '1.1.7'
     id 'org.jetbrains.kotlin.plugin.jpa' version '1.9.25'
-    id 'org.jooq.jooq-codegen-gradle' version '3.19.14'
 }
 
 group = 'duit'
@@ -50,13 +49,6 @@ dependencies {
     // Firebase Admin SDK
     implementation 'com.google.firebase:firebase-admin:9.2.0'
 
-    // JOOQ
-    implementation 'org.springframework.boot:spring-boot-starter-jooq'
-    implementation 'org.jooq:jooq:3.19.14'
-    implementation 'org.jooq:jooq-meta:3.19.14'
-    implementation 'org.jooq:jooq-codegen:3.19.14'
-    jooqCodegen 'com.mysql:mysql-connector-j'
-
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.jetbrains.kotlin:kotlin-test-junit5'
     testImplementation 'org.springframework.security:spring-security-test'
@@ -77,36 +69,4 @@ allOpen {
 
 tasks.named('test') {
     useJUnitPlatform()
-}
-
-jooq {
-    configuration {
-        jdbc {
-            driver = 'com.mysql.cj.jdbc.Driver'
-            url = project.findProperty('DB_URL')
-            user = project.findProperty('DB_USERNAME')
-            password = project.findProperty('DB_PASSWORD')
-        }
-        generator {
-            database {
-                name = 'org.jooq.meta.mysql.MySQLDatabase'
-                inputSchema = project.findProperty('DB_NAME')
-                includes = '.*'
-                excludes = ''
-            }
-            target {
-                packageName = "jooq"
-                directory = 'src/main/java/'
-                clean = true
-            }
-            generate {
-                relations = true
-                deprecated = false
-                records = true
-                pojos = true
-                immutablePojos = false
-                fluentSetters = true
-            }
-        }
-    }
 }
