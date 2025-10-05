@@ -36,7 +36,7 @@ class EventAlarmScheduler(
     private fun scheduleAlarmsByType(eventDate: EventDate, alarmType: AlarmType) {
         val tomorrow = LocalDateTime.now().plusDays(1)
         val nextDay = tomorrow.plusDays(1)
-        val events = eventRepository.findEventsByDateField(eventDate, tomorrow, nextDay)
+        val events = eventRepository.findEventsByDateField(eventDate.name, tomorrow, nextDay)
 
         events.forEach { event ->
             val alarmTime = when (eventDate) {

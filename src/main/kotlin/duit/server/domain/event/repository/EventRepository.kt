@@ -5,9 +5,9 @@ import duit.server.domain.event.entity.Event
 import duit.server.domain.event.entity.EventDate
 import duit.server.domain.event.entity.EventType
 import org.springframework.data.domain.Page
+import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
-import java.awt.print.Pageable
 import java.time.LocalDate
 import java.time.LocalDateTime
 
@@ -86,7 +86,7 @@ interface EventRepository : JpaRepository<Event, Long> {
   """
     )
     fun findEventsByDateField(
-        fieldName: EventDate,
+        fieldName: String,
         tomorrow: LocalDateTime,
         nextDay: LocalDateTime
     ): List<Event>

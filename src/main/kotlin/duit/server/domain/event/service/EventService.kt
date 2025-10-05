@@ -10,7 +10,6 @@ import duit.server.domain.event.dto.EventRequest
 import duit.server.domain.event.dto.EventResponse
 import duit.server.domain.event.entity.Event
 import duit.server.domain.event.repository.EventRepository
-import duit.server.domain.event.repository.EventRepositoryCustom
 import duit.server.domain.host.dto.HostRequest
 import duit.server.domain.host.service.HostService
 import duit.server.domain.view.service.ViewService
@@ -25,7 +24,6 @@ import java.time.LocalDate
 @Transactional(readOnly = true)
 class EventService(
     private val eventRepository: EventRepository,
-    private val eventRepositoryCustom: EventRepositoryCustom,
     private val viewService: ViewService,
     private val securityUtil: SecurityUtil,
     private val discordService: DiscordService,
@@ -77,11 +75,6 @@ class EventService(
             null // 비로그인 사용자
         }
 
-        // Sort 없는 Pageable 생성 (네이티브 쿼리에서 ORDER BY 처리하므로)
-        val pageable = PageRequest.of(
-            param.page ?: 0,
-            param.size ?: 10
-        )
         val filter = param.toFilter(
             currentUserId = currentUserId,
             isApproved = isApproved ?: true,
@@ -89,7 +82,7 @@ class EventService(
             includeFinished = includeFinished ?: false
         )
 
-        val events = eventRepositoryCustom.findEventsWithFilter(filter, pageable)
+        val events = eventRepository.findWithFilter(filter, param.toPageable())
 
         // 인증된 사용자의 경우 북마크 정보 포함
 
