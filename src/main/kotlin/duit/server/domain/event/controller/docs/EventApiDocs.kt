@@ -49,13 +49,14 @@ annotation class CreateRandomEventApi
 - recruitmentStartAt : 모집 시작일 (선택)
 - recruitmentEndAt : 모집 종료일 (선택)
 - uri : 행사 상세 주소
-- eventThumbnail : 행사 썸네일 or 포스터 (선택)
 - eventType : 행사 종류
   - CONFERENCE("컨퍼런스/학술대회")
   - SEMINAR("세미나")
   - WEBINAR("웨비나")
   - WORKSHOP("워크숍")
   - CONTEST("공모전")
+  - CONTINUING_EDUCATION("보수교육")
+  - EDUCATION("교육")
   - ETC("기타")
 - hostName : 주최 기관 이름
 """

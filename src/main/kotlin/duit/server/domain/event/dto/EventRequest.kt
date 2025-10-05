@@ -58,7 +58,6 @@ data class EventRequest(
         host = host
     )
 
-
     companion object {
         fun parseAndValidateUrl(url: String): String {
             val trimmed = url.trim()
