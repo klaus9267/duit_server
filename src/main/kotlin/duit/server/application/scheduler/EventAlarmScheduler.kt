@@ -4,7 +4,6 @@ import duit.server.domain.alarm.entity.AlarmType
 import duit.server.domain.alarm.service.AlarmService
 import duit.server.domain.event.entity.EventDate
 import duit.server.domain.event.repository.EventRepository
-import duit.server.domain.event.repository.EventRepositoryCustom
 import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.TaskScheduler
@@ -19,7 +18,6 @@ import java.time.ZoneId
 @EnableScheduling
 class EventAlarmScheduler(
     private val eventRepository: EventRepository,
-    private val eventRepositoryCustom: EventRepositoryCustom,
     private val alarmService: AlarmService,
     private val taskScheduler: TaskScheduler
 ) {
@@ -36,15 +34,22 @@ class EventAlarmScheduler(
     }
 
     private fun scheduleAlarmsByType(eventDate: EventDate, alarmType: AlarmType) {
-        val alarmInfos = eventRepositoryCustom.findEventAlarmInfoByDateField(eventDate)
+        val tomorrow = LocalDateTime.now().plusDays(1)
+        val nextDay = tomorrow.plusDays(1)
+        val events = eventRepository.findEventsByDateField(eventDate, tomorrow, nextDay)
 
-        alarmInfos.forEach { info ->
-            val alarmTime = info.targetDateTime.minusHours(24)
+        events.forEach { event ->
+            val alarmTime = when (eventDate) {
+                EventDate.START_AT -> event.startAt
+                EventDate.RECRUITMENT_START_AT -> event.recruitmentStartAt!!
+                EventDate.RECRUITMENT_END_AT -> event.recruitmentEndAt!!
+            }.minusDays(1)
+
             if (alarmTime.isAfter(LocalDateTime.now())) {
                 val instant: Instant = alarmTime.atZone(ZoneId.of("Asia/Seoul")).toInstant()
 
                 taskScheduler.schedule({
-                    val event = eventRepository.findById(info.id).orElse(null) ?: return@schedule
+                    val event = eventRepository.findById(event.id!!).orElse(null) ?: return@schedule
                     alarmService.sendAlarm(alarmType, event)
                 }, instant)
             }

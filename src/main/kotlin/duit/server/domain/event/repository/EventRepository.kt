@@ -2,11 +2,12 @@ package duit.server.domain.event.repository
 
 import duit.server.domain.event.dto.EventSearchFilter
 import duit.server.domain.event.entity.Event
+import duit.server.domain.event.entity.EventDate
 import duit.server.domain.event.entity.EventType
 import org.springframework.data.domain.Page
-import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
+import java.awt.print.Pageable
 import java.time.LocalDate
 import java.time.LocalDateTime
 
@@ -71,6 +72,25 @@ interface EventRepository : JpaRepository<Event, Long> {
         filter: EventSearchFilter,
         pageable: Pageable
     ): Page<Event>
+
+    @Query(
+        """
+      SELECT e
+      FROM Event e
+      WHERE e.isApproved = true
+      AND (
+          (:fieldName = 'START_AT' AND e.startAt >= :tomorrow AND e.startAt < :nextDay) OR
+          (:fieldName = 'RECRUITMENT_START_AT' AND e.recruitmentStartAt >= :tomorrow AND e.recruitmentStartAt < :nextDay) OR
+          (:fieldName = 'RECRUITMENT_END_AT' AND e.recruitmentEndAt >= :tomorrow AND e.recruitmentEndAt < :nextDay)
+      )
+  """
+    )
+    fun findEventsByDateField(
+        fieldName: EventDate,
+        tomorrow: LocalDateTime,
+        nextDay: LocalDateTime
+    ): List<Event>
+
 
     @Query(
         """
