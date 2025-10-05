@@ -41,15 +41,16 @@ class EventAlarmScheduler(
     }
 
     /**
-     * 내일 모집 시작하는 행사들의 알림 스케줄링
+     * 내일 모집 시작하는 행사들의 알림 스케줄링 (24시간 전 알림)
      */
     private fun scheduleRecruitmentStartAlarms() {
         val recruitmentEvents = eventRepositoryCustom.findEventsByDateField(EventDate.RECRUITMENT_START_AT)
 
         recruitmentEvents.forEach { event ->
             event.recruitmentStartAt?.let { recruitmentStartTime ->
-                if (recruitmentStartTime.isAfter(LocalDateTime.now())) {
-                    val instant = recruitmentStartTime.atZone(ZoneId.of("Asia/Seoul")).toInstant()
+                val alarmTime = recruitmentStartTime.minusHours(24)
+                if (alarmTime.isAfter(LocalDateTime.now())) {
+                    val instant = alarmTime.atZone(ZoneId.of("Asia/Seoul")).toInstant()
 
                     taskScheduler.schedule({
                         alarmService.sendAlarm(AlarmType.RECRUITMENT_START, event)
@@ -60,15 +61,16 @@ class EventAlarmScheduler(
     }
 
     /**
-     * 내일 모집 마감하는 행사들의 알림 스케줄링
+     * 내일 모집 마감하는 행사들의 알림 스케줄링 (24시간 전 알림)
      */
     private fun scheduleRecruitmentEndAlarms() {
         val recruitmentEvents = eventRepositoryCustom.findEventsByDateField(EventDate.RECRUITMENT_END_AT)
 
         recruitmentEvents.forEach { event ->
             event.recruitmentEndAt?.let { recruitmentEndTime ->
-                if (recruitmentEndTime.isAfter(LocalDateTime.now())) {
-                    val instant = recruitmentEndTime.atZone(ZoneId.of("Asia/Seoul")).toInstant()
+                val alarmTime = recruitmentEndTime.minusHours(24)
+                if (alarmTime.isAfter(LocalDateTime.now())) {
+                    val instant = alarmTime.atZone(ZoneId.of("Asia/Seoul")).toInstant()
 
                     taskScheduler.schedule({
                         alarmService.sendAlarm(AlarmType.RECRUITMENT_END, event)
@@ -79,13 +81,13 @@ class EventAlarmScheduler(
     }
 
     /**
-     * 내일 시작하는 행사들의 알림 스케줄링
+     * 내일 시작하는 행사들의 알림 스케줄링 (24시간 전 알림)
      */
     private fun scheduleEventStartAlarms() {
         val startingEvents = eventRepositoryCustom.findEventsByDateField(EventDate.START_AT)
 
         startingEvents.forEach { event ->
-            val alarmTime = event.startAt
+            val alarmTime = event.startAt.minusHours(24)
             if (alarmTime.isAfter(LocalDateTime.now())) {
                 val instant = alarmTime.atZone(ZoneId.of("Asia/Seoul")).toInstant()
 
