@@ -3,6 +3,8 @@ package duit.server.domain.event.repository
 import duit.server.domain.event.dto.EventSearchFilter
 import duit.server.domain.event.entity.Event
 import duit.server.domain.event.entity.EventDate
+import duit.server.domain.event.entity.EventType
+import duit.server.domain.host.entity.Host
 import jooq.Tables
 import org.jooq.Condition
 import org.jooq.DSLContext
