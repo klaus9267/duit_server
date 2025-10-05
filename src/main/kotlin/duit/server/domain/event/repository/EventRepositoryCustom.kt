@@ -28,15 +28,55 @@ class EventRepositoryCustom(
 
     fun findEventsByDateField(eventDate: EventDate): List<Event> {
         val dateCondition = buildDateCondition(eventDate)
+        val e = Tables.EVENTS
+        val h = Tables.HOSTS
 
         return dsl
-            .select()
-            .from(Tables.EVENTS)
-            .join(Tables.HOSTS).on(Tables.HOSTS.ID.eq(Tables.EVENTS.HOST_ID))
-            .where(Tables.EVENTS.IS_APPROVED.eq(true))
+            .select(
+                e.ID,
+                e.TITLE,
+                e.START_AT,
+                e.END_AT,
+                e.RECRUITMENT_START_AT,
+                e.RECRUITMENT_END_AT,
+                e.URI,
+                e.THUMBNAIL,
+                e.IS_APPROVED,
+                e.EVENT_TYPE,
+                e.CREATED_AT,
+                e.UPDATED_AT,
+                // Host 정보
+                h.ID,
+                h.NAME,
+                h.THUMBNAIL
+            )
+            .from(e)
+            .join(h).on(h.ID.eq(e.HOST_ID))
+            .where(e.IS_APPROVED.eq(true))
             .and(dateCondition)
             .orderBy(eventDate.toField())
-            .fetchInto(Event::class.java)
+            .fetch()
+            .map { record ->
+                Event(
+                    id = record.get(e.ID),
+                    title = record.get(e.TITLE)!!,
+                    startAt = record.get(e.START_AT)!!,
+                    endAt = record.get(e.END_AT),
+                    recruitmentStartAt = record.get(e.RECRUITMENT_START_AT),
+                    recruitmentEndAt = record.get(e.RECRUITMENT_END_AT),
+                    uri = record.get(e.URI)!!,
+                    thumbnail = record.get(e.THUMBNAIL),
+                    isApproved = record.get(e.IS_APPROVED) ?: false,
+                    eventType = EventType.valueOf(record.get(e.EVENT_TYPE)!!),
+                    createdAt = record.get(e.CREATED_AT) ?: LocalDateTime.now(),
+                    updatedAt = record.get(e.UPDATED_AT) ?: LocalDateTime.now(),
+                    host = Host(
+                        id = record.get(h.ID),
+                        name = record.get(h.NAME)!!,
+                        thumbnail = record.get(h.THUMBNAIL)
+                    )
+                )
+            }
     }
 
     private fun buildDateCondition(dateField: EventDate): Condition {
