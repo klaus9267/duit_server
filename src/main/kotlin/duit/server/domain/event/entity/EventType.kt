@@ -7,6 +7,7 @@ enum class EventType(val displayName: String) {
     WORKSHOP("워크숍"),
     CONTEST("공모전"),
     CONTINUING_EDUCATION("보수교육"),
+    EDUCATION("교육"),
     ETC("기타");
 
     companion object {
