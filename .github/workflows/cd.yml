@@ -69,6 +69,9 @@ jobs:
           DB_NAME=${{ secrets.DB_NAME }}
           EOF
 
+      - name: Generate JOOQ code
+        run: ./gradlew jooqCodegen
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
