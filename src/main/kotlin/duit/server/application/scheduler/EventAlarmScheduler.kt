@@ -3,6 +3,7 @@ package duit.server.application.scheduler
 import duit.server.domain.alarm.entity.AlarmType
 import duit.server.domain.alarm.service.AlarmService
 import duit.server.domain.event.entity.EventDate
+import duit.server.domain.event.repository.EventRepository
 import duit.server.domain.event.repository.EventRepositoryCustom
 import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.context.event.EventListener
@@ -10,87 +11,41 @@ import org.springframework.scheduling.TaskScheduler
 import org.springframework.scheduling.annotation.EnableScheduling
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
+import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
 
 @Component
 @EnableScheduling
 class EventAlarmScheduler(
+    private val eventRepository: EventRepository,
     private val eventRepositoryCustom: EventRepositoryCustom,
     private val alarmService: AlarmService,
     private val taskScheduler: TaskScheduler
 ) {
-    /**
-     * 매일 자정에 오늘의 알림들을 스케줄링
-     */
     @Scheduled(cron = "0 0 0 * * *")
     fun scheduleDailyAlarms() {
-        scheduleRecruitmentStartAlarms()
-        scheduleRecruitmentEndAlarms()
-        scheduleEventStartAlarms()
+        scheduleAlarmsByType(EventDate.RECRUITMENT_START_AT, AlarmType.RECRUITMENT_START)
+        scheduleAlarmsByType(EventDate.RECRUITMENT_END_AT, AlarmType.RECRUITMENT_END)
+        scheduleAlarmsByType(EventDate.START_AT, AlarmType.EVENT_START)
     }
 
-    /**
-     * 애플리케이션 시작 시 오늘의 알림들을 스케줄링 (배포 복구용)
-     */
     @EventListener(ApplicationReadyEvent::class)
     fun onApplicationReady() {
         scheduleDailyAlarms()
     }
 
-    /**
-     * 내일 모집 시작하는 행사들의 알림 스케줄링 (24시간 전 알림)
-     */
-    private fun scheduleRecruitmentStartAlarms() {
-        val events = eventRepositoryCustom.findEventsByDateField(EventDate.RECRUITMENT_START_AT)
+    private fun scheduleAlarmsByType(eventDate: EventDate, alarmType: AlarmType) {
+        val alarmInfos = eventRepositoryCustom.findEventAlarmInfoByDateField(eventDate)
 
-        events.forEach { event ->
-            event.recruitmentStartAt?.let { recruitmentStartTime ->
-                val alarmTime = recruitmentStartTime.minusHours(24)
-                if (alarmTime.isAfter(LocalDateTime.now())) {
-                    val instant = alarmTime.atZone(ZoneId.of("Asia/Seoul")).toInstant()
-
-                    taskScheduler.schedule({
-                        alarmService.sendAlarm(AlarmType.RECRUITMENT_START, event)
-                    }, instant)
-                }
-            }
-        }
-    }
-
-    /**
-     * 내일 모집 마감하는 행사들의 알림 스케줄링 (24시간 전 알림)
-     */
-    private fun scheduleRecruitmentEndAlarms() {
-        val events = eventRepositoryCustom.findEventsByDateField(EventDate.RECRUITMENT_END_AT)
-
-        events.forEach { event ->
-            event.recruitmentEndAt?.let { recruitmentEndTime ->
-                val alarmTime = recruitmentEndTime.minusHours(24)
-                if (alarmTime.isAfter(LocalDateTime.now())) {
-                    val instant = alarmTime.atZone(ZoneId.of("Asia/Seoul")).toInstant()
-
-                    taskScheduler.schedule({
-                        alarmService.sendAlarm(AlarmType.RECRUITMENT_END, event)
-                    }, instant)
-                }
-            }
-        }
-    }
-
-    /**
-     * 내일 시작하는 행사들의 알림 스케줄링 (24시간 전 알림)
-     */
-    private fun scheduleEventStartAlarms() {
-        val events = eventRepositoryCustom.findEventsByDateField(EventDate.START_AT)
-
-        events.forEach { event ->
-            val alarmTime = event.startAt.minusHours(24)
+        alarmInfos.forEach { info ->
+            val alarmTime = info.targetDateTime.minusHours(24)
             if (alarmTime.isAfter(LocalDateTime.now())) {
-                val instant = alarmTime.atZone(ZoneId.of("Asia/Seoul")).toInstant()
+                val instant: Instant = alarmTime.atZone(ZoneId.of("Asia/Seoul")).toInstant()
 
                 taskScheduler.schedule({
-                    alarmService.sendAlarm(AlarmType.EVENT_START, event)
+                    val event = eventRepository.findById(info.id).orElse(null) ?: return@schedule
+                    alarmService.sendAlarm(alarmType, event)
                 }, instant)
             }
         }
