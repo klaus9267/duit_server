@@ -5,9 +5,11 @@ import duit.server.domain.event.entity.Event
 import duit.server.domain.event.entity.EventDate
 import duit.server.domain.event.entity.EventType
 import duit.server.domain.host.entity.Host
-import jooq.Tables
+import jooq.Tables.EVENTS
+import jooq.Tables.HOSTS
 import org.jooq.Condition
 import org.jooq.DSLContext
+import org.jooq.Record
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.PageImpl
 import org.springframework.data.domain.Pageable
@@ -30,55 +32,56 @@ class EventRepositoryCustom(
 
     fun findEventsByDateField(eventDate: EventDate): List<Event> {
         val dateCondition = buildDateCondition(eventDate)
-        val e = Tables.EVENTS
-        val h = Tables.HOSTS
 
         return dsl
             .select(
-                e.ID,
-                e.TITLE,
-                e.START_AT,
-                e.END_AT,
-                e.RECRUITMENT_START_AT,
-                e.RECRUITMENT_END_AT,
-                e.URI,
-                e.THUMBNAIL,
-                e.IS_APPROVED,
-                e.EVENT_TYPE,
-                e.CREATED_AT,
-                e.UPDATED_AT,
-                // Host 정보
-                h.ID,
-                h.NAME,
-                h.THUMBNAIL
+                EVENTS.ID,
+                EVENTS.TITLE,
+                EVENTS.START_AT,
+                EVENTS.END_AT,
+                EVENTS.RECRUITMENT_START_AT,
+                EVENTS.RECRUITMENT_END_AT,
+                EVENTS.URI,
+                EVENTS.THUMBNAIL,
+                EVENTS.IS_APPROVED,
+                EVENTS.EVENT_TYPE,
+                EVENTS.CREATED_AT,
+                EVENTS.UPDATED_AT,
+                HOSTS.ID,
+                HOSTS.NAME,
+                HOSTS.THUMBNAIL,
             )
-            .from(e)
-            .join(h).on(h.ID.eq(e.HOST_ID))
-            .where(e.IS_APPROVED.eq(true))
+            .from(EVENTS)
+            .join(HOSTS).on(HOSTS.ID.eq(EVENTS.HOST_ID))
+            .where(EVENTS.IS_APPROVED.eq(true))
             .and(dateCondition)
             .orderBy(eventDate.toField())
             .fetch()
-            .map { record ->
-                Event(
-                    id = record.get(e.ID),
-                    title = record.get(e.TITLE)!!,
-                    startAt = record.get(e.START_AT)!!,
-                    endAt = record.get(e.END_AT),
-                    recruitmentStartAt = record.get(e.RECRUITMENT_START_AT),
-                    recruitmentEndAt = record.get(e.RECRUITMENT_END_AT),
-                    uri = record.get(e.URI)!!,
-                    thumbnail = record.get(e.THUMBNAIL),
-                    isApproved = record.get(e.IS_APPROVED) ?: false,
-                    eventType = EventType.valueOf(record.get(e.EVENT_TYPE)?.toString() ?: ""),
-                    createdAt = record.get(e.CREATED_AT) ?: LocalDateTime.now(),
-                    updatedAt = record.get(e.UPDATED_AT) ?: LocalDateTime.now(),
-                    host = Host(
-                        id = record.get(h.ID),
-                        name = record.get(h.NAME)!!,
-                        thumbnail = record.get(h.THUMBNAIL)
-                    )
-                )
-            }
+            .map { mapToEvent(it) }
+    }
+
+    private fun mapToEvent(record: Record): Event {
+        val host = Host(
+            id = record.get(HOSTS.ID),
+            name = record.get(HOSTS.NAME),
+            thumbnail = record.get(HOSTS.THUMBNAIL)
+        )
+
+        return Event(
+            id = record.get(EVENTS.ID),
+            title = record.get(EVENTS.TITLE),
+            startAt = record.get(EVENTS.START_AT),
+            endAt = record.get(EVENTS.END_AT),
+            recruitmentStartAt = record.get(EVENTS.RECRUITMENT_START_AT),
+            recruitmentEndAt = record.get(EVENTS.RECRUITMENT_END_AT),
+            uri = record.get(EVENTS.URI),
+            thumbnail = record.get(EVENTS.THUMBNAIL),
+            isApproved = record.get(EVENTS.IS_APPROVED),
+            eventType = EventType.valueOf(record.get(EVENTS.EVENT_TYPE).name),
+            createdAt = record.get(EVENTS.CREATED_AT),
+            updatedAt = record.get(EVENTS.UPDATED_AT),
+            host = host
+        )
     }
 
     private fun buildDateCondition(dateField: EventDate): Condition {
@@ -87,21 +90,21 @@ class EventRepositoryCustom(
 
         return when (dateField) {
             EventDate.START_AT -> {
-                Tables.EVENTS.START_AT.ge(tomorrow)
-                    .and(Tables.EVENTS.START_AT.lt(nextDay))
-                    .and(Tables.EVENTS.START_AT.isNotNull)
+                EVENTS.START_AT.ge(tomorrow)
+                    .and(EVENTS.START_AT.lt(nextDay))
+                    .and(EVENTS.START_AT.isNotNull)
             }
 
             EventDate.RECRUITMENT_START_AT -> {
-                Tables.EVENTS.RECRUITMENT_START_AT.ge(tomorrow)
-                    .and(Tables.EVENTS.RECRUITMENT_START_AT.lt(nextDay))
-                    .and(Tables.EVENTS.RECRUITMENT_START_AT.isNotNull)
+                EVENTS.RECRUITMENT_START_AT.ge(tomorrow)
+                    .and(EVENTS.RECRUITMENT_START_AT.lt(nextDay))
+                    .and(EVENTS.RECRUITMENT_START_AT.isNotNull)
             }
 
             EventDate.RECRUITMENT_END_AT -> {
-                Tables.EVENTS.RECRUITMENT_END_AT.ge(tomorrow)
-                    .and(Tables.EVENTS.RECRUITMENT_END_AT.lt(nextDay))
-                    .and(Tables.EVENTS.RECRUITMENT_END_AT.isNotNull)
+                EVENTS.RECRUITMENT_END_AT.ge(tomorrow)
+                    .and(EVENTS.RECRUITMENT_END_AT.lt(nextDay))
+                    .and(EVENTS.RECRUITMENT_END_AT.isNotNull)
             }
         }
     }
