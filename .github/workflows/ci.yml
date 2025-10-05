@@ -63,17 +63,6 @@ jobs:
           ${{ secrets.FIREBASE_KEY }}
           EOF
 
-          # JOOQ 코드 생성용 gradle.properties 생성
-          cat > gradle.properties << EOF
-          DB_URL=${{ secrets.DB_URL }}
-          DB_USERNAME=${{ secrets.DB_USERNAME }}
-          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-          DB_NAME=${{ secrets.DB_NAME }}
-          EOF
-
-      - name: Generate JOOQ code
-        run: ./gradlew jooqCodegen
-
       - name: Run build
         run: ./gradlew build
 

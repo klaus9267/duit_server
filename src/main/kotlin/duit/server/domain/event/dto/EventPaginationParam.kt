@@ -35,20 +35,16 @@ data class EventPaginationParam(
         isBookmarked: Boolean = false,
         includeFinished: Boolean = false
     ): EventSearchFilter {
-        val sortField = this.field?.displayName?.lowercase()
-        val sortDirection = this.sortDirection?.name?.lowercase() ?: "asc"
-        val eventTypesString = this.type?.joinToString(",") { it.name }
-
         return EventSearchFilter(
-            eventTypes = eventTypesString,
+            eventTypes = this.type,
             hostId = this.hostId,
             isApproved = isApproved,
             isBookmarked = isBookmarked,
             includeFinished = includeFinished,
             searchKeyword = this.searchKeyword,
             userId = currentUserId,
-            sortField = sortField,
-            sortDirection = sortDirection
+            sortField = this.field,
+            sortDirection = this.sortDirection ?: Sort.Direction.ASC
         )
     }
 }
