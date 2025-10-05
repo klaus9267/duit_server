@@ -68,7 +68,6 @@ class EventService(
         isBookmarked: Boolean?,
         includeFinished: Boolean?
     ): PageResponse<EventResponse> {
-        // 현재 사용자 ID 가져오기 (북마크 필터링에 필요)
         val currentUserId = try {
             securityUtil.getCurrentUserId()
         } catch (e: Exception) {
@@ -81,8 +80,11 @@ class EventService(
             isBookmarked = isBookmarked ?: false,
             includeFinished = includeFinished ?: false
         )
-
-        val events = eventRepository.findWithFilter(filter, param.toPageable())
+        val pageable = PageRequest.of(
+            param.page ?: 0,
+            param.size ?: 10
+        )
+        val events = eventRepository.findWithFilter(filter, pageable)
 
         // 인증된 사용자의 경우 북마크 정보 포함
 

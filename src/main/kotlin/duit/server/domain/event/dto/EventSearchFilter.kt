@@ -14,4 +14,16 @@ data class EventSearchFilter(
     val userId: Long? = null,
     val sortField: PaginationField? = null,
     val sortDirection: Sort.Direction = Sort.Direction.ASC
-)
+) {
+    fun eventTypesToString(): String? {
+        return eventTypes?.joinToString(",") { it.name }
+    }
+
+    fun sortFieldName(): String? {
+        return sortField?.displayName
+    }
+
+    fun sortDirectionName(): String {
+        return sortDirection.name.lowercase()
+    }
+}
