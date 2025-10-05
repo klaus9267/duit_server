@@ -69,7 +69,7 @@ class EventRepositoryCustom(
                     uri = record.get(e.URI)!!,
                     thumbnail = record.get(e.THUMBNAIL),
                     isApproved = record.get(e.IS_APPROVED) ?: false,
-                    eventType = EventType.valueOf(record.get(e.EVENT_TYPE)!!),
+                    eventType = EventType.valueOf(record.get(e.EVENT_TYPE)?.toString() ?: "")
                     createdAt = record.get(e.CREATED_AT) ?: LocalDateTime.now(),
                     updatedAt = record.get(e.UPDATED_AT) ?: LocalDateTime.now(),
                     host = Host(
