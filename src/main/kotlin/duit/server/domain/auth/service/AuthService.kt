@@ -67,12 +67,13 @@ class AuthService(
             (it as? Map<*, *>)?.get("sign_in_provider") as? String
         }
 
-        return when {
-            providerId == "google.com" -> ProviderType.GOOGLE
-            providerId == "apple.com" -> ProviderType.APPLE
-            providerId == "oidc.kakao" -> ProviderType.KAKAO
+        return when (providerId) {
+            "google.com" -> ProviderType.GOOGLE
+            "apple.com" -> ProviderType.APPLE
+            "oidc.kakao" -> ProviderType.KAKAO
+            "oidc.kakao_rest" -> ProviderType.KAKAO
             else -> {
-                throw RuntimeException("")
+                throw RuntimeException("잘못된 소셜로그인 사용 정보 입니다.")
             }
         }
     }
