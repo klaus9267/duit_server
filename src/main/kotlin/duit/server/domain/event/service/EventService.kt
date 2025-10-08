@@ -18,7 +18,7 @@ import jakarta.persistence.EntityNotFoundException
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-import java.time.LocalDate
+import java.time.LocalDateTime
 
 @Service
 @Transactional(readOnly = true)
@@ -108,11 +108,10 @@ class EventService(
 
     fun getEvents4Calendar(request: Event4CalendarRequest): List<EventResponse> {
         val currentUserId = securityUtil.getCurrentUserId()
-        val startDate = LocalDate.of(request.year, request.month, 1)
-        val endDate = startDate.withDayOfMonth(startDate.lengthOfMonth())
-        val events = eventRepository.findEvents4Calendar(currentUserId, startDate, endDate, request.type)
+        val start = LocalDateTime.of(request.year, request.month, 1, 0, 0)
+        val end = start.plusMonths(1).minusNanos(1)
+        val events = eventRepository.findEvents4Calendar(currentUserId, start, end, request.type)
 
-        // 모든 캘린더 이벤트는 북마크된 이벤트이므로 true로 설정
         return events.map { EventResponse.from(it, true) }
     }
 

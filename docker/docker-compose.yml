@@ -130,6 +130,27 @@ services:
     networks:
       - duit-network-prod
 
+  db-backup:
+    image: fradelg/mysql-cron-backup
+    container_name: duit-mysql-backup
+    profiles: ["infra", "full"]
+    depends_on:
+      - db
+    environment:
+      MYSQL_HOST: db
+      MYSQL_PORT: 3306
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASS: ${DB_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
+      CRON_TIME: "0 */12 * * *"  # 12시간마다 (0시, 12시)
+      MAX_BACKUPS: 100  # 30개 보관
+      INIT_BACKUP: 1  # 시작 시 즉시 백업
+    volumes:
+      - /home/vagom/backups/mysql:/backup
+    networks:
+      - duit-network-prod
+    restart: unless-stopped
+
 volumes:
   mysql_data_prod:
     driver: local

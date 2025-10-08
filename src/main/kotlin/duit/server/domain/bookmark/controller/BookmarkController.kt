@@ -18,8 +18,6 @@ import org.springframework.web.bind.annotation.*
 class BookmarkController(
     private val bookmarkService: BookmarkService
 ) {
-    // 엔드포인트 숨김
-    @Hidden
     @GetMapping
     @GetBookmarksApi
     @ResponseStatus(HttpStatus.OK)

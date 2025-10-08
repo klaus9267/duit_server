@@ -7,7 +7,6 @@ import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
-import java.time.LocalDate
 import java.time.LocalDateTime
 
 interface EventRepository : JpaRepository<Event, Long> {
@@ -104,15 +103,15 @@ interface EventRepository : JpaRepository<Event, Long> {
         JOIN Bookmark b ON b.event = e
         WHERE b.user.id = :userId
         AND e.isApproved = true
-        AND e.startAt BETWEEN :startDate AND :endDate
+        AND e.startAt BETWEEN :start AND :end
         AND (:eventType IS NULL OR e.eventType = :eventType)
         ORDER BY e.startAt ASC
         """
     )
     fun findEvents4Calendar(
         userId: Long,
-        startDate: LocalDate,
-        endDate: LocalDate,
+        start: LocalDateTime,
+        end: LocalDateTime,
         eventType: EventType?
     ): List<Event>
 }
