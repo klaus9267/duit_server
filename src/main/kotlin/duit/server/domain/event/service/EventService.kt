@@ -109,7 +109,7 @@ class EventService(
     fun getEvents4Calendar(request: Event4CalendarRequest): List<EventResponse> {
         val currentUserId = securityUtil.getCurrentUserId()
         val start = LocalDateTime.of(request.year, request.month, 1, 0, 0)
-        val end = start.plusMonths(1)
+        val end = start.plusMonths(1).minusNanos(1)
         val events = eventRepository.findEvents4Calendar(currentUserId, start, end, request.type)
 
         return events.map { EventResponse.from(it, true) }
