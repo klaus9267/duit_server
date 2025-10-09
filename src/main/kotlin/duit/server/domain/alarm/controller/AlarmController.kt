@@ -1,15 +1,20 @@
 package duit.server.domain.alarm.controller
 
 import duit.server.application.security.SecurityUtil
+import duit.server.domain.alarm.dto.AlarmPaginationParam
+import duit.server.domain.alarm.dto.AlarmResponse
 import duit.server.domain.alarm.entity.AlarmType
 import duit.server.domain.alarm.service.AlarmService
 import duit.server.domain.common.docs.AuthApiResponses
 import duit.server.domain.common.docs.CommonApiResponses
+import duit.server.domain.common.dto.pagination.PageResponse
 import duit.server.domain.event.service.EventService
 import duit.server.domain.user.service.UserService
 import duit.server.infrastructure.external.firebase.FCMService
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
+import jakarta.validation.Valid
+import org.springdoc.core.annotations.ParameterObject
 import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.*
 
@@ -24,8 +29,26 @@ class AlarmController(
     private val eventService: EventService
 ) {
 
+    @GetMapping
+    @Operation(
+        summary = "알람 목록 조회",
+        description = "현재 로그인한 사용자의 알람 목록을 페이징하여 조회합니다. 최신순으로 정렬됩니다."
+    )
+    @AuthApiResponses
+    @CommonApiResponses
+    @ResponseStatus(HttpStatus.OK)
+    fun getAlarms(
+        @Valid @ParameterObject
+        param: AlarmPaginationParam
+    ): PageResponse<AlarmResponse> {
+        return alarmService.getAlarms(param)
+    }
+
     @PostMapping("/test/custom")
-    @Operation(summary = "커스텀 푸시 알림 테스트", description = "현재 로그인한 사용자의 디바이스로 지정한 제목과 내용의 테스트 푸시 알림을 전송합니다.")
+    @Operation(
+        summary = "커스텀 푸시 알림 테스트",
+        description = "현재 로그인한 사용자의 디바이스로 지정한 제목과 내용의 테스트 푸시 알림을 전송합니다."
+    )
     @AuthApiResponses
     @CommonApiResponses
     @ResponseStatus(HttpStatus.OK)
@@ -49,7 +72,10 @@ class AlarmController(
     }
 
     @PostMapping("/test/custom2")
-    @Operation(summary = "푸시 알림 테스트", description = "현재 로그인한 사용자의 디바이스로 특정 행사 푸시 알림을 전송합니다.")
+    @Operation(
+        summary = "푸시 알림 테스트",
+        description = "현재 로그인한 사용자의 디바이스로 특정 행사 푸시 알림을 전송합니다."
+    )
     @AuthApiResponses
     @CommonApiResponses
     @ResponseStatus(HttpStatus.OK)
@@ -66,6 +92,6 @@ class AlarmController(
 
         val event = eventService.getEvent(eventId)
 
-        alarmService.sendAlarm(alarmType, event)
+        alarmService.createAlarms(alarmType, event)
     }
 }

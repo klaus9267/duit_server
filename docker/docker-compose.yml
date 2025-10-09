@@ -28,6 +28,8 @@ services:
       MYSQL_PASSWORD: ${DB_PASSWORD}
     ports:
       - "${DB_PORT}:3306"
+#    expose:
+#      - "3306"  # 외부 차단 (인터넷에서 접근 불가)
     volumes:
       - mysql_data_prod:/var/lib/mysql
     restart: unless-stopped
@@ -142,8 +144,8 @@ services:
       MYSQL_USER: ${DB_USERNAME}
       MYSQL_PASS: ${DB_PASSWORD}
       MYSQL_DATABASE: ${DB_NAME}
-      CRON_TIME: "0 */12 * * *"  # 12시간마다 (0시, 12시)
-      MAX_BACKUPS: 100  # 30개 보관
+      CRON_TIME: "0 4 * * *"
+      MAX_BACKUPS: 30  # 30개 보관
       INIT_BACKUP: 1  # 시작 시 즉시 백업
     volumes:
       - /home/vagom/backups/mysql:/backup

@@ -30,8 +30,8 @@ interface EventRepository : JpaRepository<Event, Long> {
                 ELSE 1
             END ASC,
             CASE
-                WHEN :#{#filter.sortFieldName()} = 'startAt' THEN 
-                    ABS(DATEDIFF(e.start_at, CURDATE()))
+                WHEN :#{#filter.sortFieldName()} = 'startAt' THEN
+                    ABS(TIMESTAMPDIFF(SECOND, NOW(), e.start_at))
                 WHEN :#{#filter.sortFieldName()} = 'recruitmentEndAt' THEN 
                     (CASE 
                         WHEN e.recruitment_end_at IS NULL 

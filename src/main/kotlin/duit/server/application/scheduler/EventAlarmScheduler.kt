@@ -21,19 +21,20 @@ class EventAlarmScheduler(
     private val alarmService: AlarmService,
     private val taskScheduler: TaskScheduler
 ) {
+    // 매일 자정에 알람 생성
     @Scheduled(cron = "0 0 0 * * *")
-    fun scheduleDailyAlarms() {
-        scheduleAlarmsByType(EventDate.RECRUITMENT_START_AT, AlarmType.RECRUITMENT_START)
-        scheduleAlarmsByType(EventDate.RECRUITMENT_END_AT, AlarmType.RECRUITMENT_END)
-        scheduleAlarmsByType(EventDate.START_AT, AlarmType.EVENT_START)
+    fun createDailyAlarms() {
+        createAlarmsByType(EventDate.RECRUITMENT_START_AT, AlarmType.RECRUITMENT_START)
+        createAlarmsByType(EventDate.RECRUITMENT_END_AT, AlarmType.RECRUITMENT_END)
+        createAlarmsByType(EventDate.START_AT, AlarmType.EVENT_START)
     }
 
     @EventListener(ApplicationReadyEvent::class)
     fun onApplicationReady() {
-        scheduleDailyAlarms()
+        createDailyAlarms()
     }
 
-    private fun scheduleAlarmsByType(eventDate: EventDate, alarmType: AlarmType) {
+    private fun createAlarmsByType(eventDate: EventDate, alarmType: AlarmType) {
         val tomorrow = LocalDateTime.now().plusDays(1)
         val nextDay = tomorrow.plusDays(1)
         val events = eventRepository.findEventsByDateField(eventDate.name, tomorrow, nextDay)
@@ -50,7 +51,7 @@ class EventAlarmScheduler(
 
                 taskScheduler.schedule({
                     val event = eventRepository.findById(event.id!!).orElse(null) ?: return@schedule
-                    alarmService.sendAlarm(alarmType, event)
+                    alarmService.createAlarms(alarmType, event)
                 }, instant)
             }
         }
