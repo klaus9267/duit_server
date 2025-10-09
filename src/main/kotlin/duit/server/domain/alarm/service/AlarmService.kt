@@ -1,9 +1,14 @@
 package duit.server.domain.alarm.service
 
+import duit.server.application.security.SecurityUtil
+import duit.server.domain.alarm.dto.AlarmPaginationParam
+import duit.server.domain.alarm.dto.AlarmResponse
 import duit.server.domain.alarm.entity.Alarm
 import duit.server.domain.alarm.entity.AlarmType
 import duit.server.domain.alarm.repository.AlarmRepository
 import duit.server.domain.bookmark.repository.BookmarkRepository
+import duit.server.domain.common.dto.pagination.PageInfo
+import duit.server.domain.common.dto.pagination.PageResponse
 import duit.server.domain.event.entity.Event
 import duit.server.infrastructure.external.firebase.FCMService
 import org.springframework.stereotype.Service
@@ -15,7 +20,22 @@ class AlarmService(
     private val fcmService: FCMService,
     private val alarmRepository: AlarmRepository,
     private val bookmarkRepository: BookmarkRepository,
+    private val securityUtil: SecurityUtil,
 ) {
+
+    /**
+     * 알람 목록 조회 (페이징)
+     */
+    fun getAlarms(param: AlarmPaginationParam): PageResponse<AlarmResponse> {
+        val currentUserId = securityUtil.getCurrentUserId()
+        val alarms = alarmRepository.findByUserId(currentUserId, param.toPageable())
+        val alarmResponses = alarms.content.map { AlarmResponse.from(it) }
+
+        return PageResponse(
+            content = alarmResponses,
+            pageInfo = PageInfo.from(alarms)
+        )
+    }
 
     /**
      * 알람 생성 (스케줄러에서 호출)
@@ -80,7 +100,7 @@ class AlarmService(
                 "내일 북마크한 행사의 모집이 마감됩니다.",
                 "⏰[${event.title}]의 모집이 내일 ${event.recruitmentEndAt!!.hour}시에 마감됩니다. 잊진 않으셨죠?🫨",
                 mapOf(
-                    "type" to "recruitment_start",
+                    "type" to "recruitment_end",
                     "eventId" to event.id.toString(),
                     "hostName" to event.host.name
                 )
