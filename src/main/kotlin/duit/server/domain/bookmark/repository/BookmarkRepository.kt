@@ -4,11 +4,14 @@ import duit.server.domain.bookmark.entity.Bookmark
 import duit.server.domain.user.entity.User
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
+import org.springframework.data.jpa.repository.EntityGraph
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
 
 interface BookmarkRepository : JpaRepository<Bookmark, Long> {
     fun findByEventIdAndUserId(eventId: Long, userId: Long): Bookmark?
+
+    @EntityGraph(attributePaths = ["event", "event.host"])
     fun findByUserId(userId: Long, pageable: Pageable): Page<Bookmark>
     
     @Query(
