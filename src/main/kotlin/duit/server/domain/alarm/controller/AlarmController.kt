@@ -66,6 +66,6 @@ class AlarmController(
 
         val event = eventService.getEvent(eventId)
 
-        alarmService.sendAlarm(alarmType, event)
+        alarmService.createAlarms(alarmType, event)
     }
 }

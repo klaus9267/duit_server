@@ -26,5 +26,5 @@ interface BookmarkRepository : JpaRepository<Bookmark, Long> {
           )
         """
     )
-    fun findEligibleUsersForNotification(eventId: Long): List<User>
+    fun findEligibleUsersForAlarms(eventId: Long): List<User>
 }
