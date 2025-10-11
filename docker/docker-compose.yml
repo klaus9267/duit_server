@@ -26,8 +26,8 @@ services:
       MYSQL_DATABASE: ${DB_NAME}
       MYSQL_USER: ${DB_USERNAME}
       MYSQL_PASSWORD: ${DB_PASSWORD}
-    expose:
-      - "3306"
+    ports:
+      - "127.0.0.1:3306:3306"
     volumes:
       - mysql_data_prod:/var/lib/mysql
     restart: unless-stopped
