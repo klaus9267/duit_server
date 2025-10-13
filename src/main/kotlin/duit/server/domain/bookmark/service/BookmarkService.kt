@@ -1,13 +1,13 @@
 package duit.server.domain.bookmark.service
 
 import duit.server.application.security.SecurityUtil
+import duit.server.domain.bookmark.dto.BookmarkPaginationParam
 import duit.server.domain.bookmark.dto.BookmarkResponse
 import duit.server.domain.bookmark.dto.BookmarkToggleResponse
 import duit.server.domain.bookmark.entity.Bookmark
 import duit.server.domain.bookmark.repository.BookmarkRepository
 import duit.server.domain.common.dto.pagination.PageInfo
 import duit.server.domain.common.dto.pagination.PageResponse
-import duit.server.domain.common.dto.pagination.PaginationParam
 import duit.server.domain.event.service.EventService
 import duit.server.domain.user.service.UserService
 import org.springframework.security.access.AccessDeniedException
@@ -55,7 +55,7 @@ class BookmarkService(
         return BookmarkToggleResponse(eventId, isBookmarked)
     }
 
-    fun getBookmarks(param: PaginationParam): PageResponse<BookmarkResponse> {
+    fun getBookmarks(param: BookmarkPaginationParam): PageResponse<BookmarkResponse> {
         val currentUserId = securityUtil.getCurrentUserId()
         val bookmarks = bookmarkRepository.findByUserId(currentUserId, param.toPageable())
             .map { BookmarkResponse.from(it) }

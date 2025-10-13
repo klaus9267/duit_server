@@ -23,7 +23,7 @@ class GoogleFormProcessor(
         val eventThumbnail = fileData?.get("행사 썸네일")?.firstOrNull()
         val hostThumbnail = fileData?.get("주최 기관 로고")?.firstOrNull()
 
-        val randomEventRequest = EventRequest.from(formData, eventThumbnail, hostThumbnail)
-        eventService.createEvent(randomEventRequest)
+        val eventRequest = EventRequest.from(formData, eventThumbnail, hostThumbnail)
+        eventService.createEvent(eventRequest)
     }
 }

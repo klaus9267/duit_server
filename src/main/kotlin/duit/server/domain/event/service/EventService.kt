@@ -18,7 +18,7 @@ import jakarta.persistence.EntityNotFoundException
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-import java.time.LocalDate
+import java.time.LocalDateTime
 
 @Service
 @Transactional(readOnly = true)
@@ -34,7 +34,7 @@ class EventService(
     @Transactional
     fun createEvent(eventRequest: EventRequest): Event {
         val host = hostService.findOrCreateHost(
-            HostRequest(name = eventRequest.hostName, thumbnail = null)
+            HostRequest(name = eventRequest.hostName, thumbnail = eventRequest.hostThumbnail)
         )
         val event = eventRepository.save(eventRequest.toEntity(host))
         viewService.createView(event)
@@ -68,25 +68,22 @@ class EventService(
         isBookmarked: Boolean?,
         includeFinished: Boolean?
     ): PageResponse<EventResponse> {
-        // 현재 사용자 ID 가져오기 (북마크 필터링에 필요)
         val currentUserId = try {
             securityUtil.getCurrentUserId()
         } catch (e: Exception) {
             null // 비로그인 사용자
         }
 
-        // Sort 없는 Pageable 생성 (네이티브 쿼리에서 ORDER BY 처리하므로)
-        val pageable = PageRequest.of(
-            param.page ?: 0,
-            param.size ?: 10
-        )
         val filter = param.toFilter(
             currentUserId = currentUserId,
             isApproved = isApproved ?: true,
             isBookmarked = isBookmarked ?: false,
             includeFinished = includeFinished ?: false
         )
-
+        val pageable = PageRequest.of(
+            param.page ?: 0,
+            param.size ?: 10
+        )
         val events = eventRepository.findWithFilter(filter, pageable)
 
         // 인증된 사용자의 경우 북마크 정보 포함
@@ -111,11 +108,10 @@ class EventService(
 
     fun getEvents4Calendar(request: Event4CalendarRequest): List<EventResponse> {
         val currentUserId = securityUtil.getCurrentUserId()
-        val startDate = LocalDate.of(request.year, request.month, 1)
-        val endDate = startDate.withDayOfMonth(startDate.lengthOfMonth())
-        val events = eventRepository.findEvents4Calendar(currentUserId, startDate, endDate, request.type)
+        val start = LocalDateTime.of(request.year, request.month, 1, 0, 0)
+        val end = start.plusMonths(1).minusNanos(1)
+        val events = eventRepository.findEvents4Calendar(currentUserId, start, end, request.type)
 
-        // 모든 캘린더 이벤트는 북마크된 이벤트이므로 true로 설정
         return events.map { EventResponse.from(it, true) }
     }
 

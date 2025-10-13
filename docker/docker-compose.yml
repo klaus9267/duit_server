@@ -27,7 +27,7 @@ services:
       MYSQL_USER: ${DB_USERNAME}
       MYSQL_PASSWORD: ${DB_PASSWORD}
     ports:
-      - "${DB_PORT}:3306"
+      - "127.0.0.1:3306:3306"
     volumes:
       - mysql_data_prod:/var/lib/mysql
     restart: unless-stopped
@@ -129,6 +129,27 @@ services:
     restart: unless-stopped
     networks:
       - duit-network-prod
+
+  db-backup:
+    image: fradelg/mysql-cron-backup
+    container_name: duit-mysql-backup
+    profiles: ["infra", "full"]
+    depends_on:
+      - db
+    environment:
+      MYSQL_HOST: db
+      MYSQL_PORT: 3306
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASS: ${DB_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
+      CRON_TIME: "0 4 * * *"
+      MAX_BACKUPS: 30  # 30개 보관
+      INIT_BACKUP: 1  # 시작 시 즉시 백업
+    volumes:
+      - /home/vagom/backups/mysql:/backup
+    networks:
+      - duit-network-prod
+    restart: unless-stopped
 
 volumes:
   mysql_data_prod:

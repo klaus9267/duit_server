@@ -11,6 +11,10 @@ spring:
       indent-output: true
     time-zone: Asia/Seoul
 
+# JOOQ 설정
+  jooq:
+    sql-dialect: mysql
+
 # JWT 설정
 jwt:
   secret: ${JWT_SECRET}

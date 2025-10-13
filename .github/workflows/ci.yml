@@ -58,7 +58,7 @@ jobs:
           REDIS_TIMEOUT=${{ secrets.REDIS_TIMEOUT }}
           DISCORD_WEBHOOK_URL=${{ secrets.DISCORD_WEBHOOK_URL }}
           EOF
-          
+
           cat > src/main/resources/firebase-key.json << EOF
           ${{ secrets.FIREBASE_KEY }}
           EOF

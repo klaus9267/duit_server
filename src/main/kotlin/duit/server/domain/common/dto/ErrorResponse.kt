@@ -46,22 +46,3 @@ data class FieldError(
     @Schema(description = "에러 메시지", example = "올바른 이메일 형식이 아닙니다.")
     val message: String
 )
-
-/**
- * 성공 응답 DTO
- */
-@Schema(description = "성공 응답")
-data class SuccessResponse<T>(
-    @Schema(description = "성공 여부", example = "true")
-    val success: Boolean = true,
-    
-    @Schema(description = "응답 데이터")
-    val data: T? = null,
-    
-    @Schema(description = "응답 메시지", example = "성공적으로 처리되었습니다.")
-    val message: String? = null,
-    
-    @Schema(description = "응답 시간", example = "2024-01-15T10:30:00")
-    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
-    val timestamp: LocalDateTime = LocalDateTime.now()
-)

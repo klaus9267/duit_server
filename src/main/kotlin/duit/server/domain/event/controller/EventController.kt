@@ -2,12 +2,14 @@ package duit.server.domain.event.controller
 
 import duit.server.domain.common.docs.AuthApiResponses
 import duit.server.domain.common.docs.CommonApiResponses
-import duit.server.domain.event.controller.docs.*
+import duit.server.domain.event.controller.docs.ApproveEventApi
+import duit.server.domain.event.controller.docs.CreateEventApi
+import duit.server.domain.event.controller.docs.GetEventsApi
+import duit.server.domain.event.controller.docs.GetEventsForCalendarApi
 import duit.server.domain.event.dto.Event4CalendarRequest
 import duit.server.domain.event.dto.EventPaginationParam
 import duit.server.domain.event.dto.EventRequest
 import duit.server.domain.event.dto.EventResponse
-import duit.server.domain.event.entity.EventType
 import duit.server.domain.event.service.EventService
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
@@ -16,7 +18,6 @@ import jakarta.validation.Valid
 import org.springdoc.core.annotations.ParameterObject
 import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.*
-import java.time.LocalDate
 
 @RestController
 @RequestMapping("api/v1/events")

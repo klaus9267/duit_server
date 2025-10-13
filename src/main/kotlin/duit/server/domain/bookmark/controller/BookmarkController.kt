@@ -2,9 +2,9 @@ package duit.server.domain.bookmark.controller
 
 import duit.server.domain.bookmark.controller.docs.BookmarkEventApi
 import duit.server.domain.bookmark.controller.docs.GetBookmarksApi
+import duit.server.domain.bookmark.dto.BookmarkPaginationParam
 import duit.server.domain.bookmark.dto.BookmarkToggleResponse
 import duit.server.domain.bookmark.service.BookmarkService
-import duit.server.domain.common.dto.pagination.PaginationParam
 import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.validation.Valid
 import org.springdoc.core.annotations.ParameterObject
@@ -22,7 +22,7 @@ class BookmarkController(
     @ResponseStatus(HttpStatus.OK)
     fun getBookmarks(
         @Valid @ParameterObject
-        param: PaginationParam
+        param: BookmarkPaginationParam
     ) = bookmarkService.getBookmarks(param)
 
     @PostMapping("{eventId}")

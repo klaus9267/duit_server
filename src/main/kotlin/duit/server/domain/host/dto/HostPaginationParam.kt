@@ -16,5 +16,5 @@ data class HostPaginationParam(
     override val sortDirection: Sort.Direction?,
 
     @field:Schema(description = "정렬 필드", example = "NAME", required = false)
-    override val field: PaginationField? = PaginationField.NAME
-) : PaginationParam(page, size, sortDirection, field ?: PaginationField.NAME)
+    override val field: PaginationField = PaginationField.NAME
+) : PaginationParam(page, size, sortDirection, field)

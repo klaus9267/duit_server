@@ -7,6 +7,8 @@ build/
 application.properties
 application-*.properties
 !application-*.properties.example
+.mcp.json
+CLAUDE.md
 
 ### STS ###
 .apt_generated
@@ -50,7 +52,14 @@ docker/.env.*
 ### Firebase ###
 firebase-key.json
 
+### JOOQ Generated Code ###
+src/main/java/jooq/
+
+### Gradle Properties (contains DB credentials) ###
+gradle.properties
+
 ### Docker Compose Files ###
 docker-compose.yml.backup
 docker-compose-env.yml
 /src/main/resources/application.properties
+/.claude/
