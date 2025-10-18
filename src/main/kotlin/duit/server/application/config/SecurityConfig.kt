@@ -46,6 +46,7 @@ class SecurityConfig(
                         "/actuator/**",
                         "/api/v1/users/check-nickname",
                         "/api/v1/webhooks/**",
+                        "/api/v1/hosts",
                         "/actuator/**",
                     ).permitAll()
                     .requestMatchers(
