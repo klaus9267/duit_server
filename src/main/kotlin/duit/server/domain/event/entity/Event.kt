@@ -21,7 +21,7 @@ class Event(
     val recruitmentStartAt: LocalDateTime?,
     val recruitmentEndAt: LocalDateTime?,
     val uri: String,
-    val thumbnail: String?,
+    var thumbnail: String?,
     var isApproved: Boolean = false,
 
     @Enumerated(EnumType.STRING)
