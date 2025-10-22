@@ -15,7 +15,7 @@ class WebMvcConfig : WebMvcConfigurer {
     private lateinit var uploadDir: String
 
     override fun extendMessageConverters(converters: MutableList<HttpMessageConverter<*>>) {
-        converters.add(0, multipartJsonConverter())
+        converters.add(multipartJsonConverter())
     }
 
     override fun addResourceHandlers(registry: ResourceHandlerRegistry) {
@@ -28,9 +28,7 @@ class WebMvcConfig : WebMvcConfigurer {
     private fun multipartJsonConverter(): MappingJackson2HttpMessageConverter {
         val converter = MappingJackson2HttpMessageConverter()
         converter.supportedMediaTypes = listOf(
-            MediaType.APPLICATION_JSON,
-            MediaType.APPLICATION_OCTET_STREAM,
-            MediaType.parseMediaType("application/*+json")
+            MediaType.APPLICATION_OCTET_STREAM
         )
         return converter
     }
