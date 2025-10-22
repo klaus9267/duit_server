@@ -48,6 +48,7 @@ class SecurityConfig(
                         "/api/v1/webhooks/**",
                         "/api/v1/hosts",
                         "/actuator/**",
+                        "/uploads/**"
                     ).permitAll()
                     .requestMatchers(
                         HttpMethod.POST,

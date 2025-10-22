@@ -29,3 +29,10 @@ management:
   endpoint:
     health:
       show-details: never
+
+# 파일 스토리지 설정 (프로덕션)
+file:
+  upload-dir: ${UPLOAD_DIR}
+  base-url: ${BASE_URL}
+#  upload-dir: C:/temp/duit-uploads
+#  base-url: http://localhost:8080

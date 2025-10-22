@@ -1,6 +1,8 @@
 package duit.server.domain.event.dto
 
+import duit.server.domain.event.entity.Event
 import duit.server.domain.event.entity.EventType
+import duit.server.domain.host.entity.Host
 import io.swagger.v3.oas.annotations.media.Schema
 import jakarta.validation.constraints.Future
 import jakarta.validation.constraints.NotBlank
@@ -40,4 +42,16 @@ data class EventCreateRequest(
     @field:NotBlank(message = "주최 기관명은 필수입니다")
     @field:Schema(description = "주최 기관명", example = "단국대학교 IT 대학")
     val hostName: String
-)
+) {
+    fun toEntity(host: Host): Event = Event(
+        title = title,
+        startAt = startAt,
+        endAt = endAt,
+        recruitmentStartAt = recruitmentStartAt,
+        recruitmentEndAt = recruitmentEndAt,
+        uri = uri,
+        thumbnail = null,
+        eventType = eventType,
+        host = host
+    )
+}

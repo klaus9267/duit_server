@@ -31,7 +31,7 @@ class EventController(
     @CreateEventApi
     @CommonApiResponses
     @ResponseStatus(HttpStatus.CREATED)
-    fun createEvent(
+    fun createEventByUser(
         @Valid @RequestPart("data") eventRequest: EventCreateRequest,
         @RequestPart("eventThumbnail", required = false)
         @Parameter(description = "행사 썸네일 이미지")
@@ -39,7 +39,21 @@ class EventController(
         @RequestPart("hostThumbnail", required = false)
         @Parameter(description = "주최 기관 로고 이미지")
         hostThumbnail: MultipartFile?
-    ) = eventService.createEvent4Admin(eventRequest, eventThumbnail, hostThumbnail)
+    ) = eventService.createEvent(eventRequest, eventThumbnail, hostThumbnail, isApproved = false)
+
+    @PostMapping("/admin", consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
+    @Operation(summary = "관리자 행사 생성", description = "관리자가 행사를 생성합니다 (자동 승인)")
+    @CommonApiResponses
+    @ResponseStatus(HttpStatus.CREATED)
+    fun createEventByAdmin(
+        @Valid @RequestPart("data") eventRequest: EventCreateRequest,
+        @RequestPart("eventThumbnail", required = false)
+        @Parameter(description = "행사 썸네일 이미지")
+        eventThumbnail: MultipartFile?,
+        @RequestPart("hostThumbnail", required = false)
+        @Parameter(description = "주최 기관 로고 이미지")
+        hostThumbnail: MultipartFile?
+    ) = eventService.createEvent(eventRequest, eventThumbnail, hostThumbnail, isApproved = true)
 
     @GetMapping
     @GetEventsApi
