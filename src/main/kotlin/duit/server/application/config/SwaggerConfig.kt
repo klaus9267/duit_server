@@ -44,6 +44,7 @@ class SwaggerConfig {
             .group("DuIt OPEN API v1")
             .pathsToMatch(*paths)
             .addOperationCustomizer(commonApiResponseCustomizer())
+            .addOperationCustomizer(authApiResponseCustomizer())
             .build()
     }
 
@@ -101,6 +102,95 @@ class SwaggerConfig {
                         )
                     )
             )
+
+            operation
+        }
+    }
+
+    /**
+     * 인증이 필요한 API 엔드포인트에 인증 관련 응답(401, 403)을 자동으로 추가
+     * @AuthApiResponses 어노테이션 대체
+     */
+    @Bean
+    fun authApiResponseCustomizer(): OperationCustomizer {
+        // SecurityConfig의 permitAll() 경로 패턴 (인증 불필요)
+        val publicPathPrefixes = setOf(
+            "/h2-console",
+            "/swagger-ui",
+            "/v3/api-docs",
+            "/swagger-resources",
+            "/actuator",
+            "/api/v1/users/check-nickname",
+            "/api/v1/webhooks",
+            "/api/v1/hosts",
+            "/uploads",
+            "/api/v1/auth",
+            "/api/v1/admin/auth"
+        )
+
+        return OperationCustomizer { operation, handlerMethod ->
+            // 현재 경로가 public인지 확인
+            val operationPath = handlerMethod.method.declaringClass.getAnnotation(org.springframework.web.bind.annotation.RequestMapping::class.java)
+                ?.value?.firstOrNull() ?: ""
+            val methodPath = (handlerMethod.method.getAnnotation(org.springframework.web.bind.annotation.GetMapping::class.java)?.value?.firstOrNull()
+                ?: handlerMethod.method.getAnnotation(org.springframework.web.bind.annotation.PostMapping::class.java)?.value?.firstOrNull()
+                ?: handlerMethod.method.getAnnotation(org.springframework.web.bind.annotation.PatchMapping::class.java)?.value?.firstOrNull()
+                ?: handlerMethod.method.getAnnotation(org.springframework.web.bind.annotation.DeleteMapping::class.java)?.value?.firstOrNull()
+                ?: "")
+            val fullPath = operationPath + methodPath
+
+            // Public path가 아닌 경우에만 401, 403 추가
+            val isPublicPath = publicPathPrefixes.any { fullPath.startsWith(it) }
+
+            if (!isPublicPath) {
+                val responses = operation.responses
+
+                // 401 Unauthorized
+                val unauthorizedExample = Example().apply {
+                    value = mapOf(
+                        "code" to "COMMON_003",
+                        "message" to "인증이 필요합니다.",
+                        "timestamp" to "2024-01-01T10:00:00"
+                    )
+                }
+
+                responses.addApiResponse(
+                    "401",
+                    ApiResponse()
+                        .description("인증 필요")
+                        .content(
+                            Content().addMediaType(
+                                "application/json",
+                                MediaType()
+                                    .schema(Schema<ErrorResponse>().`$ref`("#/components/schemas/ErrorResponse"))
+                                    .addExamples("인증 필요", unauthorizedExample)
+                            )
+                        )
+                )
+
+                // 403 Forbidden
+                val forbiddenExample = Example().apply {
+                    value = mapOf(
+                        "code" to "COMMON_004",
+                        "message" to "접근 권한이 없습니다.",
+                        "timestamp" to "2024-01-01T10:00:00"
+                    )
+                }
+
+                responses.addApiResponse(
+                    "403",
+                    ApiResponse()
+                        .description("접근 권한 없음")
+                        .content(
+                            Content().addMediaType(
+                                "application/json",
+                                MediaType()
+                                    .schema(Schema<ErrorResponse>().`$ref`("#/components/schemas/ErrorResponse"))
+                                    .addExamples("접근 권한 없음", forbiddenExample)
+                            )
+                        )
+                )
+            }
 
             operation
         }

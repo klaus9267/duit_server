@@ -1,6 +1,5 @@
 package duit.server.domain.user.controller
 
-import duit.server.domain.common.docs.AuthApiResponses
 import duit.server.domain.user.controller.docs.CheckNicknameDuplicateApi
 import duit.server.domain.user.controller.docs.GetCurrentUserApi
 import duit.server.domain.user.controller.docs.UpdateCurrentUserNicknameApi
@@ -33,13 +32,11 @@ class UserController(
 
     @GetMapping("/me")
     @GetCurrentUserApi
-    @AuthApiResponses
     @ResponseStatus(HttpStatus.OK)
     fun getCurrentUser(): UserResponse = userService.getCurrentUser()
 
     @PatchMapping("/nickname")
     @UpdateCurrentUserNicknameApi
-    @AuthApiResponses
     @ResponseStatus(HttpStatus.OK)
     fun updateCurrentUserNickname(
         @Valid @RequestBody request: UpdateNicknameRequest
@@ -47,7 +44,6 @@ class UserController(
 
     @PatchMapping("/device/{token}")
     @UpdateDevice
-    @AuthApiResponses
     @ResponseStatus(HttpStatus.OK)
     fun updateDevice(@PathVariable token: String) = userService.updateDevice(token)
 
@@ -56,7 +52,6 @@ class UserController(
         summary = "사용자 설정 수정",
         description = "현재 사용자의 알림 설정 및 캘린더 자동 추가 설정을 수정합니다."
     )
-    @AuthApiResponses
     @ResponseStatus(HttpStatus.OK)
     fun updateUserSettings(
         @Valid @RequestBody request: UpdateUserSettingsRequest
@@ -64,7 +59,6 @@ class UserController(
 
     @DeleteMapping("/{userId}")
     @WithdrawApi
-    @AuthApiResponses
     @ResponseStatus(HttpStatus.NO_CONTENT)
     fun withdraw(
         @Parameter(description = "사용자 ID", required = true)
