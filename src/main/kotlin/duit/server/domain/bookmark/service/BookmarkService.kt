@@ -35,6 +35,7 @@ class BookmarkService(
             if (!event.isApproved) {
                 throw AccessDeniedException("승인되지 않은 행사입니다.")
             }
+
             val currentUser = userService.findUserById(currentUserId)
 
             val newBookmark = Bookmark(
@@ -58,6 +59,7 @@ class BookmarkService(
         val currentUserId = securityUtil.getCurrentUserId()
         val bookmarks = bookmarkRepository.findByUserId(currentUserId, param.toPageable())
             .map { BookmarkResponse.from(it) }
+
         return PageResponse(
             bookmarks.content,
             pageInfo = PageInfo.from(bookmarks)

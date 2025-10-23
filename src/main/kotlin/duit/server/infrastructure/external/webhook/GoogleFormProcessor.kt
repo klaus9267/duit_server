@@ -1,6 +1,6 @@
 package duit.server.infrastructure.external.webhook
 
-import duit.server.domain.event.dto.EventRequest
+import duit.server.domain.event.dto.EventRequestFromGoogleForm
 import duit.server.domain.event.service.EventService
 import duit.server.domain.host.service.HostService
 import duit.server.infrastructure.external.webhook.dto.GoogleFormResult
@@ -23,7 +23,7 @@ class GoogleFormProcessor(
         val eventThumbnail = fileData?.get("행사 썸네일")?.firstOrNull()
         val hostThumbnail = fileData?.get("주최 기관 로고")?.firstOrNull()
 
-        val eventRequest = EventRequest.from(formData, eventThumbnail, hostThumbnail)
-        eventService.createEvent(eventRequest)
+        val eventRequestFromGoogleForm = EventRequestFromGoogleForm.from(formData, eventThumbnail, hostThumbnail)
+        eventService.createEventFromGoogleForm(eventRequestFromGoogleForm)
     }
 }

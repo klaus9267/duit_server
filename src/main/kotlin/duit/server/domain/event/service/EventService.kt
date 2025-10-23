@@ -4,20 +4,19 @@ import duit.server.application.scheduler.EventAlarmScheduler
 import duit.server.application.security.SecurityUtil
 import duit.server.domain.common.dto.pagination.PageInfo
 import duit.server.domain.common.dto.pagination.PageResponse
-import duit.server.domain.event.dto.Event4CalendarRequest
-import duit.server.domain.event.dto.EventPaginationParam
-import duit.server.domain.event.dto.EventRequest
-import duit.server.domain.event.dto.EventResponse
+import duit.server.domain.event.dto.*
 import duit.server.domain.event.entity.Event
 import duit.server.domain.event.repository.EventRepository
 import duit.server.domain.host.dto.HostRequest
 import duit.server.domain.host.service.HostService
 import duit.server.domain.view.service.ViewService
 import duit.server.infrastructure.external.discord.DiscordService
+import duit.server.infrastructure.external.file.FileStorageService
 import jakarta.persistence.EntityNotFoundException
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.web.multipart.MultipartFile
 import java.time.LocalDateTime
 
 @Service
@@ -28,15 +27,16 @@ class EventService(
     private val securityUtil: SecurityUtil,
     private val discordService: DiscordService,
     private val hostService: HostService,
-    private val eventAlarmScheduler: EventAlarmScheduler
+    private val eventAlarmScheduler: EventAlarmScheduler,
+    private val fileStorageService: FileStorageService
 ) {
 
     @Transactional
-    fun createEvent(eventRequest: EventRequest): Event {
+    fun createEventFromGoogleForm(eventRequestFromGoogleForm: EventRequestFromGoogleForm): Event {
         val host = hostService.findOrCreateHost(
-            HostRequest(name = eventRequest.hostName, thumbnail = eventRequest.hostThumbnail)
+            HostRequest(name = eventRequestFromGoogleForm.hostName, thumbnail = eventRequestFromGoogleForm.hostThumbnail)
         )
-        val event = eventRepository.save(eventRequest.toEntity(host))
+        val event = eventRepository.save(eventRequestFromGoogleForm.toEntity(host))
         viewService.createView(event)
 
         discordService.sendNewEventNotification(event)
@@ -45,17 +45,28 @@ class EventService(
     }
 
     @Transactional
-    fun createEvent4Admin(eventRequest: EventRequest): Event {
+    fun createEvent(
+        eventRequest: EventCreateRequest,
+        eventThumbnail: MultipartFile?,
+        hostThumbnail: MultipartFile?,
+        isApproved: Boolean
+    ): EventResponse {
+        val eventThumbnailUrl = eventThumbnail?.let { fileStorageService.uploadFile(it, "events") }
+        val hostThumbnailUrl = hostThumbnail?.let { fileStorageService.uploadFile(it, "hosts") }
+
         val host = hostService.findOrCreateHost(
-            HostRequest(name = eventRequest.hostName, thumbnail = null)
+            HostRequest(name = eventRequest.hostName, thumbnail = hostThumbnailUrl)
         )
-        val event = eventRequest.toEntity(host)
-        event.isApproved = true
+
+        val event = eventRequest.toEntity(host).apply {
+            thumbnail = eventThumbnailUrl
+            this.isApproved = isApproved
+        }
+
         val savedEvent = eventRepository.save(event)
+        viewService.createView(savedEvent)
 
-        viewService.createView(event)
-
-        return savedEvent
+        return EventResponse.from(savedEvent,false)
     }
 
     fun getEvent(eventId: Long): Event =

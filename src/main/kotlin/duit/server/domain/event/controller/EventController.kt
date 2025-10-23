@@ -1,14 +1,13 @@
 package duit.server.domain.event.controller
 
 import duit.server.domain.common.docs.AuthApiResponses
-import duit.server.domain.common.docs.CommonApiResponses
 import duit.server.domain.event.controller.docs.ApproveEventApi
 import duit.server.domain.event.controller.docs.CreateEventApi
 import duit.server.domain.event.controller.docs.GetEventsApi
 import duit.server.domain.event.controller.docs.GetEventsForCalendarApi
 import duit.server.domain.event.dto.Event4CalendarRequest
+import duit.server.domain.event.dto.EventCreateRequest
 import duit.server.domain.event.dto.EventPaginationParam
-import duit.server.domain.event.dto.EventRequest
 import duit.server.domain.event.dto.EventResponse
 import duit.server.domain.event.service.EventService
 import io.swagger.v3.oas.annotations.Operation
@@ -17,7 +16,9 @@ import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.validation.Valid
 import org.springdoc.core.annotations.ParameterObject
 import org.springframework.http.HttpStatus
+import org.springframework.http.MediaType
 import org.springframework.web.bind.annotation.*
+import org.springframework.web.multipart.MultipartFile
 
 @RestController
 @RequestMapping("api/v1/events")
@@ -25,17 +26,34 @@ import org.springframework.web.bind.annotation.*
 class EventController(
     private val eventService: EventService
 ) {
-    @PostMapping
+    @PostMapping(consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
     @CreateEventApi
-    @CommonApiResponses
     @ResponseStatus(HttpStatus.CREATED)
-    fun createEvent(
-        @Valid @RequestBody eventRequest: EventRequest,
-    ) = eventService.createEvent4Admin(eventRequest)
+    fun createEventByUser(
+        @Valid @RequestPart("data") eventRequest: EventCreateRequest,
+        @RequestPart("eventThumbnail", required = false)
+        @Parameter(description = "행사 썸네일 이미지")
+        eventThumbnail: MultipartFile?,
+        @RequestPart("hostThumbnail", required = false)
+        @Parameter(description = "주최 기관 로고 이미지")
+        hostThumbnail: MultipartFile?
+    ) = eventService.createEvent(eventRequest, eventThumbnail, hostThumbnail, isApproved = false)
+
+    @PostMapping("/admin", consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
+    @Operation(summary = "관리자 행사 생성", description = "관리자가 행사를 생성합니다 (자동 승인)")
+    @ResponseStatus(HttpStatus.CREATED)
+    fun createEventByAdmin(
+        @Valid @RequestPart("data") eventRequest: EventCreateRequest,
+        @RequestPart("eventThumbnail", required = false)
+        @Parameter(description = "행사 썸네일 이미지")
+        eventThumbnail: MultipartFile?,
+        @RequestPart("hostThumbnail", required = false)
+        @Parameter(description = "주최 기관 로고 이미지")
+        hostThumbnail: MultipartFile?
+    ) = eventService.createEvent(eventRequest, eventThumbnail, hostThumbnail, isApproved = true)
 
     @GetMapping
     @GetEventsApi
-    @CommonApiResponses
     @ResponseStatus(HttpStatus.OK)
     fun getEvents(
         @Parameter(description = "행사 승인 여부", example = "true")
@@ -51,7 +69,6 @@ class EventController(
     @GetMapping("calendar")
     @GetEventsForCalendarApi
     @AuthApiResponses
-    @CommonApiResponses
     @ResponseStatus(HttpStatus.OK)
     fun getEvents4Calendar(
         @Valid @ParameterObject
@@ -60,7 +77,6 @@ class EventController(
 
     @PatchMapping("{eventId}/approve")
     @ApproveEventApi
-    @CommonApiResponses
     @AuthApiResponses
     @ResponseStatus(HttpStatus.NO_CONTENT)
     fun approveEvent(@PathVariable eventId: Long) = eventService.approveEvent(eventId)
