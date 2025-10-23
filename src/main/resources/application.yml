@@ -1,6 +1,25 @@
 spring:
-  profiles:
-    active: prod
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://${DB_HOST}:${DB_PORT}/${DB_NAME}?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&useSSL=false&allowPublicKeyRetrieval=true
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQL8Dialect
+
+  # Redis 설정
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT}
+      password: ${REDIS_PASSWORD}
+      timeout: ${REDIS_TIMEOUT}
+
   output:
     ansi:
       enabled: always
@@ -11,9 +30,14 @@ spring:
       indent-output: true
     time-zone: Asia/Seoul
 
-# JOOQ 설정
-  jooq:
-    sql-dialect: mysql
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+  endpoint:
+    health:
+      show-details: never
 
 # JWT 설정
 jwt:
@@ -29,20 +53,13 @@ springdoc:
     docExpansion: none
   enable-kotlin: true
 
-# 관리 및 모니터링 설정
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health,info,metrics,prometheus
-      base-path: /actuator
-  endpoint:
-    health:
-      show-details: when-authorized
-  info:
-    env:
-      enabled: true
-
 discord:
   webhook:
     url: ${DISCORD_WEBHOOK_URL}
+
+# 파일 스토리지 설정 (프로덕션)
+file:
+  upload-dir: ${UPLOAD_DIR}
+  base-url: ${BASE_URL}
+#  upload-dir: C:/temp/duit-uploads
+#  base-url: http://localhost:8080

@@ -12,7 +12,7 @@ import java.net.URI
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
-data class EventRequest(
+data class EventRequestFromGoogleForm(
     @field:NotNull
     val title: String,
 
@@ -100,7 +100,7 @@ data class EventRequest(
             formData: Map<String, String>,
             eventThumbnail: FileInfo?,
             hostThumbnail: FileInfo? = null
-        ): EventRequest {
+        ): EventRequestFromGoogleForm {
             val startAt = combineDateAndTime(
                 formData["행사 시작 날짜"],
                 formData["행사 시작 시간"]
@@ -121,7 +121,7 @@ data class EventRequest(
                 formData["모집 종료 시간"]
             )
 
-            return EventRequest(
+            return EventRequestFromGoogleForm(
                 title = formData.getValue("행사 제목"),
                 startAt = startAt,
                 endAt = endAt,
