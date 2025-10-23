@@ -1,6 +1,7 @@
 package duit.server.domain.admin.service
 
 import duit.server.application.security.JwtTokenProvider
+import duit.server.application.security.SecurityUtil
 import duit.server.domain.admin.dto.AdminLoginResponse
 import duit.server.domain.admin.dto.AdminRegisterRequest
 import duit.server.domain.admin.dto.AdminResponse
@@ -21,7 +22,8 @@ class AdminAuthService(
     private val bannedIpRepository: BannedIpRepository,
     private val userRepository: UserRepository,
     private val passwordEncoder: PasswordEncoder,
-    private val jwtTokenProvider: JwtTokenProvider
+    private val jwtTokenProvider: JwtTokenProvider,
+    private val securityUtil: SecurityUtil
 ) {
 
     @Transactional
@@ -59,7 +61,9 @@ class AdminAuthService(
             "이미 존재하는 관리자 ID입니다"
         }
 
-        return userRepository.findById(request.userId)
+        val currentUserId = securityUtil.getCurrentUserId()
+
+        return userRepository.findById(currentUserId)
             .orElseThrow { EntityNotFoundException("사용자를 찾을 수 없습니다") }
             .let { user ->
                 val admin = Admin(

@@ -114,6 +114,7 @@ class SwaggerConfig {
     @Bean
     fun authApiResponseCustomizer(): OperationCustomizer {
         // SecurityConfig의 permitAll() 경로 패턴 (인증 불필요)
+        // 경로만으로 체크하는 public paths
         val publicPathPrefixes = setOf(
             "/h2-console",
             "/swagger-ui",
@@ -124,23 +125,56 @@ class SwaggerConfig {
             "/api/v1/webhooks",
             "/api/v1/hosts",
             "/uploads",
-            "/api/v1/auth",
-            "/api/v1/admin/auth"
+            "/api/v1/auth"
+        )
+
+        // HTTP 메서드와 경로를 함께 체크하는 public endpoints
+        val publicMethodPaths = setOf(
+            "GET /api/v1/events",
+            "GET /api/v1/users",
+            "POST /api/v1/events",
+            "POST /api/v1/admin/auth/login",
+            "DELETE /api/v1/events/{eventId}",
+            "POST /api/v1/alarms/test"
         )
 
         return OperationCustomizer { operation, handlerMethod ->
-            // 현재 경로가 public인지 확인
+            // 현재 경로와 HTTP 메서드 확인
             val operationPath = handlerMethod.method.declaringClass.getAnnotation(org.springframework.web.bind.annotation.RequestMapping::class.java)
                 ?.value?.firstOrNull() ?: ""
-            val methodPath = (handlerMethod.method.getAnnotation(org.springframework.web.bind.annotation.GetMapping::class.java)?.value?.firstOrNull()
-                ?: handlerMethod.method.getAnnotation(org.springframework.web.bind.annotation.PostMapping::class.java)?.value?.firstOrNull()
-                ?: handlerMethod.method.getAnnotation(org.springframework.web.bind.annotation.PatchMapping::class.java)?.value?.firstOrNull()
-                ?: handlerMethod.method.getAnnotation(org.springframework.web.bind.annotation.DeleteMapping::class.java)?.value?.firstOrNull()
-                ?: "")
-            val fullPath = operationPath + methodPath
 
-            // Public path가 아닌 경우에만 401, 403 추가
-            val isPublicPath = publicPathPrefixes.any { fullPath.startsWith(it) }
+            val httpMethod: String
+            val methodPath: String
+
+            when {
+                handlerMethod.method.getAnnotation(org.springframework.web.bind.annotation.GetMapping::class.java) != null -> {
+                    httpMethod = "GET"
+                    methodPath = handlerMethod.method.getAnnotation(org.springframework.web.bind.annotation.GetMapping::class.java)?.value?.firstOrNull() ?: ""
+                }
+                handlerMethod.method.getAnnotation(org.springframework.web.bind.annotation.PostMapping::class.java) != null -> {
+                    httpMethod = "POST"
+                    methodPath = handlerMethod.method.getAnnotation(org.springframework.web.bind.annotation.PostMapping::class.java)?.value?.firstOrNull() ?: ""
+                }
+                handlerMethod.method.getAnnotation(org.springframework.web.bind.annotation.PatchMapping::class.java) != null -> {
+                    httpMethod = "PATCH"
+                    methodPath = handlerMethod.method.getAnnotation(org.springframework.web.bind.annotation.PatchMapping::class.java)?.value?.firstOrNull() ?: ""
+                }
+                handlerMethod.method.getAnnotation(org.springframework.web.bind.annotation.DeleteMapping::class.java) != null -> {
+                    httpMethod = "DELETE"
+                    methodPath = handlerMethod.method.getAnnotation(org.springframework.web.bind.annotation.DeleteMapping::class.java)?.value?.firstOrNull() ?: ""
+                }
+                else -> {
+                    httpMethod = "UNKNOWN"
+                    methodPath = ""
+                }
+            }
+
+            val fullPath = operationPath + methodPath
+            val methodAndPath = "$httpMethod $fullPath"
+
+            // Public path인지 확인 (경로 prefix 또는 메서드+경로 조합)
+            val isPublicPath = publicPathPrefixes.any { fullPath.startsWith(it) } ||
+                               publicMethodPaths.contains(methodAndPath)
 
             if (!isPublicPath) {
                 val responses = operation.responses

@@ -63,8 +63,7 @@ class SecurityConfig(
                     .requestMatchers(
                         HttpMethod.POST,
                         "/api/v1/events",
-                        "/api/v1/admin/auth/login",
-                        "/api/v1/admin/auth/register",
+                        "/api/v1/admin/auth/login"
                     ).permitAll()
                     .requestMatchers(HttpMethod.DELETE, "/api/v1/events/{eventId}").permitAll()
                     .requestMatchers(HttpMethod.POST, "/api/v1/alarms/test").permitAll()
