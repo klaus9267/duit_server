@@ -1,5 +1,7 @@
 package duit.server.domain.event.entity
 
+import duit.server.domain.alarm.entity.Alarm
+import duit.server.domain.bookmark.entity.Bookmark
 import duit.server.domain.host.entity.Host
 import duit.server.domain.view.entity.View
 import jakarta.persistence.*
@@ -37,6 +39,12 @@ class Event(
     val host: Host,
 
     @OneToOne(mappedBy = "event", cascade = [CascadeType.ALL], orphanRemoval = true)
-    val view: View? = null
+    val view: View? = null,
+
+    @OneToMany(mappedBy = "event", cascade = [CascadeType.ALL], orphanRemoval = true)
+    val bookmarks: List<Bookmark> = emptyList(),
+
+    @OneToMany(mappedBy = "event", cascade = [CascadeType.ALL], orphanRemoval = true)
+    val alarms: List<Alarm> = emptyList()
 ) {
 }
