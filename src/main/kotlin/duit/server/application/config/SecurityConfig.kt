@@ -48,7 +48,7 @@ class SecurityConfig(
                         "/api/v1/webhooks/**",
                         "/api/v1/hosts",
                         "/actuator/**",
-                        "/uploads/**"
+                        "/uploads/**",
                     ).permitAll()
                     .requestMatchers(
                         HttpMethod.POST,
@@ -56,7 +56,12 @@ class SecurityConfig(
                         "/api/v1/auth/token"
                     ).permitAll()
                     .requestMatchers(HttpMethod.GET, "/api/v1/events").permitAll()
-                    .requestMatchers(HttpMethod.POST, "/api/v1/events").permitAll()
+                    .requestMatchers(
+                        HttpMethod.POST,
+                        "/api/v1/events",
+                        "/api/v1/admin/auth/login",
+                        "/api/v1/admin/auth/register",
+                    ).permitAll()
                     .requestMatchers(HttpMethod.DELETE, "/api/v1/events/{eventId}").permitAll()
                     .requestMatchers(HttpMethod.POST, "/api/v1/alarms/test").permitAll()
 
