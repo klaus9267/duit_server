@@ -58,6 +58,8 @@ jobs:
           REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
           REDIS_TIMEOUT=${{ secrets.REDIS_TIMEOUT }}
           DISCORD_WEBHOOK_URL=${{ secrets.DISCORD_WEBHOOK_URL }}
+          UPLOAD_DIR=${{ secrets.UPLOAD_DIR }}
+          BASE_URL=${{ secrets.BASE_URL }}
           EOF
 
           cat > src/main/resources/firebase-key.json << EOF
