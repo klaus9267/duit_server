@@ -1,9 +1,8 @@
 package duit.server.domain.auth.controller
 
+import duit.server.application.security.JwtTokenProvider
 import duit.server.domain.auth.controller.docs.IssueTokenApi
 import duit.server.domain.auth.controller.docs.SocialLoginApi
-import duit.server.domain.common.docs.CommonApiResponses
-import duit.server.application.security.JwtTokenProvider
 import duit.server.domain.auth.dto.AuthResponse
 import duit.server.domain.auth.service.AuthService
 import duit.server.domain.user.service.UserService
@@ -25,7 +24,6 @@ class AuthController(
 
     @PostMapping("/social")
     @SocialLoginApi
-    @CommonApiResponses
     @ResponseStatus(HttpStatus.OK)
     fun socialLogin(
         @Valid @RequestBody
@@ -39,29 +37,15 @@ class AuthController(
      */
     @PostMapping("/token")
     @IssueTokenApi
-    @CommonApiResponses
     @ResponseStatus(HttpStatus.OK)
     fun issueToken(
         @Parameter(description = "사용자 ID", required = true)
         @RequestParam userId: Long
-    ): TokenResponse {
+    ): String {
         // 사용자 존재 여부 확인
         userService.findUserById(userId)
 
         // JWT 토큰 생성
-        val accessToken = jwtTokenProvider.createAccessToken(userId)
-
-        return TokenResponse(
-            accessToken = accessToken,
-            tokenType = "Bearer"
-        )
+        return jwtTokenProvider.createAccessToken(userId)
     }
 }
-
-/**
- * 토큰 발급 응답 DTO
- */
-data class TokenResponse(
-    val accessToken: String,
-    val tokenType: String
-)

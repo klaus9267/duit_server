@@ -12,50 +12,6 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses
 @ApiResponses(
     value = [
         ApiResponse(
-            responseCode = "400",
-            description = "잘못된 요청",
-            content = [Content(
-                mediaType = "application/json",
-                schema = Schema(implementation = ErrorResponse::class),
-                examples = [ExampleObject(
-                    name = "잘못된 요청",
-                    value = """
-                    {
-                        "code": "COMMON_002",
-                        "message": "잘못된 요청입니다.",
-                        "timestamp": "2024-01-01T10:00:00"
-                    }
-                    """
-                )]
-            )]
-        ),
-        ApiResponse(
-            responseCode = "500",
-            description = "서버 내부 오류",
-            content = [Content(
-                mediaType = "application/json",
-                schema = Schema(implementation = ErrorResponse::class),
-                examples = [ExampleObject(
-                    name = "서버 내부 오류",
-                    value = """
-                    {
-                        "code": "COMMON_001",
-                        "message": "서버 내부 오류가 발생했습니다.",
-                        "timestamp": "2024-01-01T10:00:00"
-                    }
-                    """
-                )]
-            )]
-        )
-    ]
-)
-annotation class CommonApiResponses
-
-@Target(AnnotationTarget.FUNCTION)
-@Retention(AnnotationRetention.RUNTIME)
-@ApiResponses(
-    value = [
-        ApiResponse(
             responseCode = "401",
             description = "인증 필요",
             content = [Content(

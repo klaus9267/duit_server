@@ -1,7 +1,6 @@
 package duit.server.domain.event.controller
 
 import duit.server.domain.common.docs.AuthApiResponses
-import duit.server.domain.common.docs.CommonApiResponses
 import duit.server.domain.event.controller.docs.ApproveEventApi
 import duit.server.domain.event.controller.docs.CreateEventApi
 import duit.server.domain.event.controller.docs.GetEventsApi
@@ -29,7 +28,6 @@ class EventController(
 ) {
     @PostMapping(consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
     @CreateEventApi
-    @CommonApiResponses
     @ResponseStatus(HttpStatus.CREATED)
     fun createEventByUser(
         @Valid @RequestPart("data") eventRequest: EventCreateRequest,
@@ -43,7 +41,6 @@ class EventController(
 
     @PostMapping("/admin", consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
     @Operation(summary = "관리자 행사 생성", description = "관리자가 행사를 생성합니다 (자동 승인)")
-    @CommonApiResponses
     @ResponseStatus(HttpStatus.CREATED)
     fun createEventByAdmin(
         @Valid @RequestPart("data") eventRequest: EventCreateRequest,
@@ -57,7 +54,6 @@ class EventController(
 
     @GetMapping
     @GetEventsApi
-    @CommonApiResponses
     @ResponseStatus(HttpStatus.OK)
     fun getEvents(
         @Parameter(description = "행사 승인 여부", example = "true")
@@ -73,7 +69,6 @@ class EventController(
     @GetMapping("calendar")
     @GetEventsForCalendarApi
     @AuthApiResponses
-    @CommonApiResponses
     @ResponseStatus(HttpStatus.OK)
     fun getEvents4Calendar(
         @Valid @ParameterObject
@@ -82,7 +77,6 @@ class EventController(
 
     @PatchMapping("{eventId}/approve")
     @ApproveEventApi
-    @CommonApiResponses
     @AuthApiResponses
     @ResponseStatus(HttpStatus.NO_CONTENT)
     fun approveEvent(@PathVariable eventId: Long) = eventService.approveEvent(eventId)
