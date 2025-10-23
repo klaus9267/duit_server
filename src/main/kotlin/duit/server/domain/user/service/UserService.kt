@@ -1,8 +1,11 @@
 package duit.server.domain.user.service
 
 import duit.server.application.security.SecurityUtil
+import duit.server.domain.common.dto.pagination.PageInfo
+import duit.server.domain.common.dto.pagination.PageResponse
 import duit.server.domain.user.dto.UpdateNicknameRequest
 import duit.server.domain.user.dto.UpdateUserSettingsRequest
+import duit.server.domain.user.dto.UserPaginationParam
 import duit.server.domain.user.dto.UserResponse
 import duit.server.domain.user.entity.User
 import duit.server.domain.user.repository.UserRepository
@@ -16,6 +19,19 @@ class UserService(
     private val userRepository: UserRepository,
     private val securityUtil: SecurityUtil
 ) {
+
+    /**
+     * 사용자 목록 조회 (관리자용)
+     */
+    fun getAllUsers(param: UserPaginationParam): PageResponse<UserResponse> {
+        val pageable = param.toPageable()
+        val page = userRepository.findAll(pageable)
+
+        return PageResponse(
+            content = page.map { UserResponse.from(it) }.toList(),
+            pageInfo = PageInfo.from(page)
+        )
+    }
 
     /**
      * 현재 사용자 조회
