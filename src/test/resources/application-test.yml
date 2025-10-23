@@ -60,6 +60,11 @@ discord:
   webhook:
     url: "https://discord.com/api/webhooks/test"  # 테스트용 더미 URL
 
+# 파일 스토리지 설정 (테스트용)
+file:
+  upload-dir: ${java.io.tmpdir}/duit-test-uploads
+  base-url: http://localhost:8080
+
 # JOOQ 비활성화 (H2에서는 JOOQ 쿼리 사용 안 함)
 jooq:
   enabled: false
