@@ -1,6 +1,5 @@
 package duit.server.domain.event.controller
 
-import duit.server.domain.common.docs.AuthApiResponses
 import duit.server.domain.event.controller.docs.ApproveEventApi
 import duit.server.domain.event.controller.docs.CreateEventApi
 import duit.server.domain.event.controller.docs.GetEventsApi
@@ -68,7 +67,6 @@ class EventController(
 
     @GetMapping("calendar")
     @GetEventsForCalendarApi
-    @AuthApiResponses
     @ResponseStatus(HttpStatus.OK)
     fun getEvents4Calendar(
         @Valid @ParameterObject
@@ -77,7 +75,6 @@ class EventController(
 
     @PatchMapping("{eventId}/approve")
     @ApproveEventApi
-    @AuthApiResponses
     @ResponseStatus(HttpStatus.NO_CONTENT)
     fun approveEvent(@PathVariable eventId: Long) = eventService.approveEvent(eventId)
 
