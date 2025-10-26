@@ -68,6 +68,9 @@ class SecurityConfig(
                     .requestMatchers(HttpMethod.DELETE, "/api/v1/events/{eventId}").permitAll()
                     .requestMatchers(HttpMethod.POST, "/api/v1/alarms/test").permitAll()
 
+                    // CORS preflight 요청 (OPTIONS) 허용
+                    .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
                     // 나머지 모든 요청은 인증 필요
                     .anyRequest().authenticated()
             }
