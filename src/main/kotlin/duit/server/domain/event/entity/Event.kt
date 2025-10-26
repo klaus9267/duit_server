@@ -17,12 +17,12 @@ class Event(
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long? = null,
-    val title: String,
-    val startAt: LocalDateTime,
-    val endAt: LocalDateTime?,
-    val recruitmentStartAt: LocalDateTime?,
-    val recruitmentEndAt: LocalDateTime?,
-    val uri: String,
+    var title: String,
+    var startAt: LocalDateTime,
+    var endAt: LocalDateTime?,
+    var recruitmentStartAt: LocalDateTime?,
+    var recruitmentEndAt: LocalDateTime?,
+    var uri: String,
     var thumbnail: String?,
     var isApproved: Boolean = false,
 
@@ -36,7 +36,7 @@ class Event(
     var updatedAt: LocalDateTime = LocalDateTime.now(),
 
     @ManyToOne(fetch = FetchType.LAZY)
-    val host: Host,
+    var host: Host,
 
     @OneToOne(mappedBy = "event", cascade = [CascadeType.ALL], orphanRemoval = true)
     val view: View? = null,

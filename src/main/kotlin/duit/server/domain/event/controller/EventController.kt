@@ -8,6 +8,7 @@ import duit.server.domain.event.dto.Event4CalendarRequest
 import duit.server.domain.event.dto.EventCreateRequest
 import duit.server.domain.event.dto.EventPaginationParam
 import duit.server.domain.event.dto.EventResponse
+import duit.server.domain.event.dto.EventUpdateRequest
 import duit.server.domain.event.service.EventService
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
@@ -82,4 +83,18 @@ class EventController(
     @Operation(summary = "행사 삭제")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     fun deleteEvent(@PathVariable eventId: Long) = eventService.deleteEvent(eventId)
+
+    @PutMapping("{eventId}", consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
+    @Operation(summary = "행사 수정 (관리자)", description = "관리자가 행사를 수정합니다")
+    @ResponseStatus(HttpStatus.OK)
+    fun updateEvent(
+        @PathVariable eventId: Long,
+        @Valid @RequestPart("data") updateRequest: EventUpdateRequest,
+        @RequestPart("eventThumbnail", required = false)
+        @Parameter(description = "행사 썸네일 이미지")
+        eventThumbnail: MultipartFile?,
+        @RequestPart("hostThumbnail", required = false)
+        @Parameter(description = "주최 기관 로고 이미지")
+        hostThumbnail: MultipartFile?
+    ): EventResponse = eventService.updateEvent(eventId, updateRequest, eventThumbnail, hostThumbnail)
 }

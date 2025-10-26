@@ -143,4 +143,45 @@ class EventService(
         event.isApproved = true
         eventRepository.save(event)
     }
+
+    @Transactional
+    fun updateEvent(
+        eventId: Long,
+        updateRequest: EventUpdateRequest,
+        eventThumbnail: MultipartFile?,
+        hostThumbnail: MultipartFile?
+    ): EventResponse {
+        val event = getEvent(eventId)
+
+        // 기존 썸네일 삭제 (새 파일이 업로드되는 경우에만)
+        if (eventThumbnail != null && event.thumbnail != null) {
+            fileStorageService.deleteFile(event.thumbnail!!)
+        }
+
+        // 새 파일 업로드
+        val eventThumbnailUrl = eventThumbnail?.let { fileStorageService.uploadFile(it, "events") }
+        val hostThumbnailUrl = hostThumbnail?.let { fileStorageService.uploadFile(it, "hosts") }
+
+        // Host 업데이트 또는 생성
+        val host = hostService.findOrCreateHost(
+            HostRequest(name = updateRequest.hostName, thumbnail = hostThumbnailUrl)
+        )
+
+        // Event 필드 업데이트
+        event.title = updateRequest.title
+        event.startAt = updateRequest.startAt
+        event.endAt = updateRequest.endAt
+        event.recruitmentStartAt = updateRequest.recruitmentStartAt
+        event.recruitmentEndAt = updateRequest.recruitmentEndAt
+        event.uri = updateRequest.uri
+        event.host = host
+
+        // 썸네일 업데이트 (새 파일이 있는 경우에만)
+        if (eventThumbnailUrl != null) {
+            event.thumbnail = eventThumbnailUrl
+        }
+
+        val savedEvent = eventRepository.save(event)
+        return EventResponse.from(savedEvent, false)
+    }
 }
