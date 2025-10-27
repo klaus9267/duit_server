@@ -1,11 +1,10 @@
 package duit.server.domain.auth.controller
 
 import duit.server.application.security.JwtTokenProvider
-import duit.server.domain.auth.controller.docs.IssueTokenApi
-import duit.server.domain.auth.controller.docs.SocialLoginApi
 import duit.server.domain.auth.dto.AuthResponse
 import duit.server.domain.auth.service.AuthService
 import duit.server.domain.user.service.UserService
+import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.tags.Tag
@@ -23,7 +22,7 @@ class AuthController(
 ) {
 
     @PostMapping("/social")
-    @SocialLoginApi
+    @Operation(summary = "소셜 로그인", description = "Firebase ID 토큰으로 소셜 로그인 또는 회원가입을 수행합니다")
     @ResponseStatus(HttpStatus.OK)
     fun socialLogin(
         @Valid @RequestBody
@@ -31,21 +30,14 @@ class AuthController(
         idToken: String,
     ): AuthResponse = authService.socialLogin(idToken)
 
-    /**
-     * 개발/테스트용 간단한 토큰 발급 API
-     * 실제 운영에서는 소셜 로그인이나 이메일/비밀번호 인증 후 토큰 발급
-     */
     @PostMapping("/token")
-    @IssueTokenApi
+    @Operation(summary = "JWT 토큰 발급 (테스트용)", description = "개발 및 테스트 용도로 사용자 ID 기반 JWT 토큰을 발급합니다")
     @ResponseStatus(HttpStatus.OK)
     fun issueToken(
         @Parameter(description = "사용자 ID", required = true)
         @RequestParam userId: Long
     ): String {
-        // 사용자 존재 여부 확인
         userService.findUserById(userId)
-
-        // JWT 토큰 생성
         return jwtTokenProvider.createAccessToken(userId)
     }
 }

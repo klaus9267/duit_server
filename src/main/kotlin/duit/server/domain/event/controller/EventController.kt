@@ -1,14 +1,7 @@
 package duit.server.domain.event.controller
 
-import duit.server.domain.event.controller.docs.ApproveEventApi
-import duit.server.domain.event.controller.docs.CreateEventApi
-import duit.server.domain.event.controller.docs.GetEventsApi
-import duit.server.domain.event.controller.docs.GetEventsForCalendarApi
-import duit.server.domain.event.dto.Event4CalendarRequest
-import duit.server.domain.event.dto.EventCreateRequest
-import duit.server.domain.event.dto.EventPaginationParam
-import duit.server.domain.event.dto.EventResponse
-import duit.server.domain.event.dto.EventUpdateRequest
+import duit.server.application.common.RequireAuth
+import duit.server.domain.event.dto.*
 import duit.server.domain.event.service.EventService
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
@@ -27,7 +20,7 @@ class EventController(
     private val eventService: EventService
 ) {
     @PostMapping(consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
-    @CreateEventApi
+    @Operation(summary = "행사 생성", description = "행사를 생성합니다 (관리자 승인 필요)")
     @ResponseStatus(HttpStatus.CREATED)
     fun createEventByUser(
         @Valid @RequestPart("data") eventRequest: EventCreateRequest,
@@ -53,7 +46,7 @@ class EventController(
     ) = eventService.createEvent(eventRequest, eventThumbnail, hostThumbnail, isApproved = true)
 
     @GetMapping
-    @GetEventsApi
+    @Operation(summary = "행사 목록 조회", description = "행사 목록을 페이지네이션으로 조회합니다")
     @ResponseStatus(HttpStatus.OK)
     fun getEvents(
         @Parameter(description = "행사 승인 여부", example = "true")
@@ -67,7 +60,8 @@ class EventController(
     ) = eventService.getEvents(param, isApproved, isBookmarked, includeFinished)
 
     @GetMapping("calendar")
-    @GetEventsForCalendarApi
+    @Operation(summary = "북마크한 행사 달력 조회", description = "북마크한 행사들을 월별 달력 형태로 조회합니다")
+    @RequireAuth
     @ResponseStatus(HttpStatus.OK)
     fun getEvents4Calendar(
         @Valid @ParameterObject
@@ -75,7 +69,8 @@ class EventController(
     ): List<EventResponse> = eventService.getEvents4Calendar(param)
 
     @PatchMapping("{eventId}/approve")
-    @ApproveEventApi
+    @Operation(summary = "행사 승인", description = "행사를 승인합니다")
+    @RequireAuth
     @ResponseStatus(HttpStatus.NO_CONTENT)
     fun approveEvent(@PathVariable eventId: Long) = eventService.approveEvent(eventId)
 
@@ -86,6 +81,7 @@ class EventController(
 
     @PutMapping("{eventId}", consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
     @Operation(summary = "행사 수정 (관리자)", description = "관리자가 행사를 수정합니다")
+    @RequireAuth
     @ResponseStatus(HttpStatus.OK)
     fun updateEvent(
         @PathVariable eventId: Long,
