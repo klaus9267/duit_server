@@ -12,6 +12,12 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.MySQL8Dialect
 
+  # 파일 업로드 크기 제한 설정
+  servlet:
+    multipart:
+      max-file-size: 10MB      # 개별 파일 최대 크기
+      max-request-size: 20MB   # 전체 요청 최대 크기
+
   # Redis 설정
   data:
     redis:
