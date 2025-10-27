@@ -29,7 +29,7 @@ class AlarmController(
 ) {
 
     @GetMapping
-    @Operation(summary = "알림 목록 조회", description = "사용자의 알림 목록을 페이징하여 조회합니다")
+    @Operation(summary = "알림 목록 조회", description = "사용자의 알림 목록을 페이징하여 조회합니다 (isRead 필터링 가능)")
     @RequireAuth
     @ResponseStatus(HttpStatus.OK)
     fun getAlarms(
@@ -37,6 +37,43 @@ class AlarmController(
         param: AlarmPaginationParam
     ): PageResponse<AlarmResponse> {
         return alarmService.getAlarms(param)
+    }
+
+    @PatchMapping("{alarmId}/read")
+    @Operation(summary = "알림 읽음 처리", description = "특정 알림을 읽음 처리합니다")
+    @RequireAuth
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    fun markAsRead(@PathVariable alarmId: Long) {
+        alarmService.markAsRead(alarmId)
+    }
+
+    @PatchMapping("read-all")
+    @Operation(summary = "전체 알림 읽음 처리", description = "현재 사용자의 모든 알림을 읽음 처리합니다")
+    @RequireAuth
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    fun markAllAsRead() {
+        alarmService.markAllAsRead()
+    }
+
+    @DeleteMapping("{alarmId}")
+    @Operation(summary = "알림 삭제", description = "특정 알림을 삭제합니다")
+    @RequireAuth
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    fun deleteAlarm(@PathVariable alarmId: Long) {
+        alarmService.deleteAlarm(alarmId)
+    }
+
+    @DeleteMapping
+    @Operation(
+        summary = "알림 전체 삭제",
+        description = "알림을 삭제합니다. readOnly=true면 읽은 알림만, false면 전체 삭제"
+    )
+    @RequireAuth
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    fun deleteAlarms(
+        @RequestParam(defaultValue = "false") readOnly: Boolean
+    ) {
+        alarmService.deleteAlarms(readOnly)
     }
 
     @PostMapping("/test/custom")
