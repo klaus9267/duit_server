@@ -11,6 +11,7 @@ import duit.server.domain.common.dto.pagination.PageInfo
 import duit.server.domain.common.dto.pagination.PageResponse
 import duit.server.domain.event.entity.Event
 import duit.server.infrastructure.external.firebase.FCMService
+import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -24,17 +25,72 @@ class AlarmService(
 ) {
 
     /**
-     * 알람 목록 조회 (페이징)
+     * 알람 목록 조회 (페이징, isRead 필터링 지원)
      */
     fun getAlarms(param: AlarmPaginationParam): PageResponse<AlarmResponse> {
         val currentUserId = securityUtil.getCurrentUserId()
-        val alarms = alarmRepository.findByUserId(currentUserId, param.toPageable())
+        val alarms = if (param.isRead != null) {
+            alarmRepository.findByUserIdAndIsRead(currentUserId, param.isRead, param.toPageable())
+        } else {
+            alarmRepository.findByUserId(currentUserId, param.toPageable())
+        }
         val alarmResponses = alarms.content.map { AlarmResponse.from(it) }
 
         return PageResponse(
             content = alarmResponses,
             pageInfo = PageInfo.from(alarms)
         )
+    }
+
+    /**
+     * 단일 알람 읽음 처리
+     */
+    @Transactional
+    fun markAsRead(alarmId: Long) {
+        val currentUserId = securityUtil.getCurrentUserId()
+        val alarm = alarmRepository.findByUserIdAndId(currentUserId, alarmId)
+            ?: throw IllegalArgumentException("알람을 찾을 수 없거나 권한이 없습니다")
+
+        alarm.isRead = true
+        alarmRepository.save(alarm)
+    }
+
+    /**
+     * 전체 알람 읽음 처리
+     */
+    @Transactional
+    fun markAllAsRead() {
+        val currentUserId = securityUtil.getCurrentUserId()
+        val alarms = alarmRepository.findByUserId(currentUserId, PageRequest.of(0, Int.MAX_VALUE))
+
+        alarms.content.forEach { it.isRead = true }
+        alarmRepository.saveAll(alarms.content)
+    }
+
+    /**
+     * 단일 알람 삭제
+     */
+    @Transactional
+    fun deleteAlarm(alarmId: Long) {
+        val currentUserId = securityUtil.getCurrentUserId()
+        val alarm = alarmRepository.findByUserIdAndId(currentUserId, alarmId)
+            ?: throw IllegalArgumentException("알람을 찾을 수 없거나 권한이 없습니다")
+
+        alarmRepository.delete(alarm)
+    }
+
+    /**
+     * 알람 전체 삭제 (readOnly 파라미터로 읽은 것만/전체 선택)
+     */
+    @Transactional
+    fun deleteAlarms(readOnly: Boolean) {
+        val currentUserId = securityUtil.getCurrentUserId()
+
+        if (readOnly) {
+            alarmRepository.deleteByUserIdAndIsRead(currentUserId, true)
+        } else {
+            alarmRepository.deleteByUserId(currentUserId)
+        }
     }
 
     /**

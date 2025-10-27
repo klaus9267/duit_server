@@ -9,6 +9,7 @@ data class AlarmResponse(
     val id: Long,
     val type: AlarmType,
     val event: EventResponse,
+    val isRead: Boolean,
     val createdAt: LocalDateTime
 ) {
     companion object {
@@ -17,6 +18,7 @@ data class AlarmResponse(
                 id = alarm.id!!,
                 type = alarm.type,
                 event = EventResponse.from(alarm.event),
+                isRead = alarm.isRead,
                 createdAt = alarm.createdAt
             )
         }
