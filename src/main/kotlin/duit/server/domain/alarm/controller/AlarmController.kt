@@ -1,5 +1,6 @@
 package duit.server.domain.alarm.controller
 
+import duit.server.application.common.RequireAuth
 import duit.server.application.security.SecurityUtil
 import duit.server.domain.alarm.dto.AlarmPaginationParam
 import duit.server.domain.alarm.dto.AlarmResponse
@@ -28,10 +29,8 @@ class AlarmController(
 ) {
 
     @GetMapping
-    @Operation(
-        summary = "알람 목록 조회",
-        description = "현재 로그인한 사용자의 알람 목록을 페이징하여 조회합니다. 최신순으로 정렬됩니다."
-    )
+    @Operation(summary = "알림 목록 조회", description = "사용자의 알림 목록을 페이징하여 조회합니다")
+    @RequireAuth
     @ResponseStatus(HttpStatus.OK)
     fun getAlarms(
         @Valid @ParameterObject
@@ -41,10 +40,8 @@ class AlarmController(
     }
 
     @PostMapping("/test/custom")
-    @Operation(
-        summary = "커스텀 푸시 알림 테스트",
-        description = "현재 로그인한 사용자의 디바이스로 지정한 제목과 내용의 테스트 푸시 알림을 전송합니다."
-    )
+    @Operation(summary = "커스텀 푸시 알림 테스트", description = "사용자 디바이스로 커스텀 푸시 알림을 전송합니다")
+    @RequireAuth
     @ResponseStatus(HttpStatus.OK)
     fun sendCustomTestNotification(
         @RequestParam title: String,
@@ -66,10 +63,8 @@ class AlarmController(
     }
 
     @PostMapping("/test/custom2")
-    @Operation(
-        summary = "푸시 알림 테스트",
-        description = "현재 로그인한 사용자의 디바이스로 특정 행사 푸시 알림을 전송합니다."
-    )
+    @Operation(summary = "행사 푸시 알림 테스트", description = "특정 행사에 대한 푸시 알림을 전송합니다")
+    @RequireAuth
     @ResponseStatus(HttpStatus.OK)
     fun sendCustomTestNotification2(
         @RequestParam alarmType: AlarmType,

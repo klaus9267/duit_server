@@ -22,7 +22,7 @@ class HostController(
 ) {
 
     @GetMapping
-    @Operation(summary = "주최측 목록 조회")
+    @Operation(summary = "주최측 목록 조회", description = "주최 기관 목록을 페이징하여 조회합니다")
     @ResponseStatus(HttpStatus.OK)
     fun getHosts(
         @Valid @ParameterObject
