@@ -93,4 +93,12 @@ class EventController(
         @Parameter(description = "주최 기관 로고 이미지")
         hostThumbnail: MultipartFile?
     ): EventResponse = eventService.updateEvent(eventId, updateRequest, eventThumbnail, hostThumbnail)
+
+    @DeleteMapping("batch")
+    @Operation(summary = "행사 목록 삭제(관리자)")
+    @RequireAuth
+    @ResponseStatus(HttpStatus.OK)
+    fun deleteEvents(
+        @RequestParam eventIds: List<Long>
+    ) = eventService.deleteEvents(eventIds)
 }

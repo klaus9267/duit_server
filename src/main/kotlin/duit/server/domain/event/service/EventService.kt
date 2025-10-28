@@ -125,9 +125,6 @@ class EventService(
     }
 
     @Transactional
-    fun deleteEvent(eventId: Long) = eventRepository.deleteById(eventId)
-
-    @Transactional
     fun approveEvent(eventId: Long) {
         val event = getEvent(eventId)
 
@@ -181,5 +178,17 @@ class EventService(
 
         event.update(updateRequest, eventThumbnailUrl, host)
         EventResponse.from(eventRepository.save(event), false)
+    }
+
+    @Transactional
+    fun deleteEvent(eventId: Long) = eventRepository.deleteById(eventId)
+
+    @Transactional
+    fun deleteEvents(eventIds: List<Long>) {
+        eventRepository.findAllByIdInAndThumbnailNotNull(eventIds)
+            .forEach {
+                fileStorageService.deleteFile(it.thumbnail!!)
+            }
+        eventRepository.deleteAllById(eventIds)
     }
 }
