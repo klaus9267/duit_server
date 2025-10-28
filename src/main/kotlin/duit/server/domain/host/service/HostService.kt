@@ -89,4 +89,14 @@ class HostService(
 
         hostRepository.delete(host)
     }
+
+    @Transactional
+    fun deleteHosts(hostIds: List<Long>) {
+        hostIds.forEach { hostId ->
+            hostRepository.findById(hostId).ifPresent { host ->
+                host.thumbnail?.let { fileStorageService.deleteFile(it) }
+                hostRepository.delete(host)
+            }
+        }
+    }
 }

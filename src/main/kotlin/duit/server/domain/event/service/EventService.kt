@@ -28,6 +28,18 @@ class EventService(
     private val hostService: HostService,
     private val fileStorageService: FileStorageService
 ) {
+    @Transactional
+    fun createEventFromGoogleForm(eventRequestFromGoogleForm: EventRequestFromGoogleForm): Event {
+        val host = hostService.findOrCreateHost(
+            HostRequest(name = eventRequestFromGoogleForm.hostName, thumbnail = eventRequestFromGoogleForm.hostThumbnail)
+        )
+        val event = eventRepository.save(eventRequestFromGoogleForm.toEntity(host))
+        viewService.createView(event)
+
+        discordService.sendNewEventNotification(event)
+
+        return event
+    }
 
     @Transactional
     fun createEvent(

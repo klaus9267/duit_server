@@ -2,6 +2,7 @@ package duit.server.domain.host.controller
 
 import duit.server.application.common.RequireAuth
 import duit.server.domain.common.dto.pagination.PageResponse
+import duit.server.domain.host.dto.HostDeleteRequest
 import duit.server.domain.host.dto.HostPaginationParam
 import duit.server.domain.host.dto.HostResponse
 import duit.server.domain.host.dto.HostUpdateRequest
@@ -60,4 +61,10 @@ class HostController(
     @RequireAuth
     @ResponseStatus(HttpStatus.NO_CONTENT)
     fun deleteHost(@PathVariable hostId: Long) = hostService.deleteHost(hostId)
+
+    @DeleteMapping("batch")
+    @Operation(summary = "주최측 일괄 삭제 (관리자)", description = "여러 주최 기관을 일괄 삭제합니다. 존재하지 않는 ID는 무시됩니다.")
+    @RequireAuth
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    fun deleteHosts(@Valid @RequestBody request: HostDeleteRequest) = hostService.deleteHosts(request.hostIds)
 }
