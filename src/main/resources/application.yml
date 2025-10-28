@@ -8,6 +8,7 @@ spring:
   jpa:
     hibernate:
       ddl-auto: validate
+#    show-sql: true  # SQL을 콘솔에 출력
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MySQL8Dialect

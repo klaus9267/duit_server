@@ -1,6 +1,5 @@
 package duit.server.domain.event.service
 
-import duit.server.application.scheduler.EventAlarmScheduler
 import duit.server.application.security.SecurityUtil
 import duit.server.domain.common.dto.pagination.PageInfo
 import duit.server.domain.common.dto.pagination.PageResponse
@@ -27,10 +26,8 @@ class EventService(
     private val securityUtil: SecurityUtil,
     private val discordService: DiscordService,
     private val hostService: HostService,
-    private val eventAlarmScheduler: EventAlarmScheduler,
     private val fileStorageService: FileStorageService
 ) {
-
     @Transactional
     fun createEventFromGoogleForm(eventRequestFromGoogleForm: EventRequestFromGoogleForm): Event {
         val host = hostService.findOrCreateHost(
@@ -54,19 +51,21 @@ class EventService(
         val eventThumbnailUrl = eventThumbnail?.let { fileStorageService.uploadFile(it, "events") }
         val hostThumbnailUrl = hostThumbnail?.let { fileStorageService.uploadFile(it, "hosts") }
 
-        val host = hostService.findOrCreateHost(
-            HostRequest(name = eventRequest.hostName, thumbnail = hostThumbnailUrl)
-        )
+        val host = when {
+            eventRequest.hostId != null -> hostService.getHost(eventRequest.hostId)
+            eventRequest.hostName != null -> hostService.findOrCreateHost(
+                HostRequest(name = eventRequest.hostName, thumbnail = hostThumbnailUrl)
+            )
+            else -> throw IllegalArgumentException("hostId 또는 hostName 중 하나는 필수입니다")
+        }
 
         val event = eventRequest.toEntity(host).apply {
             thumbnail = eventThumbnailUrl
             this.isApproved = isApproved
         }
 
-        val savedEvent = eventRepository.save(event)
-        viewService.createView(savedEvent)
-
-        return EventResponse.from(savedEvent,false)
+        return eventRepository.save(event).also { viewService.createView(it) }
+            .let { EventResponse.from(it, false) }
     }
 
     fun getEvent(eventId: Long): Event =
@@ -116,7 +115,6 @@ class EventService(
         )
     }
 
-
     fun getEvents4Calendar(request: Event4CalendarRequest): List<EventResponse> {
         val currentUserId = securityUtil.getCurrentUserId()
         val start = LocalDateTime.of(request.year, request.month, 1, 0, 0)
@@ -126,12 +124,6 @@ class EventService(
         return events.map { EventResponse.from(it, true) }
     }
 
-    @Transactional
-    fun deleteEvent(eventId: Long) = eventRepository.deleteById(eventId)
-
-    /**
-     * 행사 승인
-     */
     @Transactional
     fun approveEvent(eventId: Long) {
         val event = getEvent(eventId)
@@ -150,38 +142,53 @@ class EventService(
         updateRequest: EventUpdateRequest,
         eventThumbnail: MultipartFile?,
         hostThumbnail: MultipartFile?
-    ): EventResponse {
-        val event = getEvent(eventId)
+    ): EventResponse = getEvent(eventId).let { event ->
+        // 행사 썸네일 처리
+        val eventThumbnailUrl = when {
+            updateRequest.deleteEventThumbnail -> {
+                event.thumbnail?.let { fileStorageService.deleteFile(it) }
+                null
+            }
 
-        // 기존 썸네일 삭제 (새 파일이 업로드되는 경우에만)
-        if (eventThumbnail != null && event.thumbnail != null) {
-            fileStorageService.deleteFile(event.thumbnail!!)
+            eventThumbnail != null -> {
+                event.thumbnail?.let { fileStorageService.deleteFile(it) }
+                fileStorageService.uploadFile(eventThumbnail, "events")
+            }
+
+            else -> event.thumbnail
         }
 
-        // 새 파일 업로드
-        val eventThumbnailUrl = eventThumbnail?.let { fileStorageService.uploadFile(it, "events") }
-        val hostThumbnailUrl = hostThumbnail?.let { fileStorageService.uploadFile(it, "hosts") }
+        // Host 처리: hostId가 있으면 기존 사용, 없으면 생성/수정
+        val host = when {
+            updateRequest.hostId != null -> hostService.getHost(updateRequest.hostId)
+            updateRequest.hostName != null -> {
+                // Host 썸네일 처리
+                val hostThumbnailUrl = when {
+                    updateRequest.deleteHostThumbnail -> null
+                    hostThumbnail != null -> fileStorageService.uploadFile(hostThumbnail, "hosts")
+                    else -> event.host.thumbnail
+                }
+                hostService.findOrCreateHost(
+                    HostRequest(name = updateRequest.hostName, thumbnail = hostThumbnailUrl)
+                )
+            }
 
-        // Host 업데이트 또는 생성
-        val host = hostService.findOrCreateHost(
-            HostRequest(name = updateRequest.hostName, thumbnail = hostThumbnailUrl)
-        )
-
-        // Event 필드 업데이트
-        event.title = updateRequest.title
-        event.startAt = updateRequest.startAt
-        event.endAt = updateRequest.endAt
-        event.recruitmentStartAt = updateRequest.recruitmentStartAt
-        event.recruitmentEndAt = updateRequest.recruitmentEndAt
-        event.uri = updateRequest.uri
-        event.host = host
-
-        // 썸네일 업데이트 (새 파일이 있는 경우에만)
-        if (eventThumbnailUrl != null) {
-            event.thumbnail = eventThumbnailUrl
+            else -> throw IllegalArgumentException("hostId 또는 hostName 중 하나는 필수입니다")
         }
 
-        val savedEvent = eventRepository.save(event)
-        return EventResponse.from(savedEvent, false)
+        event.update(updateRequest, eventThumbnailUrl, host)
+        EventResponse.from(eventRepository.save(event), false)
+    }
+
+    @Transactional
+    fun deleteEvent(eventId: Long) = eventRepository.deleteById(eventId)
+
+    @Transactional
+    fun deleteEvents(eventIds: List<Long>) {
+        eventRepository.findAllByIdInAndThumbnailNotNull(eventIds)
+            .forEach {
+                fileStorageService.deleteFile(it.thumbnail!!)
+            }
+        eventRepository.deleteAllById(eventIds)
     }
 }

@@ -2,6 +2,7 @@ package duit.server.domain.event.entity
 
 import duit.server.domain.alarm.entity.Alarm
 import duit.server.domain.bookmark.entity.Bookmark
+import duit.server.domain.event.dto.EventUpdateRequest
 import duit.server.domain.host.entity.Host
 import duit.server.domain.view.entity.View
 import jakarta.persistence.*
@@ -47,4 +48,14 @@ class Event(
     @OneToMany(mappedBy = "event", cascade = [CascadeType.ALL], orphanRemoval = true)
     val alarms: List<Alarm> = emptyList()
 ) {
+    fun update(updateRequest: EventUpdateRequest, thumbnailUrl: String?, host: Host) {
+        title = updateRequest.title
+        startAt = updateRequest.startAt
+        endAt = updateRequest.endAt
+        recruitmentStartAt = updateRequest.recruitmentStartAt
+        recruitmentEndAt = updateRequest.recruitmentEndAt
+        uri = updateRequest.uri
+        this.host = host
+        thumbnailUrl?.let { thumbnail = it }
+    }
 }

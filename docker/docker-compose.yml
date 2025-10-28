@@ -7,6 +7,8 @@ services:
     profiles: ["app", "full"]
     ports:
       - "8080:8080"
+    volumes:
+      - /home/vagom/duit-server/images:/home/vagom/duit-server/images
     restart: unless-stopped
     networks:
       - duit-network-prod

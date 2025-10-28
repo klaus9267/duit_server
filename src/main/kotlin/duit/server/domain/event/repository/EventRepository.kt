@@ -5,6 +5,7 @@ import duit.server.domain.event.entity.Event
 import duit.server.domain.event.entity.EventType
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
+import org.springframework.data.jpa.repository.EntityGraph
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
 import java.time.LocalDateTime
@@ -114,4 +115,7 @@ interface EventRepository : JpaRepository<Event, Long> {
         end: LocalDateTime,
         eventType: EventType?
     ): List<Event>
+
+    @EntityGraph(attributePaths = ["view"])
+    fun findAllByIdInAndThumbnailNotNull(ids: List<Long>): List<Event>
 }

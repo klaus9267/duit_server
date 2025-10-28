@@ -34,6 +34,7 @@ class EventController(
 
     @PostMapping("/admin", consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
     @Operation(summary = "관리자 행사 생성", description = "관리자가 행사를 생성합니다 (자동 승인)")
+    @RequireAuth
     @ResponseStatus(HttpStatus.CREATED)
     fun createEventByAdmin(
         @Valid @RequestPart("data") eventRequest: EventCreateRequest,
@@ -77,6 +78,7 @@ class EventController(
     @DeleteMapping("{eventId}")
     @Operation(summary = "행사 삭제")
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @RequireAuth
     fun deleteEvent(@PathVariable eventId: Long) = eventService.deleteEvent(eventId)
 
     @PutMapping("{eventId}", consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
@@ -93,4 +95,12 @@ class EventController(
         @Parameter(description = "주최 기관 로고 이미지")
         hostThumbnail: MultipartFile?
     ): EventResponse = eventService.updateEvent(eventId, updateRequest, eventThumbnail, hostThumbnail)
+
+    @DeleteMapping("batch")
+    @Operation(summary = "행사 목록 삭제(관리자)")
+    @RequireAuth
+    @ResponseStatus(HttpStatus.OK)
+    fun deleteEvents(
+        @RequestParam eventIds: List<Long>
+    ) = eventService.deleteEvents(eventIds)
 }

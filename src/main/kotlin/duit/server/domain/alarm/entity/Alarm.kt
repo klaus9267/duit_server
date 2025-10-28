@@ -25,6 +25,9 @@ class Alarm(
     @Column(nullable = false)
     val type: AlarmType,
 
+    @Column(nullable = false)
+    var isRead: Boolean = false,
+
     @CreatedDate
     val createdAt: LocalDateTime = LocalDateTime.now()
 )

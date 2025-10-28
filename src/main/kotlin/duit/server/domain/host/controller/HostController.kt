@@ -1,18 +1,21 @@
 package duit.server.domain.host.controller
 
+import duit.server.application.common.RequireAuth
+import duit.server.domain.common.dto.pagination.PageResponse
+import duit.server.domain.host.dto.HostDeleteRequest
 import duit.server.domain.host.dto.HostPaginationParam
 import duit.server.domain.host.dto.HostResponse
-import duit.server.domain.common.dto.pagination.PageResponse
+import duit.server.domain.host.dto.HostUpdateRequest
 import duit.server.domain.host.service.HostService
 import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.validation.Valid
 import org.springdoc.core.annotations.ParameterObject
 import org.springframework.http.HttpStatus
-import org.springframework.web.bind.annotation.GetMapping
-import org.springframework.web.bind.annotation.RequestMapping
-import org.springframework.web.bind.annotation.ResponseStatus
-import org.springframework.web.bind.annotation.RestController
+import org.springframework.http.MediaType
+import org.springframework.web.bind.annotation.*
+import org.springframework.web.multipart.MultipartFile
 
 @RestController
 @RequestMapping("api/v1/hosts")
@@ -28,4 +31,40 @@ class HostController(
         @Valid @ParameterObject
         param: HostPaginationParam
     ): PageResponse<HostResponse> = hostService.getHosts(param)
+
+    @PostMapping(consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
+    @Operation(summary = "주최측 생성 (관리자)", description = "새로운 주최 기관을 생성합니다")
+    @RequireAuth
+    @ResponseStatus(HttpStatus.CREATED)
+    fun createHost(
+        @Parameter
+        name: String,
+        @RequestPart("thumbnail", required = false)
+        @Parameter(description = "주최 기관 로고 이미지")
+        thumbnail: MultipartFile?
+    ): HostResponse = hostService.createHost(name, thumbnail)
+
+    @PutMapping("{hostId}", consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
+    @Operation(summary = "주최측 수정 (관리자)", description = "주최 기관 정보를 수정합니다")
+    @RequireAuth
+    @ResponseStatus(HttpStatus.OK)
+    fun updateHost(
+        @PathVariable hostId: Long,
+        @Valid @RequestPart("data") request: HostUpdateRequest,
+        @RequestPart("thumbnail", required = false)
+        @Parameter(description = "주최 기관 로고 이미지")
+        thumbnail: MultipartFile?
+    ): HostResponse = hostService.updateHost(hostId, request, thumbnail)
+
+    @DeleteMapping("{hostId}")
+    @Operation(summary = "주최측 삭제 (관리자)", description = "주최 기관을 삭제합니다")
+    @RequireAuth
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    fun deleteHost(@PathVariable hostId: Long) = hostService.deleteHost(hostId)
+
+    @DeleteMapping("batch")
+    @Operation(summary = "주최측 일괄 삭제 (관리자)", description = "여러 주최 기관을 일괄 삭제합니다. 존재하지 않는 ID는 무시됩니다.")
+    @RequireAuth
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    fun deleteHosts(@Valid @RequestBody request: HostDeleteRequest) = hostService.deleteHosts(request.hostIds)
 }

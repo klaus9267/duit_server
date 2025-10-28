@@ -40,9 +40,11 @@ data class EventCreateRequest(
     @field:Schema(description = "행사 종류", example = "CONFERENCE")
     val eventType: EventType,
 
-    @field:NotBlank(message = "주최 기관명은 필수입니다")
-    @field:Schema(description = "주최 기관명", example = "단국대학교 IT 대학")
-    val hostName: String
+    @field:Schema(description = "주최 기관 ID (기존 기관 사용 시)", example = "1")
+    val hostId: Long? = null,
+
+    @field:Schema(description = "주최 기관명 (신규 기관 생성 시)", example = "단국대학교 IT 대학")
+    val hostName: String? = null
 ) {
     fun toEntity(host: Host): Event = Event(
         title = title,
