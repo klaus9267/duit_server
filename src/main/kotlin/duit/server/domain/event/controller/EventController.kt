@@ -34,6 +34,7 @@ class EventController(
 
     @PostMapping("/admin", consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
     @Operation(summary = "관리자 행사 생성", description = "관리자가 행사를 생성합니다 (자동 승인)")
+    @RequireAuth
     @ResponseStatus(HttpStatus.CREATED)
     fun createEventByAdmin(
         @Valid @RequestPart("data") eventRequest: EventCreateRequest,
@@ -77,6 +78,7 @@ class EventController(
     @DeleteMapping("{eventId}")
     @Operation(summary = "행사 삭제")
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @RequireAuth
     fun deleteEvent(@PathVariable eventId: Long) = eventService.deleteEvent(eventId)
 
     @PutMapping("{eventId}", consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
