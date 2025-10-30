@@ -14,6 +14,7 @@ import io.swagger.v3.oas.models.responses.ApiResponse
 import io.swagger.v3.oas.models.servers.Server
 import org.springdoc.core.customizers.OperationCustomizer
 import org.springdoc.core.models.GroupedOpenApi
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
@@ -32,11 +33,14 @@ import org.springframework.context.annotation.Configuration
 @Configuration
 class SwaggerConfig {
 
+    @Value("\${file.base-url}")
+    private lateinit var baseUrl: String
+
     @Bean
     fun customOpenAPI(): OpenAPI {
         return OpenAPI()
             .servers(listOf(
-                Server().url("https://klaus9267.duckdns.org").description("Production Server (HTTPS)"),
+                Server().url(baseUrl).description("Production Server (HTTPS)"),
                 Server().url("http://localhost:8080").description("Local Development Server")
             ))
     }
