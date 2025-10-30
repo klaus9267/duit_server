@@ -21,7 +21,7 @@ interface EventRepository : JpaRepository<Event, Long> {
         WHERE e.is_approved = :#{#filter.isApproved}
         AND (:#{#filter.hostId} IS NULL OR h.id = :#{#filter.hostId})
         AND (:#{#filter.eventTypesToString()} IS NULL OR FIND_IN_SET(e.event_type, :#{#filter.eventTypesToString()}) > 0)
-        AND (:#{#filter.includeFinished} = 1 OR (e.end_at IS NOT NULL AND e.end_at >= CURDATE()) OR (e.end_at IS NULL AND e.start_at >= CURDATE()))
+        AND (:#{#filter.includeFinished} = 1 OR (e.end_at IS NOT NULL AND e.end_at <= CURDATE()) OR (e.end_at IS NULL AND e.start_at <= CURDATE()))
         AND (:#{#filter.searchKeyword} IS NULL OR e.title LIKE CONCAT('%', :#{#filter.searchKeyword}, '%') OR h.name LIKE CONCAT('%', :#{#filter.searchKeyword}, '%'))
         AND (:#{#filter.isBookmarked} = 0 OR b.id IS NOT NULL)
         GROUP BY e.id
