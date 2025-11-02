@@ -1,6 +1,7 @@
 package duit.server.domain.auth.service
 
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseAuthException
 import com.google.firebase.auth.FirebaseToken
 import duit.server.application.security.JwtTokenProvider
 import duit.server.domain.auth.dto.AuthResponse
@@ -21,7 +22,18 @@ class AuthService(
 
     @Transactional
     fun socialLogin(idToken: String): AuthResponse {
-        val token = firebaseAuth.verifyIdToken(idToken)
+        require(idToken.isNotBlank()) {
+            "ID 토큰이 비어있습니다. 올바른 Firebase ID 토큰을 전달해주세요."
+        }
+
+        val token = try {
+            firebaseAuth.verifyIdToken(idToken.trim())
+        } catch (e: IllegalArgumentException) {
+            throw IllegalArgumentException("유효하지 않은 토큰 형식입니다. 올바른 Firebase ID 토큰을 전달해주세요.", e)
+        } catch (e: FirebaseAuthException) {
+            throw IllegalArgumentException("Firebase 토큰 검증 실패: ${e.message}", e)
+        }
+
         val existingUser = userRepository.findByProviderId(token.uid)
         val userRecord = FirebaseAuth.getInstance().getUser(token.uid)
         
