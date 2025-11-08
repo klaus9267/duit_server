@@ -118,4 +118,7 @@ interface EventRepository : JpaRepository<Event, Long> {
 
     @EntityGraph(attributePaths = ["view"])
     fun findAllByIdInAndThumbnailNotNull(ids: List<Long>): List<Event>
+
+    @EntityGraph(attributePaths = ["host"])
+    fun findByIdWithHost(id:Long): Event?
 }

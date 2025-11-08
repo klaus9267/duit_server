@@ -50,7 +50,7 @@ class EventAlarmScheduler(
                 val instant: Instant = alarmTime.atZone(ZoneId.of("Asia/Seoul")).toInstant()
 
                 taskScheduler.schedule({
-                    val event = eventRepository.findById(event.id!!).orElse(null) ?: return@schedule
+                    val event = eventRepository.findByIdWithHost(event.id!!) ?: return@schedule
                     alarmService.createAlarms(alarmType, event)
                 }, instant)
             }
