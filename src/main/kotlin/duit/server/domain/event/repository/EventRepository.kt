@@ -62,14 +62,14 @@ interface EventRepository : JpaRepository<Event, Long> {
         """
         SELECT e
         FROM Event e
-        JOIN FETCH e.host
-        JOIN FETCH e.view
-        WHERE e.isApproved = 1
+        JOIN FETCH e.host h
+        JOIN FETCH e.view v
+        WHERE e.isApproved = TRUE
         AND e.title LIKE CONCAT('%', :keyword, '%')
         OR h.name LIKE CONCAT('%', :keyword, '%')
         """
     )
-    fun searchEvents(keyword: String)
+    fun searchEvents(keyword: String): List<Event>
 
     @Query(
         """
