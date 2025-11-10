@@ -92,9 +92,37 @@ class DummyDataGenerator(
         generateUserAndAdminInternal()
     }
     
+    @Transactional
+    fun generateDummyUsers(userCount: Int = 100) {
+        logger.info("👤 더미 User 데이터 생성 시작... (${userCount}개)")
+
+        val startTime = System.currentTimeMillis()
+
+        val users = mutableListOf<User>()
+
+        for (i in 1..userCount) {
+            val user = User(
+                email = "user${i}@duit.com",
+                nickname = "유저${i}",
+                providerType = ProviderType.values().random(),
+                providerId = "user_${i}_${System.currentTimeMillis()}",
+                autoAddBookmarkToCalendar = Random.nextBoolean(),
+                deviceToken = generateRandomDeviceToken()
+            )
+            users.add(user)
+        }
+
+        userRepository.saveAll(users)
+
+        val endTime = System.currentTimeMillis()
+        val duration = (endTime - startTime) / 1000.0
+
+        logger.info("✅ 더미 User ${userCount}개 생성 완료! 소요 시간: ${duration}초")
+    }
+
     private fun generateUserAndAdminInternal() {
         logger.info("👤 User & Admin 데이터 생성 시작...")
-        
+
         // User 생성
         val user = User(
             email = "admin@duit.com",
@@ -104,17 +132,17 @@ class DummyDataGenerator(
             autoAddBookmarkToCalendar = true,
             deviceToken = generateRandomDeviceToken()
         )
-        
+
         val savedUser = userRepository.save(user)
         logger.info("✅ User 생성 완료: ${savedUser.email}")
-        
-        // Admin 생성  
+
+        // Admin 생성
         val admin = Admin(
             user = savedUser,
             adminId = "admin",
             password = passwordEncoder.encode("admin123")
         )
-        
+
         adminRepository.save(admin)
         logger.info("✅ Admin 생성 완료: ${admin.adminId}")
     }
@@ -293,6 +321,94 @@ class DummyDataGenerator(
         }
     }
     
+    @Transactional
+    fun generateBookmarksForAllUsers() {
+        logger.info("🔖 전체 유저 북마크 데이터 생성 시작...")
+
+        val startTime = System.currentTimeMillis()
+
+        // 전체 User 조회
+        val allUsers = userRepository.findAll()
+        logger.info("📊 총 User 수: ${allUsers.size}")
+
+        if (allUsers.isEmpty()) {
+            logger.warn("⚠️ User가 없습니다. 먼저 User를 생성해주세요.")
+            return
+        }
+
+        var totalBookmarks = 0
+
+        allUsers.forEach { user ->
+            val userId = user.id!!
+
+            // User ID 1번은 1000개 고정, 나머지는 0~1000 랜덤
+            val bookmarkCount = if (userId == 1L) {
+                1000
+            } else {
+                Random.nextInt(0, 1001) // 0~1000
+            }
+
+            if (bookmarkCount > 0) {
+                // 랜덤으로 Event ID 선택 (중복 없이)
+                val randomEventIds = generateRandomEventIds(bookmarkCount)
+
+                // JDBC Batch Insert
+                batchInsertBookmarks(userId, randomEventIds)
+
+                totalBookmarks += bookmarkCount
+                logger.info("✅ User #${userId} 북마크 ${bookmarkCount}개 생성 완료")
+            } else {
+                logger.info("⏭️ User #${userId} 북마크 0개 (스킵)")
+            }
+        }
+
+        val endTime = System.currentTimeMillis()
+        val duration = (endTime - startTime) / 1000.0
+
+        logger.info("✅ 전체 유저 북마크 생성 완료! 총 ${totalBookmarks}개, 소요 시간: ${duration}초")
+    }
+
+    private fun generateRandomEventIds(count: Int): List<Long> {
+        // 전체 Event 개수 확인
+        val totalEvents = eventRepository.count()
+
+        if (totalEvents < count) {
+            logger.warn("⚠️ Event 개수(${totalEvents})가 요청한 북마크 개수(${count})보다 적습니다.")
+            return (1L..totalEvents).toList()
+        }
+
+        // 랜덤으로 Event ID 선택 (중복 없이)
+        val allEventIds = (1L..totalEvents).toList()
+        return allEventIds.shuffled().take(count)
+    }
+
+    private fun batchInsertBookmarks(userId: Long, eventIds: List<Long>) {
+        val sql = """
+            INSERT INTO bookmarks (user_id, event_id, is_added_to_calendar, created_at, updated_at)
+            VALUES (?, ?, ?, NOW(), NOW())
+        """.trimIndent()
+
+        val batchCount = (eventIds.size + BATCH_SIZE - 1) / BATCH_SIZE
+
+        for (batch in 0 until batchCount) {
+            val start = batch * BATCH_SIZE
+            val end = minOf(start + BATCH_SIZE, eventIds.size)
+            val batchEventIds = eventIds.subList(start, end)
+
+            jdbcTemplate.batchUpdate(sql, batchEventIds, BATCH_SIZE) { ps, eventId ->
+                ps.setLong(1, userId)
+                ps.setLong(2, eventId)
+                ps.setBoolean(3, Random.nextBoolean()) // isAddedToCalendar 랜덤
+            }
+
+            if ((batch + 1) % 10 == 0 || batch == batchCount - 1) {
+                val progress = end
+                val percentage = (progress * 100 / eventIds.size)
+                logger.info("📊 북마크 생성 진행률: ${progress}/${eventIds.size} (${percentage}%)")
+            }
+        }
+    }
+
     fun getDataCount(): Map<String, Long> {
         return mapOf(
             "users" to userRepository.count(),
