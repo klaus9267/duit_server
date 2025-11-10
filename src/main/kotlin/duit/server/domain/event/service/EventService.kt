@@ -65,7 +65,12 @@ class EventService(
         }
 
         return eventRepository.save(event).also { viewService.createView(it) }
-            .let { EventResponse.from(it, false) }
+            .let {
+                if (!isApproved){
+                    discordService.sendNewEventNotification(it)
+                }
+                EventResponse.from(it, false)
+            }
     }
 
     fun getEvent(eventId: Long): Event =
