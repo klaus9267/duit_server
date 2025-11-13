@@ -10,53 +10,7 @@ import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
 import java.time.LocalDateTime
 
-interface EventRepository : JpaRepository<Event, Long> {
-    @Query(
-        value = """
-        SELECT e.*
-        FROM events e
-        JOIN hosts h ON h.id = e.host_id
-        LEFT JOIN views v ON v.event_id = e.id
-        WHERE e.is_approved = :#{#filter.isApproved}
-        AND (:#{#filter.eventTypesToString()} IS NULL OR FIND_IN_SET(e.event_type, :#{#filter.eventTypesToString()}) > 0)
-        AND (:#{#filter.includeFinished} = 1 OR (e.end_at IS NOT NULL AND e.end_at <= CURDATE()) OR (e.end_at IS NULL AND e.start_at <= CURDATE()))
-        AND (:#{#filter.isBookmarked} = 0 OR b.id IS NOT NULL)
-        ORDER BY
-            CASE
-                WHEN e.start_at >= CURDATE() THEN 0
-                ELSE 1
-            END ASC,
-            CASE
-                WHEN :#{#filter.sortFieldName()} = 'startAt' THEN
-                    ABS(TIMESTAMPDIFF(SECOND, NOW(), e.start_at))
-                WHEN :#{#filter.sortFieldName()} = 'recruitmentEndAt' THEN 
-                    (CASE 
-                        WHEN e.recruitment_end_at IS NULL 
-                            THEN 999999999 
-                            ELSE TIMESTAMPDIFF(SECOND, NOW(), e.recruitment_end_at) 
-                    END)
-                WHEN :#{#filter.sortFieldName()} = 'view.count' THEN
-                    -COALESCE(v.count, 0)
-                WHEN :#{#filter.sortFieldName()} = 'createdAt' THEN
-                    -UNIX_TIMESTAMP(e.created_at)
-                ELSE -e.id
-            END ASC
-        """,
-        nativeQuery = true,
-        countQuery = """
-        SELECT COUNT(DISTINCT e.id)
-        FROM events e
-        JOIN hosts h ON h.id = e.host_id
-        WHERE e.is_approved = :#{#filter.isApproved}
-        AND (:#{#filter.eventTypesToString()} IS NULL OR FIND_IN_SET(e.event_type, :#{#filter.eventTypesToString()}) > 0)
-        AND (:#{#filter.includeFinished} = 1 OR (e.end_at IS NOT NULL AND e.end_at <= CURDATE()) OR (e.end_at IS NULL AND e.start_at <= CURDATE()))
-        AND (:#{#filter.isBookmarked} = 0 OR b.id IS NOT NULL)
-        """
-    )
-    fun findWithFilter(
-        filter: EventSearchFilter,
-        pageable: Pageable
-    ): Page<Event>
+interface EventRepository : JpaRepository<Event, Long>, EventRepositoryCustom {
 
     @Query(
         """
