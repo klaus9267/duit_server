@@ -56,6 +56,7 @@ class EventService(
             eventRequest.hostName != null -> hostService.findOrCreateHost(
                 HostRequest(name = eventRequest.hostName, thumbnail = hostThumbnailUrl)
             )
+
             else -> throw IllegalArgumentException("hostId 또는 hostName 중 하나는 필수입니다")
         }
 
@@ -66,7 +67,7 @@ class EventService(
 
         return eventRepository.save(event).also { viewService.createView(it) }
             .let {
-                if (!isApproved){
+                if (!isApproved) {
                     discordService.sendNewEventNotification(it)
                 }
                 EventResponse.from(it, false)
@@ -83,11 +84,7 @@ class EventService(
         isBookmarked: Boolean?,
         includeFinished: Boolean?
     ): PageResponse<EventResponse> {
-        val currentUserId = try {
-            securityUtil.getCurrentUserId()
-        } catch (e: Exception) {
-            null // 비로그인 사용자
-        }
+        val currentUserId = securityUtil.getCurrentUserIdOrNull()
 
         val filter = param.toFilter(
             currentUserId = currentUserId,
@@ -100,6 +97,46 @@ class EventService(
             param.size ?: 10
         )
         val events = eventRepository.findWithFilter(filter, pageable)
+
+        // 인증된 사용자의 경우 북마크 정보 포함
+
+        val eventResponses = if (currentUserId != null) {
+            val eventIds = events.content.map { it.id!! }
+            val bookmarkedEventIds = eventRepository.findBookmarkedEventIds(currentUserId, eventIds).toSet()
+
+            events.content.map { event ->
+                EventResponse.from(event, bookmarkedEventIds.contains(event.id))
+            }
+        } else {
+            events.content.map { EventResponse.from(it) }
+        }
+
+        return PageResponse(
+            content = eventResponses,
+            pageInfo = PageInfo.from(events)
+        )
+    }
+
+    fun getEventsV2(
+        param: EventPaginationParam,
+        isApproved: Boolean?,
+        isBookmarked: Boolean?,
+        includeFinished: Boolean?
+    ): PageResponse<EventResponse> {
+        val currentUserId = securityUtil.getCurrentUserIdOrNull()
+
+        val filter = param.toFilter(
+            currentUserId = securityUtil.getCurrentUserIdOrNull(),
+            isApproved = isApproved ?: true,
+            isBookmarked = isBookmarked ?: false,
+            includeFinished = includeFinished ?: false
+        )
+        val pageable = PageRequest.of(
+            param.page ?: 0,
+            param.size ?: 10
+        )
+
+        val events = eventRepository.findEvents(filter, pageable)
 
         // 인증된 사용자의 경우 북마크 정보 포함
 

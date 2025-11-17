@@ -3,15 +3,19 @@ package duit.server.domain.event.repository
 import com.querydsl.core.types.OrderSpecifier
 import com.querydsl.core.types.dsl.BooleanExpression
 import com.querydsl.core.types.dsl.Expressions
+import com.querydsl.jpa.impl.JPAQuery
 import com.querydsl.jpa.impl.JPAQueryFactory
 import duit.server.domain.bookmark.entity.QBookmark
 import duit.server.domain.common.dto.pagination.PaginationField
+import duit.server.domain.common.dto.pagination.PaginationField.*
+import duit.server.domain.event.dto.EventPaginationParam
 import duit.server.domain.event.dto.EventSearchFilter
 import duit.server.domain.event.entity.Event
 import duit.server.domain.event.entity.EventType
 import duit.server.domain.event.entity.QEvent
 import duit.server.domain.host.entity.QHost
 import duit.server.domain.view.entity.QView
+import org.apache.coyote.BadRequestException
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.PageImpl
 import org.springframework.data.domain.Pageable
@@ -28,7 +32,7 @@ class EventRepositoryImpl(
     private val view = QView.view
     private val bookmark = QBookmark.bookmark
 
-    override fun findWithFilter(
+    override fun findEvents(
         filter: EventSearchFilter,
         pageable: Pageable
     ): Page<Event> {
@@ -37,23 +41,10 @@ class EventRepositoryImpl(
             .selectFrom(event)
             .join(event.host(), host).fetchJoin()
             .join(event.view(), view).fetchJoin()
-
-        // 북마크 조건이 있는 경우에만 JOIN
-        if (filter.isBookmarked && filter.userId != null) {
-            query.join(event.bookmarks, bookmark)
-                .on(bookmark.user().id.eq(filter.userId))
-        }
-
-        // WHERE 조건 추가
-        query.where(
-            isApproved(filter.isApproved),
-            inEventTypes(filter.eventTypes),
-            isNotFinished(filter.includeFinished),
-        )
+            .applyFilters(filter)
 
         // 정렬 조건 추가
-        val orderSpecifiers = buildOrderBy(filter.sortField)
-        query.orderBy(*orderSpecifiers)
+        query.orderBy(*buildOrderBy(filter.sortField))
 
         // 페이지네이션
         val events = query
@@ -100,21 +91,27 @@ class EventRepositoryImpl(
 
         return when (sortField) {
             // 조회수 많은순
-            PaginationField.VIEW_COUNT -> arrayOf(
+            VIEW_COUNT -> arrayOf(
                 isUpcoming.asc(),
                 view.count.desc(),
                 event.id.desc()
             )
 
             // 최신 등록순
-            PaginationField.CREATED_AT -> arrayOf(
+            CREATED_AT -> arrayOf(
                 isUpcoming.asc(),
                 event.createdAt.desc(),
                 event.id.desc()
             )
 
+            // ID 정렬
+            ID -> arrayOf(
+                isUpcoming.asc(),
+                event.id.desc()
+            )
+
             // 행사 날짜 임박순
-            PaginationField.START_DATE -> {
+            START_DATE -> {
                 val timeDiff = Expressions.numberTemplate(
                     Long::class.java,
                     "ABS(TIMESTAMPDIFF(SECOND, {0}, {1}))",
@@ -130,7 +127,7 @@ class EventRepositoryImpl(
             }
 
             // 모집 마감 임박순
-            PaginationField.RECRUITMENT_DEADLINE -> {
+            RECRUITMENT_DEADLINE -> {
                 val timeDiff = Expressions.numberTemplate(
                     Long::class.java,
                     "CASE WHEN {0} IS NULL THEN 999999999 ELSE TIMESTAMPDIFF(SECOND, {1}, {0}) END",
@@ -145,32 +142,30 @@ class EventRepositoryImpl(
                 )
             }
 
-            // 기본: 최신 등록순
-            else -> arrayOf(
-                isUpcoming.asc(),
-                event.id.desc()
-            )
+            else -> {
+                throw BadRequestException("지원하지 않는 정렬 형식입니다. $sortField")
+            }
         }
     }
 
     private fun countTotal(filter: EventSearchFilter): Long {
-        val query = queryFactory
+        return queryFactory
             .select(event.countDistinct())
             .from(event)
-            .join(event.host(), host)
+            .applyFilters(filter)
+            .fetchOne() ?: 0L
+    }
 
-        // 북마크 조건이 있는 경우에만 JOIN
+    private fun <T> JPAQuery<T>.applyFilters(filter: EventSearchFilter): JPAQuery<T> {
         if (filter.isBookmarked && filter.userId != null) {
-            query.join(event.bookmarks, bookmark)
+            this.join(event.bookmarks, bookmark)
                 .on(bookmark.user().id.eq(filter.userId))
         }
 
-        query.where(
+        return this.where(
             isApproved(filter.isApproved),
             inEventTypes(filter.eventTypes),
             isNotFinished(filter.includeFinished),
         )
-
-        return query.fetchOne() ?: 0L
     }
 }
