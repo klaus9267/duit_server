@@ -75,6 +75,8 @@ class DummyDataGenerator(
 
             // 4. View 생성 (100만개)
             generateViewsInternal()
+
+            generateBookmarksForAllUsers()
             
             val endTime = System.currentTimeMillis()
             val duration = (endTime - startTime) / 1000.0

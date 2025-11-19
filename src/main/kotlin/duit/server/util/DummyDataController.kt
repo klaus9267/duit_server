@@ -2,10 +2,12 @@ package duit.server.util
 
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
+import org.springframework.context.annotation.Profile
 import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.*
 
-@Tag(name = "DummyData", description = "더미 데이터 생성 API")
+@Profile("local")  // local 프로파일에서만 활성화
+@Tag(name = "DummyData", description = "더미 데이터 생성 API (local 프로파일 전용)")
 @RestController
 @RequestMapping("/api/v1/dummy")
 class DummyDataController(
