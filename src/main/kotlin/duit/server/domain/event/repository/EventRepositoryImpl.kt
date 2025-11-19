@@ -8,8 +8,7 @@ import com.querydsl.jpa.impl.JPAQueryFactory
 import duit.server.domain.bookmark.entity.QBookmark
 import duit.server.domain.common.dto.pagination.PaginationField
 import duit.server.domain.common.dto.pagination.PaginationField.*
-import duit.server.domain.event.dto.EventPaginationParam
-import duit.server.domain.event.dto.EventSearchFilter
+import duit.server.domain.event.dto.EventPaginationParamV2
 import duit.server.domain.event.entity.Event
 import duit.server.domain.event.entity.EventType
 import duit.server.domain.event.entity.QEvent
@@ -33,7 +32,8 @@ class EventRepositoryImpl(
     private val bookmark = QBookmark.bookmark
 
     override fun findEvents(
-        filter: EventSearchFilter,
+        param: EventPaginationParamV2,
+        currentUserId: Long?,
         pageable: Pageable
     ): Page<Event> {
         // 메인 쿼리 - Event 엔티티 조회
@@ -41,10 +41,10 @@ class EventRepositoryImpl(
             .selectFrom(event)
             .join(event.host(), host).fetchJoin()
             .join(event.view(), view).fetchJoin()
-            .applyFilters(filter)
+            .applyFilters(param, currentUserId)
 
         // 정렬 조건 추가
-        query.orderBy(*buildOrderBy(filter.sortField))
+        query.orderBy(*buildOrderBy(param.field))
 
         // 페이지네이션
         val events = query
@@ -53,7 +53,7 @@ class EventRepositoryImpl(
             .fetch()
 
         // 전체 개수 조회
-        val total = countTotal(filter)
+        val total = countTotal(param, currentUserId)
 
         return PageImpl(events, pageable, total)
     }
@@ -148,24 +148,24 @@ class EventRepositoryImpl(
         }
     }
 
-    private fun countTotal(filter: EventSearchFilter): Long {
+    private fun countTotal(param: EventPaginationParamV2, currentUserId: Long?): Long {
         return queryFactory
             .select(event.countDistinct())
             .from(event)
-            .applyFilters(filter)
+            .applyFilters(param, currentUserId)
             .fetchOne() ?: 0L
     }
 
-    private fun <T> JPAQuery<T>.applyFilters(filter: EventSearchFilter): JPAQuery<T> {
-        if (filter.isBookmarked && filter.userId != null) {
+    private fun <T> JPAQuery<T>.applyFilters(param: EventPaginationParamV2, currentUserId: Long?): JPAQuery<T> {
+        if (param.bookmarked && currentUserId != null) {
             this.join(event.bookmarks, bookmark)
-                .on(bookmark.user().id.eq(filter.userId))
+                .on(bookmark.user().id.eq(currentUserId))
         }
 
         return this.where(
-            isApproved(filter.isApproved),
-            inEventTypes(filter.eventTypes),
-            isNotFinished(filter.includeFinished),
+            isApproved(param.approved),
+            inEventTypes(param.types),
+            isNotFinished(param.includeFinished),
         )
     }
 }

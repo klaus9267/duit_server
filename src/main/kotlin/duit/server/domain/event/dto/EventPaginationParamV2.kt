@@ -20,7 +20,7 @@ data class EventPaginationParamV2(
     override val sortDirection: Sort.Direction? = null,
 
     @Schema(description = "행사 종류 null 입력 시 전체 행사 조회")
-    val type: List<EventType>?,
+    val types: List<EventType>? = null,
 
     @Schema(description = "행사 승인 여부", defaultValue = "true")
     val approved: Boolean = true,
@@ -29,18 +29,6 @@ data class EventPaginationParamV2(
     val bookmarked: Boolean = false,
 
     @Schema(description = "진행중인 행사만 조회", defaultValue = "true")
-    val includeFinished: Boolean = true,
-) : PaginationParam(page, size, sortDirection, field) {
-    fun toFilter(currentUserId: Long?): EventSearchFilter {
-        return EventSearchFilter(
-            eventTypes = type,
-            isApproved = approved,
-            isBookmarked = bookmarked,
-            includeFinished = includeFinished,
-            userId = currentUserId,
-            sortField = field,
-            sortDirection = this.sortDirection ?: Sort.Direction.ASC
-        )
-    }
-}
+    val includeFinished: Boolean = true
+) : PaginationParam(page, size, sortDirection, field)
 

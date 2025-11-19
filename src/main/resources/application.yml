@@ -1,6 +1,6 @@
 spring:
   profiles:
-    active: local  # 기본 프로파일은 local
+    active: local
 
   # 파일 업로드 크기 제한 설정
   servlet:

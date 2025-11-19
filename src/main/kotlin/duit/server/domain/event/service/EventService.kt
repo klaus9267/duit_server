@@ -107,10 +107,9 @@ class EventService(
     fun getEventsV2(param: EventPaginationParamV2): PageResponse<EventResponse> {
         val currentUserId = securityUtil.getCurrentUserIdOrNull()
 
-        val filter = param.toFilter(currentUserId)
         val pageable = param.toPageableUnsorted()
 
-        val events = eventRepository.findEvents(filter, pageable)
+        val events = eventRepository.findEvents(param, currentUserId, pageable)
 
         val eventResponses = if (currentUserId != null) {
             val eventIds = events.content.map { it.id!! }
