@@ -2,7 +2,8 @@
 spring:
   datasource:
     driver-class-name: org.h2.Driver
-    url: jdbc:h2:mem:duit;MODE=MySQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    # 파일 기반 H2: 데이터 영구 보존 (재시작 후에도 유지)
+    url: jdbc:h2:file:./data/duit;MODE=MySQL;AUTO_SERVER=TRUE
     username: sa
     password:
 
@@ -15,7 +16,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: create-drop  # 개발 환경: 매번 스키마 재생성
+      ddl-auto: update  # 스키마 자동 업데이트 (데이터 유지)
     show-sql: true  # SQL 로그 출력
     properties:
       hibernate:
