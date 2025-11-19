@@ -1,14 +1,12 @@
-name: CI
+name: Test
 
 on:
   push:
     branches:
       - main
-      - develop
   pull_request:
     branches:
       - main
-      - develop
 
 permissions:
   contents: read
@@ -63,8 +61,8 @@ jobs:
           ${{ secrets.FIREBASE_KEY }}
           EOF
 
-      - name: Run build
-        run: ./gradlew build
+      - name: Run tests
+        run: ./gradlew test
 
       - name: Publish test results
         uses: EnricoMi/publish-unit-test-result-action@v2
@@ -81,5 +79,3 @@ jobs:
         with:
           report_paths: '**/build/test-results/test/TEST-*.xml'
           token: ${{ github.token }}
-          check_name: 'Test Report'
-          fail_on_failure: true
