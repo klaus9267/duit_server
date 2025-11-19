@@ -29,19 +29,6 @@ class EventService(
     private val fileStorageService: FileStorageService
 ) {
     @Transactional
-    fun createEventFromGoogleForm(eventRequestFromGoogleForm: EventRequestFromGoogleForm): Event {
-        val host = hostService.findOrCreateHost(
-            HostRequest(name = eventRequestFromGoogleForm.hostName, thumbnail = eventRequestFromGoogleForm.hostThumbnail)
-        )
-        val event = eventRepository.save(eventRequestFromGoogleForm.toEntity(host))
-        viewService.createView(event)
-
-        discordService.sendNewEventNotification(event)
-
-        return event
-    }
-
-    @Transactional
     fun createEvent(
         eventRequest: EventCreateRequest,
         eventThumbnail: MultipartFile?,
@@ -117,28 +104,13 @@ class EventService(
         )
     }
 
-    fun getEventsV2(
-        param: EventPaginationParam,
-        isApproved: Boolean?,
-        isBookmarked: Boolean?,
-        includeFinished: Boolean?
-    ): PageResponse<EventResponse> {
+    fun getEventsV2(param: EventPaginationParamV2): PageResponse<EventResponse> {
         val currentUserId = securityUtil.getCurrentUserIdOrNull()
 
-        val filter = param.toFilter(
-            currentUserId = securityUtil.getCurrentUserIdOrNull(),
-            isApproved = isApproved ?: true,
-            isBookmarked = isBookmarked ?: false,
-            includeFinished = includeFinished ?: false
-        )
-        val pageable = PageRequest.of(
-            param.page ?: 0,
-            param.size ?: 10
-        )
+        val filter = param.toFilter(currentUserId)
+        val pageable = param.toPageableUnsorted()
 
         val events = eventRepository.findEvents(filter, pageable)
-
-        // 인증된 사용자의 경우 북마크 정보 포함
 
         val eventResponses = if (currentUserId != null) {
             val eventIds = events.content.map { it.id!! }
