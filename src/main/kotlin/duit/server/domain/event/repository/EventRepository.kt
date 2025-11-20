@@ -17,6 +17,7 @@ interface EventRepository : JpaRepository<Event, Long>, EventRepositoryCustom {
         FROM events e
         JOIN hosts h ON h.id = e.host_id
         LEFT JOIN views v ON v.event_id = e.id
+        LEFT JOIN bookmarks b ON b.event_id = e.id AND (b.user_id = :#{#filter.userId} OR :#{#filter.userId} IS NULL)
         WHERE e.is_approved = :#{#filter.isApproved}
         AND (:#{#filter.eventTypesToString()} IS NULL OR FIND_IN_SET(e.event_type, :#{#filter.eventTypesToString()}) > 0)
         AND (:#{#filter.includeFinished} = 1 OR (e.end_at IS NOT NULL AND e.end_at <= CURDATE()) OR (e.end_at IS NULL AND e.start_at <= CURDATE()))
@@ -47,6 +48,7 @@ interface EventRepository : JpaRepository<Event, Long>, EventRepositoryCustom {
         SELECT COUNT(DISTINCT e.id)
         FROM events e
         JOIN hosts h ON h.id = e.host_id
+        LEFT JOIN bookmarks b ON b.event_id = e.id AND (b.user_id = :#{#filter.userId} OR :#{#filter.userId} IS NULL)
         WHERE e.is_approved = :#{#filter.isApproved}
         AND (:#{#filter.eventTypesToString()} IS NULL OR FIND_IN_SET(e.event_type, :#{#filter.eventTypesToString()}) > 0)
         AND (:#{#filter.includeFinished} = 1 OR (e.end_at IS NOT NULL AND e.end_at <= CURDATE()) OR (e.end_at IS NULL AND e.start_at <= CURDATE()))
