@@ -36,26 +36,70 @@ class EventRepositoryImpl(
         currentUserId: Long?,
         pageable: Pageable
     ): Page<Event> {
-        // 메인 쿼리 - Event 엔티티 조회
+        val now = LocalDateTime.now()
+
+        // 단일 쿼리로 미진행/종료 행사 개수 조회
+        val (upcomingCount, total) = countEvents(param, currentUserId, now)
+
+        val offset = pageable.offset
+        val pageSize = pageable.pageSize
+
+        val events = mutableListOf<Event>()
+
+        // offset 위치에 따라 쿼리 분기
+        when {
+            offset < upcomingCount -> {
+                // 미진행 행사 영역
+                val upcomingEvents = fetchEvents(
+                    param, currentUserId, true, now,
+                    offset, pageSize.toLong()
+                )
+                events.addAll(upcomingEvents)
+
+                // 페이지가 미진행 영역을 넘어가는 경우
+                if (upcomingEvents.size < pageSize) {
+                    val remaining = pageSize - upcomingEvents.size
+                    val finishedEvents = fetchEvents(
+                        param, currentUserId, false, now,
+                        0, remaining.toLong()
+                    )
+                    events.addAll(finishedEvents)
+                }
+            }
+
+            else -> {
+                // 종료된 행사 영역
+                val adjustedOffset = offset - upcomingCount
+                val finishedEvents = fetchEvents(
+                    param, currentUserId, false, now,
+                    adjustedOffset, pageSize.toLong()
+                )
+                events.addAll(finishedEvents)
+            }
+        }
+
+        return PageImpl(events, pageable, total)
+    }
+
+    private fun fetchEvents(
+        param: EventPaginationParamV2,
+        currentUserId: Long?,
+        isUpcoming: Boolean,
+        now: LocalDateTime,
+        offset: Long,
+        limit: Long
+    ): List<Event> {
         val query = queryFactory
             .selectFrom(event)
             .join(event.host(), host).fetchJoin()
             .join(event.view(), view).fetchJoin()
             .applyFilters(param, currentUserId)
+            .where(if (isUpcoming) isUpcoming(now) else isFinished(now))
+            .orderBy(*buildOrderBy(param.field, isUpcoming))
+            .offset(offset)
+            .limit(limit)
 
-        // 정렬 조건 추가
-        query.orderBy(*buildOrderBy(param.field))
-
-        // 페이지네이션
-        val events = query
-            .offset(pageable.offset)
-            .limit(pageable.pageSize.toLong())
-            .fetch()
-
-        // 전체 개수 조회
-        val total = countTotal(param, currentUserId)
-
-        return PageImpl(events, pageable, total)
+        return query.fetch()
     }
 
     private fun isApproved(isApproved: Boolean): BooleanExpression {
@@ -82,64 +126,65 @@ class EventRepositoryImpl(
             )
     }
 
-    private fun buildOrderBy(sortField: PaginationField?): Array<OrderSpecifier<*>> {
-        val now = LocalDateTime.now()
+    private fun isUpcoming(now: LocalDateTime): BooleanExpression {
+        return event.startAt.goe(now)
+    }
 
-        val isUpcoming = Expressions.cases()
-            .`when`(event.startAt.goe(now)).then(0)
-            .otherwise(1)
+    private fun isFinished(now: LocalDateTime): BooleanExpression {
+        return event.startAt.lt(now)
+    }
 
+    private fun buildOrderBy(sortField: PaginationField?, isUpcoming: Boolean): Array<OrderSpecifier<*>> {
         return when (sortField) {
             // 조회수 많은순
             VIEW_COUNT -> arrayOf(
-                isUpcoming.asc(),
                 view.count.desc(),
                 event.id.desc()
             )
 
             // 최신 등록순
             CREATED_AT -> arrayOf(
-                isUpcoming.asc(),
                 event.createdAt.desc(),
                 event.id.desc()
             )
 
             // ID 정렬
             ID -> arrayOf(
-                isUpcoming.asc(),
                 event.id.desc()
             )
 
             // 행사 날짜 임박순
             START_DATE -> {
-                val timeDiff = Expressions.numberTemplate(
-                    Long::class.java,
-                    "ABS(TIMESTAMPDIFF(SECOND, {0}, {1}))",
-                    now,
-                    event.startAt
-                )
-
-                arrayOf(
-                    isUpcoming.asc(),
-                    timeDiff.asc(),
-                    event.id.desc()
-                )
+                if (isUpcoming) {
+                    // 미진행 행사: 날짜 오름차순 (가장 가까운 행사가 먼저)
+                    arrayOf(
+                        event.startAt.asc(),
+                        event.id.desc()
+                    )
+                } else {
+                    // 종료 행사: 날짜 내림차순 (가장 최근 종료된 행사가 먼저)
+                    arrayOf(
+                        event.startAt.desc(),
+                        event.id.desc()
+                    )
+                }
             }
 
             // 모집 마감 임박순
             RECRUITMENT_DEADLINE -> {
-                val timeDiff = Expressions.numberTemplate(
-                    Long::class.java,
-                    "CASE WHEN {0} IS NULL THEN 999999999 ELSE TIMESTAMPDIFF(SECOND, {1}, {0}) END",
-                    event.recruitmentEndAt,
-                    now
-                )
-
-                arrayOf(
-                    isUpcoming.asc(),
-                    timeDiff.asc(),
-                    event.id.desc()
-                )
+                if (isUpcoming) {
+                    // 미진행 행사: 마감일 오름차순 (가장 가까운 마감일이 먼저)
+                    arrayOf(
+                        event.recruitmentEndAt.asc().nullsLast(),
+                        event.id.desc()
+                    )
+                } else {
+                    // 종료 행사: 마감일 내림차순 (가장 최근 마감일이 먼저)
+                    arrayOf(
+                        event.recruitmentEndAt.desc().nullsLast(),
+                        event.id.desc()
+                    )
+                }
             }
 
             else -> {
@@ -148,12 +193,25 @@ class EventRepositoryImpl(
         }
     }
 
-    private fun countTotal(param: EventPaginationParamV2, currentUserId: Long?): Long {
-        return queryFactory
-            .select(event.countDistinct())
+    private fun countEvents(param: EventPaginationParamV2, currentUserId: Long?, now: LocalDateTime): Pair<Long, Long> {
+        val upcomingCase = Expressions.cases()
+            .`when`(isUpcoming(now)).then(1L)
+            .otherwise(0L)
+
+        val finishedCase = Expressions.cases()
+            .`when`(isFinished(now)).then(1L)
+            .otherwise(0L)
+
+        val result = queryFactory
+            .select(upcomingCase.sum(), finishedCase.sum())
             .from(event)
             .applyFilters(param, currentUserId)
-            .fetchOne() ?: 0L
+            .fetchOne()
+
+        val upcomingCount = result?.get(0, Long::class.java) ?: 0L
+        val finishedCount = result?.get(1, Long::class.java) ?: 0L
+
+        return Pair(upcomingCount, upcomingCount + finishedCount)
     }
 
     private fun <T> JPAQuery<T>.applyFilters(param: EventPaginationParamV2, currentUserId: Long?): JPAQuery<T> {
