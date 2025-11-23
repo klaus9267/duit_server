@@ -14,6 +14,7 @@ import duit.server.domain.event.entity.EventType
 import duit.server.domain.event.entity.QEvent
 import duit.server.domain.host.entity.QHost
 import duit.server.domain.view.entity.QView
+import jakarta.persistence.EntityManager
 import org.apache.coyote.BadRequestException
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.PageImpl
@@ -23,7 +24,8 @@ import java.time.LocalDateTime
 
 @Repository
 class EventRepositoryImpl(
-    private val queryFactory: JPAQueryFactory
+    private val queryFactory: JPAQueryFactory,
+    private val entityManager: EntityManager
 ) : EventRepositoryCustom {
 
     private val event = QEvent.event
@@ -46,7 +48,6 @@ class EventRepositoryImpl(
 
         val events = mutableListOf<Event>()
 
-        // offset 위치에 따라 쿼리 분기
         when {
             offset < upcomingCount -> {
                 // 미진행 행사 영역
@@ -89,6 +90,12 @@ class EventRepositoryImpl(
         offset: Long,
         limit: Long
     ): List<Event> {
+        // VIEW_COUNT 정렬: Native Query 사용 (v.event_id 직접 참조)
+        if (param.field == VIEW_COUNT) {
+            return fetchEventsByViewCount(param, currentUserId, isUpcoming, now, offset, limit)
+        }
+
+        // 다른 정렬: Event를 메인 테이블로 (기존 로직)
         val query = queryFactory
             .selectFrom(event)
             .join(event.host(), host).fetchJoin()
@@ -100,6 +107,60 @@ class EventRepositoryImpl(
             .limit(limit)
 
         return query.fetch()
+    }
+
+    private fun fetchEventsByViewCount(
+        param: EventPaginationParamV2,
+        currentUserId: Long?,
+        isUpcoming: Boolean,
+        now: LocalDateTime,
+        offset: Long,
+        limit: Long
+    ): List<Event> {
+        val timeCondition = if (isUpcoming) "e.start_at >= :now" else "e.start_at < :now"
+
+        val bookmarkJoin = if (param.bookmarked && currentUserId != null) {
+            "JOIN bookmarks b ON b.event_id = e.id AND b.user_id = :userId"
+        } else ""
+
+        val eventTypeCondition = if (!param.types.isNullOrEmpty()) {
+            "AND e.event_type IN (:types)"
+        } else ""
+
+        val includeFinishedCondition = if (!param.includeFinished) {
+            "AND ((e.end_at IS NOT NULL AND e.end_at > :now) OR (e.end_at IS NULL AND e.start_at > :now))"
+        } else ""
+
+        val sql = """
+            SELECT e.*
+            FROM views v
+            JOIN events e ON v.event_id = e.id
+            JOIN hosts h ON e.host_id = h.id
+            $bookmarkJoin
+            WHERE e.is_approved = :approved
+              AND $timeCondition
+              $eventTypeCondition
+              $includeFinishedCondition
+            ORDER BY v.count DESC, v.event_id DESC
+            LIMIT :limit OFFSET :offset
+        """.trimIndent()
+
+        val query = entityManager.createNativeQuery(sql, Event::class.java)
+            .setParameter("approved", param.approved)
+            .setParameter("now", now)
+            .setParameter("limit", limit.toInt())
+            .setParameter("offset", offset.toInt())
+
+        if (param.bookmarked && currentUserId != null) {
+            query.setParameter("userId", currentUserId)
+        }
+
+        if (!param.types.isNullOrEmpty()) {
+            query.setParameter("types", param.types.map { it.name })
+        }
+
+        @Suppress("UNCHECKED_CAST")
+        return query.resultList as List<Event>
     }
 
     private fun isApproved(isApproved: Boolean): BooleanExpression {
@@ -117,7 +178,6 @@ class EventRepositoryImpl(
 
         val now = LocalDateTime.now()
 
-        // (endAt IS NOT NULL AND endAt > NOW()) OR (endAt IS NULL AND startAt > NOW())
         return event.endAt.isNotNull
             .and(event.endAt.gt(now))
             .or(
@@ -139,7 +199,7 @@ class EventRepositoryImpl(
             // 조회수 많은순
             VIEW_COUNT -> arrayOf(
                 view.count.desc(),
-                event.id.desc()
+                view.event().id.desc()
             )
 
             // 최신 등록순
@@ -198,20 +258,16 @@ class EventRepositoryImpl(
             .`when`(isUpcoming(now)).then(1L)
             .otherwise(0L)
 
-        val finishedCase = Expressions.cases()
-            .`when`(isFinished(now)).then(1L)
-            .otherwise(0L)
-
         val result = queryFactory
-            .select(upcomingCase.sum(), finishedCase.sum())
+            .select(upcomingCase.sum(), event.countDistinct())
             .from(event)
             .applyFilters(param, currentUserId)
             .fetchOne()
 
         val upcomingCount = result?.get(0, Long::class.java) ?: 0L
-        val finishedCount = result?.get(1, Long::class.java) ?: 0L
+        val totalCount = result?.get(1, Long::class.java) ?: 0L
 
-        return Pair(upcomingCount, upcomingCount + finishedCount)
+        return Pair(upcomingCount, totalCount)
     }
 
     private fun <T> JPAQuery<T>.applyFilters(param: EventPaginationParamV2, currentUserId: Long?): JPAQuery<T> {
