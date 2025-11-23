@@ -12,8 +12,14 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener
 import java.time.LocalDateTime
 
 @Entity
-@Table(name = "events")
 @EntityListeners(AuditingEntityListener::class)
+@Table(
+    name = "events", indexes = [
+        Index(name = "idx_status_start_at", columnList = "start_at"),
+        Index(name = "idx_status_recruitment_end_at", columnList = "recruitment_end_at"),
+        Index(name = "idx_status_start", columnList = "status, start_at")
+    ]
+)
 class Event(
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -26,6 +32,10 @@ class Event(
     var uri: String,
     var thumbnail: String?,
     var isApproved: Boolean = false,
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    var status: EventStatus = EventStatus.PENDING,
 
     @Enumerated(EnumType.STRING)
     val eventType: EventType,
