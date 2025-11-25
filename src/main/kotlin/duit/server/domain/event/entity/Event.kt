@@ -15,9 +15,13 @@ import java.time.LocalDateTime
 @EntityListeners(AuditingEntityListener::class)
 @Table(
     name = "events", indexes = [
-        Index(name = "idx_status_start_at", columnList = "start_at"),
-        Index(name = "idx_status_recruitment_end_at", columnList = "recruitment_end_at"),
-        Index(name = "idx_status_start", columnList = "status, start_at")
+        Index(name = "idx_status", columnList = "status"),
+        Index(name = "idx_status_id", columnList = "status, id DESC"),
+        Index(name = "idx_status_created_at_desc_id", columnList = "status, created_at DESC, id DESC"),
+        Index(name = "idx_status_start_at_asc_id", columnList = "status, start_at ASC, id DESC"),
+        Index(name = "idx_status_start_at_desc_id", columnList = "status, start_at DESC, id DESC"),
+        Index(name = "idx_status_recruitment_asc_id", columnList = "status, recruitment_end_at ASC, id DESC"),
+        Index(name = "idx_status_recruitment_desc_id", columnList = "status, recruitment_end_at DESC, id DESC"),
     ]
 )
 class Event(
