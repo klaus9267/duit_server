@@ -79,14 +79,10 @@ class EventService(
             isBookmarked = isBookmarked ?: false,
             includeFinished = includeFinished ?: false
         )
-        val pageable = PageRequest.of(
-            param.page ?: 0,
-            param.size ?: 10
-        )
+        val pageable = PageRequest.of(param.page, param.size)
         val events = eventRepository.findWithFilter(filter, pageable)
 
         // 인증된 사용자의 경우 북마크 정보 포함
-
         val eventResponses = if (currentUserId != null) {
             val eventIds = events.content.map { it.id!! }
             val bookmarkedEventIds = eventRepository.findBookmarkedEventIds(currentUserId, eventIds).toSet()
@@ -109,8 +105,10 @@ class EventService(
 
         val pageable = param.toPageableUnsorted()
 
+        // Repository 호출
         val events = eventRepository.findEvents(param, currentUserId, pageable)
 
+        // 북마크 조회 수정 -> bookmark를 메인 테이블로
         val eventResponses = if (currentUserId != null) {
             val eventIds = events.content.map { it.id!! }
             val bookmarkedEventIds = eventRepository.findBookmarkedEventIds(currentUserId, eventIds).toSet()
@@ -128,6 +126,11 @@ class EventService(
         )
     }
 
+    //todo - 메서드 완성
+//    fun searchEvents(): PageResponse<EventResponse> {
+//
+//    }
+
     fun getEvents4Calendar(request: Event4CalendarRequest): List<EventResponse> {
         val currentUserId = securityUtil.getCurrentUserId()
         val start = LocalDateTime.of(request.year, request.month, 1, 0, 0)
@@ -141,9 +144,7 @@ class EventService(
     fun approveEvent(eventId: Long) {
         val event = getEvent(eventId)
 
-        if (event.isApproved) {
-            throw IllegalStateException("이미 승인된 행사입니다: $eventId")
-        }
+        check(event.isApproved) { "이미 승인된 행사입니다: $eventId" }
 
         event.isApproved = true
         eventRepository.save(event)
