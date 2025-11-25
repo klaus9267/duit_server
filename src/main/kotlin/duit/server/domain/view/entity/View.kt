@@ -5,7 +5,7 @@ import jakarta.persistence.*
 
 @Entity
 @Table(name = "views", indexes = [
-    Index(name = "idx_count_event",columnList = "count, event_id")
+    Index(name = "idx_count_event",columnList = "count DESC, event_id DESC")
 ])
 class View(
     @Id
