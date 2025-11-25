@@ -22,6 +22,7 @@ services:
   db:
     image: mysql:8.0
     container_name: duit-mysql-prod
+#    command: --local-infile=1
     profiles: ["infra", "full"]
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
