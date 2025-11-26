@@ -69,17 +69,15 @@ class EventRepositoryImpl(
             return fetchEventsByViewCount(param, currentUserId, offset, limit)
         }
 
-        // 다른 정렬: Event를 메인 테이블로 (기존 로직)
-        val query = queryFactory
+        return queryFactory
             .selectFrom(event)
             .join(event.host(), host).fetchJoin()
             .join(event.view(), view).fetchJoin()
-            .applyFilters(param, currentUserId)  // 여기서 이미 status 조건 적용됨
+            .applyFilters(param, currentUserId)
             .orderBy(*buildOrderBy(param.field, param.status))
             .offset(offset)
             .limit(limit)
-
-        return query.fetch()
+            .fetch()
     }
 
     private fun fetchEventsByViewCount(
@@ -134,7 +132,6 @@ class EventRepositoryImpl(
     }
 
     private fun buildOrderBy(sortField: PaginationField?, status: EventStatus): Array<OrderSpecifier<*>> {
-        // FINISHED만 조회하는지 확인
         val isFinishedOnly = (status == EventStatus.FINISHED)
 
         return when (sortField) {
@@ -190,26 +187,10 @@ class EventRepositoryImpl(
     }
 
     private fun countEvents(param: EventPaginationParamV2, currentUserId: Long?): Long {
-        // 북마크 조인이 있으면 DISTINCT 필요, 없으면 불필요
         val query = queryFactory
             .select(event.count())
             .from(event)
             .applyFilters(param, currentUserId)
-
-//        // START_DATE나 RECRUITMENT_DEADLINE 정렬일 때 적절한 인덱스 힌트
-//        when (param.field) {
-//            START_DATE -> {
-//                // MySQL이 올바른 인덱스를 선택하도록 유도
-//                // idx_status_start_at_asc_id를 사용해야 함
-//                query.hint("USE INDEX (idx_status_start_at_asc_id)")
-//            }
-//
-//            RECRUITMENT_DEADLINE -> {
-//                query.hint("USE INDEX (idx_status_recruitment_asc_id)")
-//            }
-//
-//            else -> {}
-//        }
 
         return query.fetchOne() ?: 0L
     }
