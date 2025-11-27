@@ -8,10 +8,7 @@ import duit.server.domain.bookmark.entity.QBookmark
 import duit.server.domain.common.dto.pagination.PaginationField
 import duit.server.domain.common.dto.pagination.PaginationField.*
 import duit.server.domain.event.dto.EventPaginationParamV2
-import duit.server.domain.event.entity.Event
-import duit.server.domain.event.entity.EventStatus
-import duit.server.domain.event.entity.EventType
-import duit.server.domain.event.entity.QEvent
+import duit.server.domain.event.entity.*
 import duit.server.domain.host.entity.QHost
 import duit.server.domain.view.entity.QView
 import jakarta.persistence.EntityManager
@@ -20,7 +17,6 @@ import org.springframework.data.domain.Page
 import org.springframework.data.domain.PageImpl
 import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Repository
-import org.springframework.util.StopWatch
 
 @Repository
 class EventRepositoryImpl(
@@ -42,19 +38,10 @@ class EventRepositoryImpl(
         val offset = pageable.offset
         val pageSize = pageable.pageSize
 
-        val watch = StopWatch()
-        watch.start()
-
         val events = fetchEvents(param, currentUserId, offset, pageSize.toLong())
 
-        watch.stop()
-        println(watch.prettyPrint())
-
-        watch.start()
         // 전체 개수 조회
         val total = countEvents(param, currentUserId)
-        watch.stop()
-        println(watch.prettyPrint())
 
         return PageImpl(events, pageable, total)
     }
@@ -74,7 +61,7 @@ class EventRepositoryImpl(
             .join(event.host(), host).fetchJoin()
             .join(event.view(), view).fetchJoin()
             .applyFilters(param, currentUserId)
-            .orderBy(*buildOrderBy(param.field, param.status))
+            .orderBy(*buildOrderBy(param.field, param.status, param.statusGroup))
             .offset(offset)
             .limit(limit)
             .fetch()
@@ -86,8 +73,12 @@ class EventRepositoryImpl(
         offset: Long,
         limit: Long
     ): List<Event> {
-        // param.status 사용 (단일 값)
-        val statusCondition = "e.status = '${param.status.name}'"
+        // status 또는 statusGroup 조건
+        val statusCondition = when {
+            param.status != null -> "e.status = '${param.status.name}'"
+            param.statusGroup != null -> "e.status_group = '${param.statusGroup.name}'"
+            else -> "1=1"  // 둘 다 없으면 조건 없음
+        }
 
         val bookmarkJoin = if (param.bookmarked && currentUserId != null) {
             "JOIN bookmarks b ON b.event_id = e.id AND b.user_id = :userId"
@@ -131,8 +122,13 @@ class EventRepositoryImpl(
         } else null
     }
 
-    private fun buildOrderBy(sortField: PaginationField?, status: EventStatus): Array<OrderSpecifier<*>> {
-        val isFinishedOnly = (status == EventStatus.FINISHED)
+    private fun buildOrderBy(
+        sortField: PaginationField?,
+        status: EventStatus?,
+        statusGroup: EventStatusGroup?
+    ): Array<OrderSpecifier<*>> {
+        // FINISHED 상태 체크 (status 또는 statusGroup으로)
+        val isFinishedOnly = status == EventStatus.FINISHED || statusGroup == EventStatusGroup.FINISHED
 
         return when (sortField) {
             // 최신 등록순
@@ -201,10 +197,14 @@ class EventRepositoryImpl(
                 .on(bookmark.user().id.eq(currentUserId))
         }
 
-        val conditions = mutableListOf<BooleanExpression?>(
-            event.status.eq(param.status),
-            inEventTypes(param.types)
-        )
+        val conditions = mutableListOf<BooleanExpression?>()
+
+        when {
+            param.status != null -> conditions.add(event.status.eq(param.status))
+            param.statusGroup != null -> conditions.add(event.statusGroup.eq(param.statusGroup))
+        }
+
+        conditions.add(inEventTypes(param.types))
 
         when (param.field) {
             RECRUITMENT_DEADLINE -> {
