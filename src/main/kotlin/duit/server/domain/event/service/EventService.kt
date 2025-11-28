@@ -153,10 +153,43 @@ class EventService(
     @Transactional
     fun approveEvent(eventId: Long) {
         val event = getEvent(eventId)
-
-        check(event.isApproved) { "이미 승인된 행사입니다: $eventId" }
-
         event.isApproved = true
+
+        val now = LocalDateTime.now()
+        when {
+            // 1. 이미 종료됨
+            (event.endAt != null && event.endAt!! < now) ||
+                    (event.endAt == null && event.startAt < now) -> {
+                event.status = EventStatus.FINISHED
+                event.statusGroup = EventStatusGroup.FINISHED
+            }
+
+            // 2. 행사 진행 중
+            event.startAt <= now && (event.endAt == null || event.endAt!! >= now) -> {
+                event.status = EventStatus.ACTIVE
+                event.statusGroup = EventStatusGroup.ACTIVE
+            }
+
+            // 3. 모집 없이 행사 대기, 4. 모집 기간 지남
+            event.recruitmentStartAt == null ||
+                    event.recruitmentEndAt!! < now -> {
+                event.status = EventStatus.EVENT_WAITING
+                event.statusGroup = EventStatusGroup.ACTIVE
+            }
+
+            // 5. 모집 중
+            event.recruitmentStartAt!! <= now -> {
+                event.status = EventStatus.RECRUITING
+                event.statusGroup = EventStatusGroup.ACTIVE
+            }
+
+            // 6. 모집 대기
+            else -> {
+                event.status = EventStatus.RECRUITMENT_WAITING
+                event.statusGroup = EventStatusGroup.ACTIVE
+            }
+        }
+
         eventRepository.save(event)
     }
 
