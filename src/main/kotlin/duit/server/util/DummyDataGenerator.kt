@@ -246,7 +246,7 @@ class DummyDataGenerator(
                     val hostId = Random.nextLong(1, HOST_COUNT.toLong() + 1)
                     val isApproved = if (Random.nextDouble() > 0.3) 1 else 0
                     val eventType = EVENT_TYPES.random().name
-                    val status = calculateStatus()
+                    val (status, statusGroup) = calculateStatusAndGroup()
 
                     // StringBuilder 사용 (빠름)
                     sb.append(randomTitle).append('_').append(i).append(',')
@@ -259,7 +259,8 @@ class DummyDataGenerator(
                     sb.append(isApproved).append(',')
                     sb.append(eventType).append(',')
                     sb.append(hostId).append(',')
-                    sb.append(status).append('\n')
+                    sb.append(status).append(',')
+                    sb.append(statusGroup).append('\n')
 
                     // 10000개마다 flush (메모리 효율)
                     if (i % 10000 == 0) {
@@ -291,7 +292,7 @@ class DummyDataGenerator(
                 FIELDS TERMINATED BY ','
                 LINES TERMINATED BY '\n'
                 (title, start_at, @end_at, @recruitment_start_at, @recruitment_end_at,
-                 uri, @thumbnail, is_approved, event_type, host_id, status)
+                 uri, @thumbnail, is_approved, event_type, host_id, status, status_group)
                 SET
                     end_at = NULLIF(@end_at, '\\N'),
                     recruitment_start_at = NULLIF(@recruitment_start_at, '\\N'),
@@ -343,14 +344,21 @@ class DummyDataGenerator(
     }
 
     private fun calculateStatus(): String {
-        // status 비율: ACTIVE 40%, PENDING 10%, RECRUITING 10%, FINISHED 40%
+        // Deprecated - use calculateStatusAndGroup() instead
+        return calculateStatusAndGroup().first
+    }
+
+    private fun calculateStatusAndGroup(): Pair<String, String> {
+        // status 분포: PENDING 10%, ACTIVE계열 50%, FINISHED 40%
         val random = Random.nextDouble()
 
         return when {
-            random < 0.40 -> "ACTIVE"           // 0.00 ~ 0.40 (40%)
-            random < 0.50 -> "PENDING"          // 0.40 ~ 0.50 (10%)
-            random < 0.60 -> "RECRUITING"       // 0.50 ~ 0.60 (10%)
-            else -> "FINISHED"                  // 0.60 ~ 1.00 (40%)
+            random < 0.10 -> Pair("PENDING", "PENDING")                     // 10%
+            random < 0.20 -> Pair("RECRUITMENT_WAITING", "ACTIVE")          // 10%
+            random < 0.35 -> Pair("RECRUITING", "ACTIVE")                   // 15%
+            random < 0.45 -> Pair("EVENT_WAITING", "ACTIVE")                // 10%
+            random < 0.60 -> Pair("ACTIVE", "ACTIVE")                       // 15%
+            else -> Pair("FINISHED", "FINISHED")                            // 40%
         }
     }
     
