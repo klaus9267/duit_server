@@ -32,6 +32,9 @@ data class EventPaginationParamV2(
 
     @get:Schema(description = "북마크한 행사만 조회 (미입력 시 기본값 false)", defaultValue = "false", required = false)
     val bookmarked: Boolean = false,
+
+    @get:Schema(description = "검색 키워드 (행사명, 주최자명)", required = false)
+    val keyword: String? = null
 ) : PaginationParam(page, size, sortDirection, field) {
     init {
         require(status == null || statusGroup == null) {

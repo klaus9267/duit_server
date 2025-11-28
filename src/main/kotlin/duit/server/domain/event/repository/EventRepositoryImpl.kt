@@ -206,6 +206,7 @@ class EventRepositoryImpl(
         }
 
         conditions.add(inEventTypes(param.types))
+        conditions.add(searchKeyword(param.keyword))
 
         when (param.field) {
             RECRUITMENT_DEADLINE -> {
@@ -220,6 +221,14 @@ class EventRepositoryImpl(
         }
 
         return this.where(*conditions.filterNotNull().toTypedArray())
+    }
+
+    private fun searchKeyword(keyword: String?): BooleanExpression? {
+        return keyword?.let { kw ->
+            val keywordLower = kw.lowercase()
+            event.title.lower().contains(keywordLower)
+                .or(host.name.lower().contains(keywordLower))
+        }
     }
 
     override fun findEventsForScheduler(status: EventStatus): List<Event> {

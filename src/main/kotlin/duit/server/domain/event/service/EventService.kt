@@ -136,11 +136,6 @@ class EventService(
         )
     }
 
-    //todo - 메서드 완성
-//    fun searchEvents(): PageResponse<EventResponse> {
-//
-//    }
-
     fun getEvents4Calendar(request: Event4CalendarRequest): List<EventResponse> {
         val currentUserId = securityUtil.getCurrentUserId()
         val start = LocalDateTime.of(request.year, request.month, 1, 0, 0)
