@@ -5,6 +5,7 @@ import duit.server.domain.alarm.service.AlarmService
 import duit.server.domain.event.entity.EventDate
 import duit.server.domain.event.repository.EventRepository
 import org.springframework.boot.context.event.ApplicationReadyEvent
+import org.springframework.context.annotation.Profile
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.TaskScheduler
 import org.springframework.scheduling.annotation.EnableScheduling
@@ -16,6 +17,7 @@ import java.time.ZoneId
 
 @Component
 @EnableScheduling
+@Profile("prod")
 class EventAlarmScheduler(
     private val eventRepository: EventRepository,
     private val alarmService: AlarmService,
@@ -29,10 +31,10 @@ class EventAlarmScheduler(
         createAlarmsByType(EventDate.START_AT, AlarmType.EVENT_START)
     }
 
-//    @EventListener(ApplicationReadyEvent::class)
-//    fun onApplicationReady() {
-//        createDailyAlarms()
-//    }
+    @EventListener(ApplicationReadyEvent::class)
+    fun onApplicationReady() {
+        createDailyAlarms()
+    }
 
     private fun createAlarmsByType(eventDate: EventDate, alarmType: AlarmType) {
         val tomorrow = LocalDateTime.now().plusDays(1)
