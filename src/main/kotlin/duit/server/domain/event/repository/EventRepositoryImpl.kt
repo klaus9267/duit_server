@@ -17,6 +17,7 @@ import org.springframework.data.domain.Page
 import org.springframework.data.domain.PageImpl
 import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Repository
+import java.time.LocalDate
 
 @Repository
 class EventRepositoryImpl(
@@ -219,5 +220,36 @@ class EventRepositoryImpl(
         }
 
         return this.where(*conditions.filterNotNull().toTypedArray())
+    }
+
+    override fun findEventsForStatusTransition(status: EventStatus): List<Event> {
+        val today = LocalDate.now().atStartOfDay()
+        val tomorrow = today.plusDays(1)
+
+        val dateCondition: BooleanExpression? = when (status) {
+            EventStatus.RECRUITMENT_WAITING -> event.recruitmentStartAt.between(today, tomorrow) as BooleanExpression
+            EventStatus.RECRUITING -> event.recruitmentEndAt.between(today, tomorrow) as BooleanExpression
+            EventStatus.EVENT_WAITING -> event.startAt.between(today, tomorrow) as BooleanExpression
+            EventStatus.ACTIVE -> {
+                val endAtCondition = event.endAt.between(today, tomorrow) as BooleanExpression
+                val endAtPlusOneDayCondition = event.endAt.isNull.and(
+                    event.startAt.between(
+                        today.minusDays(1),
+                        tomorrow.minusDays(1)
+                    ) as BooleanExpression
+                )
+                endAtCondition.or(endAtPlusOneDayCondition)
+            }
+
+            else -> throw IllegalArgumentException("Invalid status: $status")
+        }
+
+        return queryFactory
+            .selectFrom(event)
+            .where(
+                event.status.eq(status),
+                dateCondition
+            )
+            .fetch()
     }
 }

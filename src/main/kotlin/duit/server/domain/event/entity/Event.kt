@@ -25,8 +25,14 @@ import java.time.LocalDateTime
         Index(name = "idx_status_group_created_at_id", columnList = "status_group, created_at DESC, id DESC"),
         Index(name = "idx_status_group_start_at_asc_id", columnList = "status_group, start_at ASC, id DESC"),
         Index(name = "idx_status_group_start_at_desc_id", columnList = "status_group, start_at DESC, id DESC"),
-        Index(name = "idx_status_group_recruitment_asc_id", columnList = "status_group, recruitment_end_at ASC, id DESC"),
-        Index(name = "idx_status_group_recruitment_desc_id", columnList = "status_group, recruitment_end_at DESC, id DESC"),
+        Index(
+            name = "idx_status_group_recruitment_asc_id",
+            columnList = "status_group, recruitment_end_at ASC, id DESC"
+        ),
+        Index(
+            name = "idx_status_group_recruitment_desc_id",
+            columnList = "status_group, recruitment_end_at DESC, id DESC"
+        ),
     ]
 )
 class Event(
@@ -79,5 +85,9 @@ class Event(
         uri = updateRequest.uri
         this.host = host
         thumbnailUrl?.let { thumbnail = it }
+    }
+
+    fun updateStatus(newStatus: EventStatus) {
+        status = newStatus
     }
 }

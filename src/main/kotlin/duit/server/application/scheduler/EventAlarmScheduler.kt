@@ -29,10 +29,10 @@ class EventAlarmScheduler(
         createAlarmsByType(EventDate.START_AT, AlarmType.EVENT_START)
     }
 
-    @EventListener(ApplicationReadyEvent::class)
-    fun onApplicationReady() {
-        createDailyAlarms()
-    }
+//    @EventListener(ApplicationReadyEvent::class)
+//    fun onApplicationReady() {
+//        createDailyAlarms()
+//    }
 
     private fun createAlarmsByType(eventDate: EventDate, alarmType: AlarmType) {
         val tomorrow = LocalDateTime.now().plusDays(1)

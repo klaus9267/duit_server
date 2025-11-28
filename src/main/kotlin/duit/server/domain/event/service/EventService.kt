@@ -5,6 +5,7 @@ import duit.server.domain.common.dto.pagination.PageInfo
 import duit.server.domain.common.dto.pagination.PageResponse
 import duit.server.domain.event.dto.*
 import duit.server.domain.event.entity.Event
+import duit.server.domain.event.entity.EventStatus
 import duit.server.domain.event.repository.EventRepository
 import duit.server.domain.host.dto.HostRequest
 import duit.server.domain.host.service.HostService
@@ -205,4 +206,7 @@ class EventService(
             }
         eventRepository.deleteAllById(eventIds)
     }
+
+    @Transactional
+    fun updateStatus(eventId: Long, newStatus: EventStatus) = getEvent(eventId).updateStatus(newStatus)
 }

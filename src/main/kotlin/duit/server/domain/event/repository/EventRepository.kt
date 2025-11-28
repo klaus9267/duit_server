@@ -7,12 +7,12 @@ import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.EntityGraph
 import org.springframework.data.jpa.repository.JpaRepository
-import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
-import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDateTime
 
 interface EventRepository : JpaRepository<Event, Long>, EventRepositoryCustom {
+    
+    // todo - v2로 옮기면 삭제 예정
     @Query(
         value = """
         SELECT e.*
@@ -128,31 +128,4 @@ interface EventRepository : JpaRepository<Event, Long>, EventRepositoryCustom {
 
     @EntityGraph(attributePaths = ["view"])
     fun findAllByIdInAndThumbnailNotNull(ids: List<Long>): List<Event>
-
-    @Modifying
-    @Transactional
-    @Query(
-        """
-        UPDATE Event e
-        SET e.status = CASE
-            WHEN e.isApproved = false THEN 'PENDING'
-            WHEN (e.endAt IS NOT NULL AND e.endAt <= CURRENT_TIMESTAMP)
-                OR (e.endAt IS NULL AND e.startAt <= CURRENT_TIMESTAMP) THEN 'FINISHED'
-            WHEN e.recruitmentStartAt IS NOT NULL
-                AND e.recruitmentEndAt IS NOT NULL
-                AND CURRENT_TIMESTAMP BETWEEN e.recruitmentStartAt AND e.recruitmentEndAt THEN 'RECRUITING'
-            ELSE 'ACTIVE'
-        END
-        WHERE e.status != CASE
-            WHEN e.isApproved = false THEN 'PENDING'
-            WHEN (e.endAt IS NOT NULL AND e.endAt <= CURRENT_TIMESTAMP)
-                OR (e.endAt IS NULL AND e.startAt <= CURRENT_TIMESTAMP) THEN 'FINISHED'
-            WHEN e.recruitmentStartAt IS NOT NULL
-                AND e.recruitmentEndAt IS NOT NULL
-                AND CURRENT_TIMESTAMP BETWEEN e.recruitmentStartAt AND e.recruitmentEndAt THEN 'RECRUITING'
-            ELSE 'ACTIVE'
-        END
-        """
-    )
-    fun updateEventStatus(): Int
 }
