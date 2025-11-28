@@ -52,6 +52,14 @@ class EventService(
         val event = eventRequest.toEntity(host).apply {
             thumbnail = eventThumbnailUrl
             this.isApproved = isApproved
+
+            if (isApproved) {
+                this.status = EventStatus.RECRUITMENT_WAITING
+                this.statusGroup = EventStatusGroup.ACTIVE
+            } else {
+                this.status = EventStatus.PENDING
+                this.statusGroup = EventStatusGroup.PENDING
+            }
         }
 
         return eventRepository.save(event).also { viewService.createView(it) }
