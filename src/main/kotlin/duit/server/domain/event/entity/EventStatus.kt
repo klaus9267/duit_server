@@ -12,7 +12,7 @@ enum class EventStatus(
     PENDING("승인 대기", null);
 
     companion object {
-        fun getTransitionableStatuses(): List<EventStatus> =
+        fun schedulable(): List<EventStatus> =
             EventStatus.entries.filter {  it.nextStatus != null }
     }
 }

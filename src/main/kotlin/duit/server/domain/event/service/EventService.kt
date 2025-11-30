@@ -6,6 +6,7 @@ import duit.server.domain.common.dto.pagination.PageResponse
 import duit.server.domain.event.dto.*
 import duit.server.domain.event.entity.Event
 import duit.server.domain.event.entity.EventStatus
+import duit.server.domain.event.entity.EventStatusGroup
 import duit.server.domain.event.repository.EventRepository
 import duit.server.domain.host.dto.HostRequest
 import duit.server.domain.host.service.HostService
@@ -51,6 +52,14 @@ class EventService(
         val event = eventRequest.toEntity(host).apply {
             thumbnail = eventThumbnailUrl
             this.isApproved = isApproved
+
+            if (isApproved) {
+                this.status = EventStatus.RECRUITMENT_WAITING
+                this.statusGroup = EventStatusGroup.ACTIVE
+            } else {
+                this.status = EventStatus.PENDING
+                this.statusGroup = EventStatusGroup.PENDING
+            }
         }
 
         return eventRepository.save(event).also { viewService.createView(it) }
@@ -127,11 +136,6 @@ class EventService(
         )
     }
 
-    //todo - 메서드 완성
-//    fun searchEvents(): PageResponse<EventResponse> {
-//
-//    }
-
     fun getEvents4Calendar(request: Event4CalendarRequest): List<EventResponse> {
         val currentUserId = securityUtil.getCurrentUserId()
         val start = LocalDateTime.of(request.year, request.month, 1, 0, 0)
@@ -144,10 +148,43 @@ class EventService(
     @Transactional
     fun approveEvent(eventId: Long) {
         val event = getEvent(eventId)
-
-        check(event.isApproved) { "이미 승인된 행사입니다: $eventId" }
-
         event.isApproved = true
+
+        val now = LocalDateTime.now()
+        when {
+            // 1. 이미 종료됨
+            (event.endAt != null && event.endAt!! < now) ||
+                    (event.endAt == null && event.startAt < now) -> {
+                event.status = EventStatus.FINISHED
+                event.statusGroup = EventStatusGroup.FINISHED
+            }
+
+            // 2. 행사 진행 중
+            event.startAt <= now && (event.endAt == null || event.endAt!! >= now) -> {
+                event.status = EventStatus.ACTIVE
+                event.statusGroup = EventStatusGroup.ACTIVE
+            }
+
+            // 3. 모집 없이 행사 대기, 4. 모집 기간 지남
+            event.recruitmentStartAt == null ||
+                    event.recruitmentEndAt!! < now -> {
+                event.status = EventStatus.EVENT_WAITING
+                event.statusGroup = EventStatusGroup.ACTIVE
+            }
+
+            // 5. 모집 중
+            event.recruitmentStartAt!! <= now -> {
+                event.status = EventStatus.RECRUITING
+                event.statusGroup = EventStatusGroup.ACTIVE
+            }
+
+            // 6. 모집 대기
+            else -> {
+                event.status = EventStatus.RECRUITMENT_WAITING
+                event.statusGroup = EventStatusGroup.ACTIVE
+            }
+        }
+
         eventRepository.save(event)
     }
 
@@ -208,5 +245,12 @@ class EventService(
     }
 
     @Transactional
-    fun updateStatus(eventId: Long, newStatus: EventStatus) = getEvent(eventId).updateStatus(newStatus)
+    fun updateStatus(eventId: Long, newStatus: EventStatus) {
+        val event = getEvent(eventId)
+
+        event.status = newStatus
+        if (event.status == EventStatus.ACTIVE) {
+            event.statusGroup = EventStatusGroup.FINISHED
+        }
+    }
 }

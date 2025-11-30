@@ -5,6 +5,9 @@ import duit.server.domain.event.entity.EventStatus
 import duit.server.domain.event.repository.EventRepository
 import duit.server.domain.event.service.EventService
 import org.slf4j.LoggerFactory
+import org.springframework.boot.context.event.ApplicationReadyEvent
+import org.springframework.context.annotation.Profile
+import org.springframework.context.event.EventListener
 import org.springframework.scheduling.TaskScheduler
 import org.springframework.scheduling.annotation.EnableScheduling
 import org.springframework.scheduling.annotation.Scheduled
@@ -14,12 +17,18 @@ import java.time.ZoneId
 
 @Component
 @EnableScheduling
+@Profile("prod")
 class EventStatusScheduler(
     private val eventRepository: EventRepository,
     private val eventService: EventService,
     private val taskScheduler: TaskScheduler
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
+
+    @EventListener(ApplicationReadyEvent::class)
+    fun onApplicationReady() {
+        scheduleDailyStatusUpdates()
+    }
 
     /**
      * 매일 자정에 실행 - 오늘 상태 전환이 예정된 이벤트들을 스케줄링
@@ -28,10 +37,10 @@ class EventStatusScheduler(
     fun scheduleDailyStatusUpdates() {
         logger.info("Starting daily event status update scheduling")
 
-        EventStatus.getTransitionableStatuses().forEach { status ->
+        EventStatus.schedulable().forEach { status ->
             val nextStatus = status.nextStatus!!
 
-            val events = eventRepository.findEventsForStatusTransition(status)
+            val events = eventRepository.findEventsForScheduler(status)
             logger.info("Found ${events.size} events for $status -> $nextStatus transition today")
 
             events.forEach { scheduleStatusTransition(it, status, nextStatus) }

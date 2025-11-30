@@ -206,6 +206,7 @@ class EventRepositoryImpl(
         }
 
         conditions.add(inEventTypes(param.types))
+        conditions.add(searchKeyword(param.keyword))
 
         when (param.field) {
             RECRUITMENT_DEADLINE -> {
@@ -222,16 +223,24 @@ class EventRepositoryImpl(
         return this.where(*conditions.filterNotNull().toTypedArray())
     }
 
-    override fun findEventsForStatusTransition(status: EventStatus): List<Event> {
+    private fun searchKeyword(keyword: String?): BooleanExpression? {
+        return keyword?.let { kw ->
+            val keywordLower = kw.lowercase()
+            event.title.lower().contains(keywordLower)
+                .or(host.name.lower().contains(keywordLower))
+        }
+    }
+
+    override fun findEventsForScheduler(status: EventStatus): List<Event> {
         val today = LocalDate.now().atStartOfDay()
         val tomorrow = today.plusDays(1)
 
         val dateCondition: BooleanExpression? = when (status) {
-            EventStatus.RECRUITMENT_WAITING -> event.recruitmentStartAt.between(today, tomorrow) as BooleanExpression
-            EventStatus.RECRUITING -> event.recruitmentEndAt.between(today, tomorrow) as BooleanExpression
-            EventStatus.EVENT_WAITING -> event.startAt.between(today, tomorrow) as BooleanExpression
+            EventStatus.RECRUITMENT_WAITING -> event.recruitmentStartAt.between(today, tomorrow)
+            EventStatus.RECRUITING -> event.recruitmentEndAt.between(today, tomorrow)
+            EventStatus.EVENT_WAITING -> event.startAt.between(today, tomorrow)
             EventStatus.ACTIVE -> {
-                val endAtCondition = event.endAt.between(today, tomorrow) as BooleanExpression
+                val endAtCondition = event.endAt.between(today, tomorrow)
                 val endAtPlusOneDayCondition = event.endAt.isNull.and(
                     event.startAt.between(
                         today.minusDays(1),

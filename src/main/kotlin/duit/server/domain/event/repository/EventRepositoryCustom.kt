@@ -14,5 +14,5 @@ interface EventRepositoryCustom {
         pageable: Pageable
     ): Page<Event>
 
-    fun findEventsForStatusTransition(status: EventStatus): List<Event>
+    fun findEventsForScheduler(status: EventStatus): List<Event>
 }

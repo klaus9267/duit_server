@@ -20,7 +20,10 @@ class EventControllerV2(
     private val eventService: EventService
 ) {
     @GetMapping
-    @Operation(summary = "행사 목록 조회 v2", description = "행사 목록을 페이지네이션으로 조회합니다")
+    @Operation(
+        summary = "행사 목록 조회 v2",
+        description = "행사 목록을 페이지네이션으로 조회합니다. keyword 파라미터로 검색 가능"
+    )
     @ResponseStatus(HttpStatus.OK)
     fun getEvents(
         @Valid @ParameterObject
