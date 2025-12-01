@@ -119,10 +119,12 @@ class EventService(
     }
 
     @Transactional
-    fun approveEvent(eventId: Long) {
+    fun updateStatus(eventId: Long, newStatus: EventStatus? = null) {
         val event = getEvent(eventId)
         event.isApproved = true
-        event.updateStatus()
+
+        if (newStatus == null) event.updateStatus()
+        else event.updateStatus(newStatus)
     }
 
     @Transactional
@@ -182,8 +184,7 @@ class EventService(
     }
 
     fun getEventsByCursor(param: EventCursorPaginationParam): CursorPageResponse<EventResponseV2> {
-        val currentUserId = if (!param.bookmarked) null
-        else securityUtil.getCurrentUserId()
+        val currentUserId = if (param.bookmarked) securityUtil.getCurrentUserId() else null
 
         // size + 1 조회 (hasNext 감지용)
         val events = eventRepository.findEvents(param, currentUserId)
@@ -219,13 +220,5 @@ class EventService(
         )
     }
 
-    @Transactional
-    fun updateStatus(eventId: Long, newStatus: EventStatus) {
-        val event = getEvent(eventId)
 
-        event.status = newStatus
-        if (event.status == EventStatus.ACTIVE) {
-            event.statusGroup = EventStatusGroup.FINISHED
-        }
-    }
 }

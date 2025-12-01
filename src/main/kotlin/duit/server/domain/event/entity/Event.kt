@@ -124,4 +124,11 @@ class Event(
             }
         }
     }
+
+    fun updateStatus(newStatus: EventStatus) {
+        status = newStatus
+        if (newStatus == EventStatus.FINISHED) {
+            statusGroup = EventStatusGroup.FINISHED
+        }
+    }
 }
