@@ -109,32 +109,6 @@ class EventService(
         )
     }
 
-    fun getEventsV2(param: EventPaginationParamV2): PageResponse<EventResponse> {
-        val currentUserId = securityUtil.getCurrentUserIdOrNull()
-
-        val pageable = param.toPageableUnsorted()
-
-        // Repository 호출
-        val events = eventRepository.findEvents(param, currentUserId, pageable)
-
-        // 북마크 조회 수정 -> bookmark를 메인 테이블로
-        val eventResponses = if (currentUserId != null) {
-            val eventIds = events.content.map { it.id!! }
-            val bookmarkedEventIds = eventRepository.findBookmarkedEventIds(currentUserId, eventIds).toSet()
-
-            events.content.map { event ->
-                EventResponse.from(event, bookmarkedEventIds.contains(event.id))
-            }
-        } else {
-            events.content.map { EventResponse.from(it) }
-        }
-
-        return PageResponse(
-            content = eventResponses,
-            pageInfo = PageInfo.from(events)
-        )
-    }
-
     fun getEvents4Calendar(request: Event4CalendarRequest): List<EventResponse> {
         val currentUserId = securityUtil.getCurrentUserId()
         val start = LocalDateTime.of(request.year, request.month, 1, 0, 0)
@@ -148,43 +122,7 @@ class EventService(
     fun approveEvent(eventId: Long) {
         val event = getEvent(eventId)
         event.isApproved = true
-
-        val now = LocalDateTime.now()
-        when {
-            // 1. 이미 종료됨
-            (event.endAt != null && event.endAt!! < now) ||
-                    (event.endAt == null && event.startAt < now) -> {
-                event.status = EventStatus.FINISHED
-                event.statusGroup = EventStatusGroup.FINISHED
-            }
-
-            // 2. 행사 진행 중
-            event.startAt <= now && (event.endAt == null || event.endAt!! >= now) -> {
-                event.status = EventStatus.ACTIVE
-                event.statusGroup = EventStatusGroup.ACTIVE
-            }
-
-            // 3. 모집 없이 행사 대기, 4. 모집 기간 지남
-            event.recruitmentStartAt == null ||
-                    event.recruitmentEndAt!! < now -> {
-                event.status = EventStatus.EVENT_WAITING
-                event.statusGroup = EventStatusGroup.ACTIVE
-            }
-
-            // 5. 모집 중
-            event.recruitmentStartAt!! <= now -> {
-                event.status = EventStatus.RECRUITING
-                event.statusGroup = EventStatusGroup.ACTIVE
-            }
-
-            // 6. 모집 대기
-            else -> {
-                event.status = EventStatus.RECRUITMENT_WAITING
-                event.statusGroup = EventStatusGroup.ACTIVE
-            }
-        }
-
-        eventRepository.save(event)
+        event.updateStatus()
     }
 
     @Transactional

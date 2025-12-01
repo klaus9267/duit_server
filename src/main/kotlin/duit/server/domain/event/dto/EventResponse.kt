@@ -3,7 +3,6 @@ package duit.server.domain.event.dto
 import duit.server.domain.event.entity.Event
 import duit.server.domain.event.entity.EventType
 import duit.server.domain.host.dto.HostResponse
-import java.time.LocalDate
 import java.time.LocalDateTime
 
 data class EventResponse(

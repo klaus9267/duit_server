@@ -87,7 +87,41 @@ class Event(
         thumbnailUrl?.let { thumbnail = it }
     }
 
-    fun updateStatus(newStatus: EventStatus) {
-        status = newStatus
+    fun updateStatus() {
+        val now = LocalDateTime.now()
+
+        when {
+            // 1. 이미 종료됨
+            (endAt != null && endAt!! < now) ||
+                    (endAt == null && startAt < now) -> {
+                status = EventStatus.FINISHED
+                statusGroup = EventStatusGroup.FINISHED
+            }
+
+            // 2. 행사 진행 중
+            startAt <= now && (endAt == null || endAt!! >= now) -> {
+                status = EventStatus.ACTIVE
+                statusGroup = EventStatusGroup.ACTIVE
+            }
+
+            // 3. 모집 없이 행사 대기, 4. 모집 기간 지남
+            recruitmentStartAt == null ||
+                    recruitmentEndAt!! < now -> {
+                status = EventStatus.EVENT_WAITING
+                statusGroup = EventStatusGroup.ACTIVE
+            }
+
+            // 5. 모집 중
+            recruitmentStartAt!! <= now -> {
+                status = EventStatus.RECRUITING
+                statusGroup = EventStatusGroup.ACTIVE
+            }
+
+            // 6. 모집 대기
+            else -> {
+                status = EventStatus.RECRUITMENT_WAITING
+                statusGroup = EventStatusGroup.ACTIVE
+            }
+        }
     }
 }
