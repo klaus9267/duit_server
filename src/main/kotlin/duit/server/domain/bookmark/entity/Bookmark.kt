@@ -9,7 +9,11 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener
 import java.time.LocalDateTime
 
 @Entity
-@Table(name = "bookmarks")
+@Table(
+    name = "bookmarks",
+    uniqueConstraints = [UniqueConstraint(columnNames = ["user_id", "event_id"])]
+
+)
 @EntityListeners(AuditingEntityListener::class)
 class Bookmark(
     @Id

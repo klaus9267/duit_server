@@ -10,7 +10,9 @@ import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
 import java.time.LocalDateTime
 
-interface EventRepository : JpaRepository<Event, Long> {
+interface EventRepository : JpaRepository<Event, Long>, EventRepositoryCustom {
+    
+    // todo - v2로 옮기면 삭제 예정
     @Query(
         value = """
         SELECT e.*
@@ -19,12 +21,9 @@ interface EventRepository : JpaRepository<Event, Long> {
         LEFT JOIN views v ON v.event_id = e.id
         LEFT JOIN bookmarks b ON b.event_id = e.id AND (b.user_id = :#{#filter.userId} OR :#{#filter.userId} IS NULL)
         WHERE e.is_approved = :#{#filter.isApproved}
-        AND (:#{#filter.hostId} IS NULL OR h.id = :#{#filter.hostId})
         AND (:#{#filter.eventTypesToString()} IS NULL OR FIND_IN_SET(e.event_type, :#{#filter.eventTypesToString()}) > 0)
         AND (:#{#filter.includeFinished} = 1 OR (e.end_at IS NOT NULL AND e.end_at <= CURDATE()) OR (e.end_at IS NULL AND e.start_at <= CURDATE()))
-        AND (:#{#filter.searchKeyword} IS NULL OR e.title LIKE CONCAT('%', :#{#filter.searchKeyword}, '%') OR h.name LIKE CONCAT('%', :#{#filter.searchKeyword}, '%'))
         AND (:#{#filter.isBookmarked} = 0 OR b.id IS NOT NULL)
-        GROUP BY e.id
         ORDER BY
             CASE
                 WHEN e.start_at >= CURDATE() THEN 0
@@ -46,24 +45,35 @@ interface EventRepository : JpaRepository<Event, Long> {
                 ELSE -e.id
             END ASC
         """,
+        nativeQuery = true,
         countQuery = """
         SELECT COUNT(DISTINCT e.id)
         FROM events e
         JOIN hosts h ON h.id = e.host_id
         LEFT JOIN bookmarks b ON b.event_id = e.id AND (b.user_id = :#{#filter.userId} OR :#{#filter.userId} IS NULL)
         WHERE e.is_approved = :#{#filter.isApproved}
-        AND (:#{#filter.hostId} IS NULL OR h.id = :#{#filter.hostId})
         AND (:#{#filter.eventTypesToString()} IS NULL OR FIND_IN_SET(e.event_type, :#{#filter.eventTypesToString()}) > 0)
         AND (:#{#filter.includeFinished} = 1 OR (e.end_at IS NOT NULL AND e.end_at <= CURDATE()) OR (e.end_at IS NULL AND e.start_at <= CURDATE()))
-        AND (:#{#filter.searchKeyword} IS NULL OR e.title LIKE CONCAT('%', :#{#filter.searchKeyword}, '%') OR h.name LIKE CONCAT('%', :#{#filter.searchKeyword}, '%'))
         AND (:#{#filter.isBookmarked} = 0 OR b.id IS NOT NULL)
-        """,
-        nativeQuery = true
+        """
     )
     fun findWithFilter(
         filter: EventSearchFilter,
         pageable: Pageable
     ): Page<Event>
+
+    @Query(
+        """
+        SELECT e
+        FROM Event e
+        JOIN FETCH e.host h
+        JOIN FETCH e.view v
+        WHERE e.isApproved = TRUE
+        AND e.title LIKE CONCAT('%', :keyword, '%')
+        OR h.name LIKE CONCAT('%', :keyword, '%')
+        """
+    )
+    fun searchEvents(keyword: String): List<Event>
 
     @Query(
         """

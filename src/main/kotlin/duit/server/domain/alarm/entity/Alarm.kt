@@ -8,7 +8,12 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener
 import java.time.LocalDateTime
 
 @Entity
-@Table(name = "alarms")
+@Table(
+    name = "alarms",
+    uniqueConstraints = [
+        UniqueConstraint(name = "uk_user_event_type", columnNames = ["user_id", "event_id", "type"])
+    ]
+)
 @EntityListeners(AuditingEntityListener::class)
 class Alarm(
     @Id

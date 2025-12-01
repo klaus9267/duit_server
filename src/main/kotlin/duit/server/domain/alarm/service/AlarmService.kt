@@ -10,8 +10,10 @@ import duit.server.domain.bookmark.repository.BookmarkRepository
 import duit.server.domain.common.dto.pagination.PageInfo
 import duit.server.domain.common.dto.pagination.PageResponse
 import duit.server.domain.event.entity.Event
+import duit.server.domain.event.repository.EventRepository
 import duit.server.infrastructure.external.firebase.FCMService
 import org.springframework.data.domain.PageRequest
+import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -19,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional
 @Transactional(readOnly = true)
 class AlarmService(
     private val fcmService: FCMService,
+    private val eventRepository: EventRepository,
     private val alarmRepository: AlarmRepository,
     private val bookmarkRepository: BookmarkRepository,
     private val securityUtil: SecurityUtil,
@@ -97,7 +100,8 @@ class AlarmService(
      * 알람 생성 (스케줄러에서 호출)
      */
     @Transactional
-    fun createAlarms(alarmType: AlarmType, event: Event) {
+    fun createAlarms(alarmType: AlarmType, eventId: Long) {
+        val event = eventRepository.findByIdOrNull(eventId) ?: return
         val eligibleUsers = bookmarkRepository.findEligibleUsersForAlarms(event.id!!)
         if (eligibleUsers.isEmpty()) {
             return

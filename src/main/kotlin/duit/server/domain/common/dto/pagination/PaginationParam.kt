@@ -16,4 +16,9 @@ abstract class PaginationParam(
         sortDirection ?: Sort.Direction.DESC,
         (field ?: PaginationField.ID).displayName
     )
+
+    open fun toPageableUnsorted(): Pageable = PageRequest.of(
+        page ?: 0,
+        size ?: 10
+    )
 }

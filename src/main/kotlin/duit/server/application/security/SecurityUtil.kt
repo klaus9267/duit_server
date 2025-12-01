@@ -24,4 +24,20 @@ class SecurityUtil {
             else -> throw IllegalStateException("인증되지 않은 사용자입니다")
         }
     }
+
+    /**
+     * 현재 인증된 사용자의 ID 조회 (인증되지 않은 경우 null 반환)
+     *
+     * @return 현재 사용자 ID 또는 null (비로그인 사용자)
+     */
+    fun getCurrentUserIdOrNull(): Long? {
+        val authentication = SecurityContextHolder.getContext().authentication
+            ?: return null
+
+        return when (val principal = authentication.principal) {
+            is Long -> principal
+            is String -> principal.toLongOrNull()
+            else -> null
+        }
+    }
 }

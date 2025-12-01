@@ -5,6 +5,7 @@ import duit.server.domain.alarm.service.AlarmService
 import duit.server.domain.event.entity.EventDate
 import duit.server.domain.event.repository.EventRepository
 import org.springframework.boot.context.event.ApplicationReadyEvent
+import org.springframework.context.annotation.Profile
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.TaskScheduler
 import org.springframework.scheduling.annotation.EnableScheduling
@@ -16,6 +17,7 @@ import java.time.ZoneId
 
 @Component
 @EnableScheduling
+@Profile("prod")
 class EventAlarmScheduler(
     private val eventRepository: EventRepository,
     private val alarmService: AlarmService,
@@ -50,8 +52,7 @@ class EventAlarmScheduler(
                 val instant: Instant = alarmTime.atZone(ZoneId.of("Asia/Seoul")).toInstant()
 
                 taskScheduler.schedule({
-                    val event = eventRepository.findById(event.id!!).orElse(null) ?: return@schedule
-                    alarmService.createAlarms(alarmType, event)
+                    alarmService.createAlarms(alarmType, event.id!!)
                 }, instant)
             }
         }

@@ -73,7 +73,7 @@ class EventController(
     @Operation(summary = "행사 승인", description = "행사를 승인합니다")
     @RequireAuth
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    fun approveEvent(@PathVariable eventId: Long) = eventService.approveEvent(eventId)
+    fun approveEvent(@PathVariable eventId: Long) = eventService.updateStatus(eventId)
 
     @DeleteMapping("{eventId}")
     @Operation(summary = "행사 삭제")

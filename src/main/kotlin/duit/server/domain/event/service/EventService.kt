@@ -1,10 +1,11 @@
 package duit.server.domain.event.service
 
 import duit.server.application.security.SecurityUtil
-import duit.server.domain.common.dto.pagination.PageInfo
-import duit.server.domain.common.dto.pagination.PageResponse
+import duit.server.domain.common.dto.pagination.*
 import duit.server.domain.event.dto.*
 import duit.server.domain.event.entity.Event
+import duit.server.domain.event.entity.EventStatus
+import duit.server.domain.event.entity.EventStatusGroup
 import duit.server.domain.event.repository.EventRepository
 import duit.server.domain.host.dto.HostRequest
 import duit.server.domain.host.service.HostService
@@ -29,19 +30,6 @@ class EventService(
     private val fileStorageService: FileStorageService
 ) {
     @Transactional
-    fun createEventFromGoogleForm(eventRequestFromGoogleForm: EventRequestFromGoogleForm): Event {
-        val host = hostService.findOrCreateHost(
-            HostRequest(name = eventRequestFromGoogleForm.hostName, thumbnail = eventRequestFromGoogleForm.hostThumbnail)
-        )
-        val event = eventRepository.save(eventRequestFromGoogleForm.toEntity(host))
-        viewService.createView(event)
-
-        discordService.sendNewEventNotification(event)
-
-        return event
-    }
-
-    @Transactional
     fun createEvent(
         eventRequest: EventCreateRequest,
         eventThumbnail: MultipartFile?,
@@ -56,16 +44,30 @@ class EventService(
             eventRequest.hostName != null -> hostService.findOrCreateHost(
                 HostRequest(name = eventRequest.hostName, thumbnail = hostThumbnailUrl)
             )
+
             else -> throw IllegalArgumentException("hostId 또는 hostName 중 하나는 필수입니다")
         }
 
         val event = eventRequest.toEntity(host).apply {
             thumbnail = eventThumbnailUrl
             this.isApproved = isApproved
+
+            if (isApproved) {
+                this.status = EventStatus.RECRUITMENT_WAITING
+                this.statusGroup = EventStatusGroup.ACTIVE
+            } else {
+                this.status = EventStatus.PENDING
+                this.statusGroup = EventStatusGroup.PENDING
+            }
         }
 
         return eventRepository.save(event).also { viewService.createView(it) }
-            .let { EventResponse.from(it, false) }
+            .let {
+                if (!isApproved) {
+                    discordService.sendNewEventNotification(it)
+                }
+                EventResponse.from(it, false)
+            }
     }
 
     fun getEvent(eventId: Long): Event =
@@ -78,11 +80,7 @@ class EventService(
         isBookmarked: Boolean?,
         includeFinished: Boolean?
     ): PageResponse<EventResponse> {
-        val currentUserId = try {
-            securityUtil.getCurrentUserId()
-        } catch (e: Exception) {
-            null // 비로그인 사용자
-        }
+        val currentUserId = securityUtil.getCurrentUserIdOrNull()
 
         val filter = param.toFilter(
             currentUserId = currentUserId,
@@ -90,14 +88,10 @@ class EventService(
             isBookmarked = isBookmarked ?: false,
             includeFinished = includeFinished ?: false
         )
-        val pageable = PageRequest.of(
-            param.page ?: 0,
-            param.size ?: 10
-        )
+        val pageable = PageRequest.of(param.page, param.size)
         val events = eventRepository.findWithFilter(filter, pageable)
 
         // 인증된 사용자의 경우 북마크 정보 포함
-
         val eventResponses = if (currentUserId != null) {
             val eventIds = events.content.map { it.id!! }
             val bookmarkedEventIds = eventRepository.findBookmarkedEventIds(currentUserId, eventIds).toSet()
@@ -125,15 +119,12 @@ class EventService(
     }
 
     @Transactional
-    fun approveEvent(eventId: Long) {
+    fun updateStatus(eventId: Long, newStatus: EventStatus? = null) {
         val event = getEvent(eventId)
-
-        if (event.isApproved) {
-            throw IllegalStateException("이미 승인된 행사입니다: $eventId")
-        }
-
         event.isApproved = true
-        eventRepository.save(event)
+
+        if (newStatus == null) event.updateStatus()
+        else event.updateStatus(newStatus)
     }
 
     @Transactional
@@ -191,4 +182,43 @@ class EventService(
             }
         eventRepository.deleteAllById(eventIds)
     }
+
+    fun getEventsByCursor(param: EventCursorPaginationParam): CursorPageResponse<EventResponseV2> {
+        val currentUserId = if (param.bookmarked) securityUtil.getCurrentUserId() else null
+
+        // size + 1 조회 (hasNext 감지용)
+        val events = eventRepository.findEvents(param, currentUserId)
+
+        // hasNext 감지 및 실제 이벤트 분리
+        val hasNext = events.size > param.size
+        val actualEvents = if (hasNext) events.dropLast(1) else events
+
+        // nextCursor 생성 (hasNext가 true이고 actualEvents가 있을 때만)
+        val nextCursor = if (hasNext && actualEvents.isNotEmpty()) {
+            EventCursor.fromEvent(actualEvents.last(), param.field).encode()
+        } else null
+
+        // 북마크 정보 로드 (로그인한 경우)
+        val eventResponses = if (currentUserId != null && actualEvents.isNotEmpty()) {
+            val eventIds = actualEvents.map { it.id!! }
+            val bookmarkedEventIds = eventRepository.findBookmarkedEventIds(currentUserId, eventIds).toSet()
+
+            actualEvents.map { event ->
+                EventResponseV2.from(event, bookmarkedEventIds.contains(event.id))
+            }
+        } else {
+            actualEvents.map { EventResponseV2.from(it) }
+        }
+
+        return CursorPageResponse(
+            content = eventResponses,
+            pageInfo = CursorPageInfo(
+                hasNext = hasNext,
+                nextCursor = nextCursor,
+                pageSize = actualEvents.size
+            )
+        )
+    }
+
+
 }

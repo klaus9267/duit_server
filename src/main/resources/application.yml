@@ -1,17 +1,6 @@
 spring:
-  datasource:
-    driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://${DB_HOST}:${DB_PORT}/${DB_NAME}?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&useSSL=false&allowPublicKeyRetrieval=true
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
-
-  jpa:
-    hibernate:
-      ddl-auto: validate
-#    show-sql: true  # SQL을 콘솔에 출력
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.MySQL8Dialect
+  profiles:
+    active: prod
 
   # 파일 업로드 크기 제한 설정
   servlet:
@@ -31,7 +20,7 @@ spring:
     ansi:
       enabled: always
 
-# Jackson 설정
+  # Jackson 설정
   jackson:
     serialization:
       indent-output: true
@@ -49,7 +38,7 @@ management:
 # JWT 설정
 jwt:
   secret: ${JWT_SECRET}
-  access-token-validity: ${JWT_ACCESS_TOKEN_VALIDITY:86400000} # 24시간 (밀리초)
+  access-token-validity: 86400000 # 24시간 (밀리초)
 
 # Swagger 설정
 springdoc:
@@ -63,10 +52,3 @@ springdoc:
 discord:
   webhook:
     url: ${DISCORD_WEBHOOK_URL}
-
-# 파일 스토리지 설정 (프로덕션)
-file:
-  upload-dir: ${UPLOAD_DIR}
-  base-url: ${BASE_URL}
-#  upload-dir: C:/temp/duit-uploads
-#  base-url: http://localhost:8080

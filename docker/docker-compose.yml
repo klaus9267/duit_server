@@ -22,6 +22,7 @@ services:
   db:
     image: mysql:8.0
     container_name: duit-mysql-prod
+#    command: --local-infile=1
     profiles: ["infra", "full"]
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
@@ -145,7 +146,7 @@ services:
       MYSQL_PASS: ${DB_PASSWORD}
       MYSQL_DATABASE: ${DB_NAME}
       CRON_TIME: "0 4 * * *"
-      MAX_BACKUPS: 30  # 30개 보관
+      MAX_BACKUPS: 7
       INIT_BACKUP: 1  # 시작 시 즉시 백업
     volumes:
       - /home/vagom/backups/mysql:/backup
