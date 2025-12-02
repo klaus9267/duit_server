@@ -8,15 +8,7 @@ enum class EventType(val displayName: String) {
     CONTEST("공모전"),
     CONTINUING_EDUCATION("보수교육"),
     EDUCATION("교육"),
+    VOLUNTEER("봉사"),
+    TRAINING("연수"),
     ETC("기타");
-
-    companion object {
-        fun of(type: String): EventType {
-            if (type.isBlank()) {
-                throw IllegalArgumentException("이벤트 타입이 비어있습니다: $type")
-            }
-
-            return entries.find { it.displayName == type } ?: EventType.ETC
-        }
-    }
 }
