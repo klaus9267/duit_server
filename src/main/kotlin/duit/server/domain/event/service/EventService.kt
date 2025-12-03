@@ -220,5 +220,72 @@ class EventService(
         )
     }
 
+    @Transactional
+    fun migrateEventStatusAndGroup(): Map<String, Any> {
+        val startTime = System.currentTimeMillis()
+        val allEvents = eventRepository.findAll()
+        var updatedCount = 0
+
+        allEvents.forEach { event ->
+            val now = LocalDateTime.now()
+
+            // 승인되지 않은 이벤트는 PENDING으로 설정
+            if (!event.isApproved) {
+                event.status = EventStatus.PENDING
+                event.statusGroup = EventStatusGroup.PENDING
+                updatedCount++
+                return@forEach
+            }
+
+            // 승인된 이벤트는 날짜 기반으로 상태 계산
+            val (newStatus, newStatusGroup) = when {
+                // 1. 종료된 경우
+                (event.endAt != null && event.endAt!! < now) ||
+                (event.endAt == null && event.startAt < now) -> {
+                    Pair(EventStatus.FINISHED, EventStatusGroup.FINISHED)
+                }
+
+                // 2. 진행 중
+                event.startAt <= now && (event.endAt == null || event.endAt!! >= now) -> {
+                    Pair(EventStatus.ACTIVE, EventStatusGroup.ACTIVE)
+                }
+
+                // 3. 행사 시작 대기 (모집 기간 없음)
+                event.recruitmentStartAt == null -> {
+                    Pair(EventStatus.EVENT_WAITING, EventStatusGroup.ACTIVE)
+                }
+
+                // 4. 행사 시작 대기 (모집 종료됨)
+                event.recruitmentEndAt != null && event.recruitmentEndAt!! < now -> {
+                    Pair(EventStatus.EVENT_WAITING, EventStatusGroup.ACTIVE)
+                }
+
+                // 5. 모집 중
+                event.recruitmentStartAt != null && event.recruitmentStartAt!! <= now -> {
+                    Pair(EventStatus.RECRUITING, EventStatusGroup.ACTIVE)
+                }
+
+                // 6. 모집 대기
+                else -> {
+                    Pair(EventStatus.RECRUITMENT_WAITING, EventStatusGroup.ACTIVE)
+                }
+            }
+
+            event.status = newStatus
+            event.statusGroup = newStatusGroup
+            updatedCount++
+        }
+
+        val endTime = System.currentTimeMillis()
+        val duration = (endTime - startTime) / 1000.0
+
+        return mapOf(
+            "success" to true,
+            "totalEvents" to allEvents.size,
+            "updatedCount" to updatedCount,
+            "durationSeconds" to duration,
+            "message" to "이벤트 상태 마이그레이션 완료"
+        )
+    }
 
 }

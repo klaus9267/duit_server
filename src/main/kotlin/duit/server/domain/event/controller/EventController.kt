@@ -103,4 +103,13 @@ class EventController(
     fun deleteEvents(
         @RequestParam eventIds: List<Long>
     ) = eventService.deleteEvents(eventIds)
+
+    @PostMapping("/migrate-status")
+    @Operation(
+        summary = "이벤트 상태 마이그레이션",
+        description = "모든 이벤트의 status와 status_group을 날짜 기준으로 재설정합니다 (운영 배포용)"
+    )
+    @RequireAuth
+    @ResponseStatus(HttpStatus.OK)
+    fun migrateEventStatus() = eventService.migrateEventStatusAndGroup()
 }
