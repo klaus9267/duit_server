@@ -2,6 +2,7 @@ package duit.server.domain.user.entity
 
 import duit.server.domain.bookmark.entity.Bookmark
 import jakarta.persistence.*
+import org.springframework.boot.autoconfigure.kafka.KafkaProperties.Admin
 import org.springframework.data.annotation.CreatedDate
 import org.springframework.data.annotation.LastModifiedDate
 import org.springframework.data.jpa.domain.support.AuditingEntityListener
@@ -36,6 +37,9 @@ class User(
 ) {
     @OneToMany(mappedBy = "user", cascade = [CascadeType.ALL], orphanRemoval = true)
     val bookmarks: MutableList<Bookmark> = mutableListOf()
+
+    @OneToOne(mappedBy = "admin", cascade = [CascadeType.ALL], orphanRemoval = true)
+    val admin: Admin? = null
 
     /**
      * 닉네임 업데이트
