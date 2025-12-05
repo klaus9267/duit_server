@@ -9,12 +9,6 @@ import org.springframework.data.domain.Pageable
 
 interface EventRepositoryCustom {
 
-    fun findEvents(
-        param: EventPaginationParamV2,
-        currentUserId: Long?,
-        pageable: Pageable
-    ): Page<Event>
-
     fun findEventsForScheduler(status: EventStatus): List<Event>
 
     fun findEvents(param: EventCursorPaginationParam, currentUserId: Long?): List<Event>
