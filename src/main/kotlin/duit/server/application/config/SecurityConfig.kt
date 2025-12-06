@@ -48,6 +48,7 @@ class SecurityConfig(
                         "/api/v1/webhooks/**",
                         "/api/v1/dummy/**",
                         "/api/v1/hosts",
+                        "/api/v1/events/migrate-status",
                         "/actuator/**",
                         "/uploads/**",
                     ).permitAll()
@@ -90,7 +91,9 @@ class SecurityConfig(
         configuration.allowedOriginPatterns = listOf(
             "http://localhost:*",
             "https://duit-admin.vercel.app",
-            "https://klaus9267.duckdns.org"
+            "https://klaus9267.duckdns.org",
+            "https://api.dutyit.net",
+            "https://*.ba3a06dea2.us-east-1-01.gitpot.dev"
         )
         configuration.allowedMethods = listOf("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
         configuration.allowedHeaders = listOf("*")

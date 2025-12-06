@@ -93,9 +93,7 @@ class UserService(
     @Transactional
     fun withdraw() {
         val currentUserId = securityUtil.getCurrentUserId()
-
-        val user = findUserById(currentUserId)
-        userRepository.delete(user)
+        userRepository.deleteById(currentUserId)
     }
 
     /**

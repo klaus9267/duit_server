@@ -1,5 +1,6 @@
 package duit.server.domain.user.entity
 
+import duit.server.domain.admin.entity.Admin
 import duit.server.domain.bookmark.entity.Bookmark
 import jakarta.persistence.*
 import org.springframework.data.annotation.CreatedDate
@@ -36,6 +37,9 @@ class User(
 ) {
     @OneToMany(mappedBy = "user", cascade = [CascadeType.ALL], orphanRemoval = true)
     val bookmarks: MutableList<Bookmark> = mutableListOf()
+
+    @OneToOne(mappedBy = "user", cascade = [CascadeType.ALL], orphanRemoval = true)
+    var admin: Admin? = null
 
     /**
      * 닉네임 업데이트
