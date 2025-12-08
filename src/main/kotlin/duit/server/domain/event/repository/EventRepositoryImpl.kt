@@ -107,6 +107,17 @@ class EventRepositoryImpl(
 
         // eventType 필터
         conditions.add(inEventTypes(param.types))
+        
+        // 검색 키워드 필터 (행사 제목)
+        param.searchKeyword?.let { keyword ->
+            conditions.add(event.title.containsIgnoreCase(keyword))
+        }
+        
+        // 주최자 ID 필터
+        param.hostId?.let { hostId ->
+            conditions.add(event.host().id.eq(hostId))
+        }
+        
         val now = LocalDateTime.now()
         val isFinished = param.status == EventStatus.FINISHED || param.statusGroup == EventStatusGroup.FINISHED
 
@@ -241,6 +252,14 @@ class EventRepositoryImpl(
             "AND e.event_type IN (:types)"
         }
 
+        val searchCondition = if (param.searchKeyword != null) {
+            "AND e.title LIKE CONCAT('%', :searchKeyword, '%')"
+        } else ""
+
+        val hostCondition = if (param.hostId != null) {
+            "AND e.host_id = :hostId"
+        } else ""
+
 
         val cursorCondition = if (viewCountCursor != null) {
             """
@@ -263,6 +282,8 @@ class EventRepositoryImpl(
             $bookmarkJoin
             WHERE $statusCondition
               $typesCondition
+              $searchCondition
+              $hostCondition
               $cursorCondition
             ORDER BY v.count DESC, v.event_id DESC
             LIMIT :limit
@@ -287,6 +308,14 @@ class EventRepositoryImpl(
 
         if (param.bookmarked && currentUserId != null) {
             query.setParameter("userId", currentUserId)
+        }
+
+        param.searchKeyword?.let {
+            query.setParameter("searchKeyword", it)
+        }
+
+        param.hostId?.let {
+            query.setParameter("hostId", it)
         }
 
         query.setParameter("limit", param.size + 1)
