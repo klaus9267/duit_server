@@ -44,7 +44,9 @@ class Event(
     var endAt: LocalDateTime?,
     var recruitmentStartAt: LocalDateTime?,
     var recruitmentEndAt: LocalDateTime?,
+    @Column(columnDefinition = "TEXT")
     var uri: String,
+    @Column(columnDefinition = "TEXT")
     var thumbnail: String?,
     var isApproved: Boolean = false,
 
