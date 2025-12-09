@@ -9,6 +9,9 @@ services:
       - "8080:8080"
     volumes:
       - /home/vagom/duit-server/images:/home/vagom/duit-server/images
+    environment:
+      TZ: Asia/Seoul
+      JAVA_TOOL_OPTIONS: "-Duser.timezone=Asia/Seoul"
     restart: unless-stopped
     networks:
       - duit-network-prod
