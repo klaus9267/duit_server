@@ -11,7 +11,7 @@ import org.springframework.data.jpa.repository.Query
 import java.time.LocalDateTime
 
 interface EventRepository : JpaRepository<Event, Long>, EventRepositoryCustom {
-    
+
     // todo - v2로 옮기면 삭제 예정
     @Query(
         value = """
@@ -128,4 +128,14 @@ interface EventRepository : JpaRepository<Event, Long>, EventRepositoryCustom {
 
     @EntityGraph(attributePaths = ["view"])
     fun findAllByIdInAndThumbnailNotNull(ids: List<Long>): List<Event>
+
+    @Query(
+        """
+            SELECT COUNT(DISTINCT e.id)
+            FROM Event e
+            WHERE e.statusGroup = ACTIVE
+            OR e.statusGroup = FINISHED
+        """
+    )
+    fun countActiveEvents(): Long
 }
