@@ -109,6 +109,47 @@ class EventService(
         )
     }
 
+    fun getEvents(param: EventCursorPaginationParam): CursorPageResponse<EventResponseV2> {
+        val currentUserId = if (param.bookmarked) securityUtil.getCurrentUserId() else null
+
+        // size + 1 조회 (hasNext 감지용)
+        val events = eventRepository.findEvents(param, currentUserId)
+
+        // hasNext 감지 및 실제 이벤트 분리
+        val hasNext = events.size > param.size
+        val actualEvents = if (hasNext) events.dropLast(1) else events
+
+        // nextCursor 생성 (hasNext가 true이고 actualEvents가 있을 때만)
+        val nextCursor = if (hasNext && actualEvents.isNotEmpty()) {
+            EventCursor.fromEvent(actualEvents.last(), param.field).encode()
+        } else null
+
+        // 북마크 정보 로드 (로그인한 경우)
+        val eventResponses = if (currentUserId != null && actualEvents.isNotEmpty()) {
+            val eventIds = actualEvents.map { it.id!! }
+            val bookmarkedEventIds = eventRepository.findBookmarkedEventIds(currentUserId, eventIds).toSet()
+
+            actualEvents.map { event ->
+                EventResponseV2.from(event, bookmarkedEventIds.contains(event.id))
+            }
+        } else {
+            actualEvents.map { EventResponseV2.from(it) }
+        }
+
+        return CursorPageResponse(
+            content = eventResponses,
+            pageInfo = CursorPageInfo(
+                hasNext = hasNext,
+                nextCursor = nextCursor,
+                pageSize = actualEvents.size
+            )
+        )
+    }
+
+    fun countActiveEvents(): Long {
+        return eventRepository.countActiveEvents()
+    }
+
     fun getEvents4Calendar(request: Event4CalendarRequest): List<EventResponse> {
         val currentUserId = securityUtil.getCurrentUserId()
         val start = LocalDateTime.of(request.year, request.month, 1, 0, 0)
@@ -121,10 +162,13 @@ class EventService(
     @Transactional
     fun updateStatus(eventId: Long, newStatus: EventStatus? = null) {
         val event = getEvent(eventId)
-        event.isApproved = true
 
-        if (newStatus == null) event.updateStatus()
-        else event.updateStatus(newStatus)
+        if (newStatus == null) {
+            event.isApproved = true
+            event.updateStatus()
+        } else {
+            event.updateStatus(newStatus)
+        }
     }
 
     @Transactional
@@ -183,41 +227,5 @@ class EventService(
         eventRepository.deleteAllById(eventIds)
     }
 
-    fun getEventsByCursor(param: EventCursorPaginationParam): CursorPageResponse<EventResponseV2> {
-        val currentUserId = if (param.bookmarked) securityUtil.getCurrentUserId() else null
-
-        // size + 1 조회 (hasNext 감지용)
-        val events = eventRepository.findEvents(param, currentUserId)
-
-        // hasNext 감지 및 실제 이벤트 분리
-        val hasNext = events.size > param.size
-        val actualEvents = if (hasNext) events.dropLast(1) else events
-
-        // nextCursor 생성 (hasNext가 true이고 actualEvents가 있을 때만)
-        val nextCursor = if (hasNext && actualEvents.isNotEmpty()) {
-            EventCursor.fromEvent(actualEvents.last(), param.field).encode()
-        } else null
-
-        // 북마크 정보 로드 (로그인한 경우)
-        val eventResponses = if (currentUserId != null && actualEvents.isNotEmpty()) {
-            val eventIds = actualEvents.map { it.id!! }
-            val bookmarkedEventIds = eventRepository.findBookmarkedEventIds(currentUserId, eventIds).toSet()
-
-            actualEvents.map { event ->
-                EventResponseV2.from(event, bookmarkedEventIds.contains(event.id))
-            }
-        } else {
-            actualEvents.map { EventResponseV2.from(it) }
-        }
-
-        return CursorPageResponse(
-            content = eventResponses,
-            pageInfo = CursorPageInfo(
-                hasNext = hasNext,
-                nextCursor = nextCursor,
-                pageSize = actualEvents.size
-            )
-        )
-    }
 
 }

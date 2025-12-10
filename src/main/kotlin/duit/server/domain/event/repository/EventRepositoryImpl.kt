@@ -43,10 +43,7 @@ class EventRepositoryImpl(
             EventStatus.ACTIVE -> {
                 val endAtCondition = event.endAt.between(today, tomorrow)
                 val endAtPlusOneDayCondition = event.endAt.isNull.and(
-                    event.startAt.between(
-                        today.minusDays(1),
-                        tomorrow.minusDays(1)
-                    ) as BooleanExpression
+                    event.startAt.loe(today)
                 )
                 endAtCondition.or(endAtPlusOneDayCondition)
             }
@@ -107,17 +104,17 @@ class EventRepositoryImpl(
 
         // eventType 필터
         conditions.add(inEventTypes(param.types))
-        
+
         // 검색 키워드 필터 (행사 제목)
         param.searchKeyword?.let { keyword ->
             conditions.add(event.title.containsIgnoreCase(keyword))
         }
-        
+
         // 주최자 ID 필터
         param.hostId?.let { hostId ->
             conditions.add(event.host().id.eq(hostId))
         }
-        
+
         val now = LocalDateTime.now()
         val isFinished = param.status == EventStatus.FINISHED || param.statusGroup == EventStatusGroup.FINISHED
 
@@ -155,8 +152,8 @@ class EventRepositoryImpl(
 
         return when (cursor) {
             is EventCursor.CreatedAtCursor -> {
-                event.createdAt.loe(cursor.createdAt)
-                    .or(event.createdAt.eq(cursor.createdAt).and(event.id.loe(cursor.id)))
+                event.createdAt.lt(cursor.createdAt)
+                    .or(event.createdAt.eq(cursor.createdAt).and(event.id.lt(cursor.id)))
             }
 
             is EventCursor.StartDateCursor -> {
@@ -169,10 +166,10 @@ class EventRepositoryImpl(
                                 .and(event.id.lt(cursor.id))
                         )
                 } else {
-                    event.startAt.goe(cursor.startAt)
+                    event.startAt.gt(cursor.startAt)
                         .or(
                             event.startAt.eq(cursor.startAt)
-                                .and(event.id.goe(cursor.id))
+                                .and(event.id.gt(cursor.id))
                         )
                 }
             }
@@ -187,10 +184,10 @@ class EventRepositoryImpl(
                                 .and(event.id.lt(cursor.id))
                         )
                 } else {
-                    event.recruitmentEndAt.goe(cursor.recruitmentEndAt)
+                    event.recruitmentEndAt.gt(cursor.recruitmentEndAt)
                         .or(
                             event.recruitmentEndAt.eq(cursor.recruitmentEndAt)
-                                .and(event.id.goe(cursor.id))
+                                .and(event.id.gt(cursor.id))
                         )
                 }
             }
@@ -322,5 +319,60 @@ class EventRepositoryImpl(
 
         @Suppress("UNCHECKED_CAST")
         return query.resultList as List<Event>
+    }
+
+    override fun findEventsWithIncorrectStatus(now: LocalDateTime): List<Event> {
+        return queryFactory
+            .selectFrom(event)
+            .where(
+                shouldBeFinished(now)
+                    .or(shouldBeActive(now))
+                    .or(shouldBeEventWaiting(now))
+                    .or(shouldBeRecruiting(now))
+                    .or(shouldBeRecruitmentWaiting(now))
+            )
+            .fetch()
+    }
+
+    private fun shouldBeFinished(now: LocalDateTime): BooleanExpression {
+        val finishedCondition = event.endAt.isNotNull.and(event.endAt.lt(now))
+            .or(event.endAt.isNull.and(event.startAt.lt(now)))
+
+        return finishedCondition.and(event.status.ne(EventStatus.FINISHED))
+    }
+
+    private fun shouldBeActive(now: LocalDateTime): BooleanExpression {
+        // endAt이 없으면 ACTIVE가 될 수 없음 (startAt을 넘으면 바로 FINISHED)
+        val activeCondition = event.startAt.loe(now)
+            .and(event.endAt.isNotNull)
+            .and(event.endAt.gt(now))
+
+        return activeCondition.and(event.status.ne(EventStatus.ACTIVE))
+    }
+
+    private fun shouldBeEventWaiting(now: LocalDateTime): BooleanExpression {
+        val eventWaitingCondition = event.recruitmentStartAt.isNull
+            .or(event.recruitmentEndAt.isNotNull.and(event.recruitmentEndAt.lt(now)))
+            .and(event.startAt.gt(now))
+
+        return eventWaitingCondition.and(event.status.ne(EventStatus.EVENT_WAITING))
+    }
+
+    private fun shouldBeRecruiting(now: LocalDateTime): BooleanExpression {
+        val recruitingCondition = event.recruitmentStartAt.isNotNull
+            .and(event.recruitmentStartAt.loe(now))
+            .and(
+                event.recruitmentEndAt.isNotNull.and(event.recruitmentEndAt.goe(now))
+                    .or(event.recruitmentEndAt.isNull.and(event.startAt.gt(now)))
+            )
+
+        return recruitingCondition.and(event.status.ne(EventStatus.RECRUITING))
+    }
+
+    private fun shouldBeRecruitmentWaiting(now: LocalDateTime): BooleanExpression {
+        val recruitmentWaitingCondition = event.recruitmentStartAt.isNotNull
+            .and(event.recruitmentStartAt.gt(now))
+
+        return recruitmentWaitingCondition.and(event.status.ne(EventStatus.RECRUITMENT_WAITING))
     }
 }

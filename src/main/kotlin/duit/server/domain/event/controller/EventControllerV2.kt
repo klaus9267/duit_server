@@ -38,5 +38,9 @@ class EventControllerV2(
     fun getEvents(
         @Valid @ParameterObject
         param: EventCursorPaginationParam
-    ) = eventService.getEventsByCursor(param)
+    ) = eventService.getEvents(param)
+
+    @GetMapping("count")
+    @ResponseStatus(HttpStatus.OK)
+    fun getTotalCount() = eventService.countActiveEvents()
 }

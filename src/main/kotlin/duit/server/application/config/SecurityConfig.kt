@@ -48,7 +48,9 @@ class SecurityConfig(
                         "/api/v1/webhooks/**",
                         "/api/v1/dummy/**",
                         "/api/v1/hosts",
+                        "/api/v2/events/count",
                         "/api/v1/events/migrate-status",
+                        "/api/v1/scheduler/**",
                         "/actuator/**",
                         "/uploads/**",
                     ).permitAll()
