@@ -38,10 +38,15 @@ class EventRepositoryImpl(
 
         val dateCondition: BooleanExpression? = when (status) {
             EventStatus.RECRUITMENT_WAITING -> event.recruitmentStartAt.between(today, tomorrow)
-            EventStatus.RECRUITING -> event.recruitmentEndAt.between(today, tomorrow)
+            EventStatus.RECRUITING ->
+                event.recruitmentEndAt.isNotNull
+                    .and(event.recruitmentEndAt.between(today, tomorrow))
+                    .or(event.startAt.between(today, tomorrow))
+
             EventStatus.EVENT_WAITING -> event.startAt.between(today, tomorrow)
             EventStatus.ACTIVE -> {
-                val endAtCondition = event.endAt.between(today, tomorrow)
+                val endAtCondition = event.endAt.isNotNull
+                    .and(event.endAt.between(today, tomorrow))
                 val endAtPlusOneDayCondition = event.endAt.isNull.and(
                     event.startAt.loe(today)
                 )
@@ -54,6 +59,7 @@ class EventRepositoryImpl(
         return queryFactory
             .selectFrom(event)
             .where(
+                event.status.ne(EventStatus.PENDING),
                 event.status.eq(status),
                 dateCondition
             )
@@ -342,7 +348,6 @@ class EventRepositoryImpl(
     }
 
     private fun shouldBeActive(now: LocalDateTime): BooleanExpression {
-        // endAt이 없으면 ACTIVE가 될 수 없음 (startAt을 넘으면 바로 FINISHED)
         val activeCondition = event.startAt.loe(now)
             .and(event.endAt.isNotNull)
             .and(event.endAt.gt(now))
@@ -352,6 +357,7 @@ class EventRepositoryImpl(
 
     private fun shouldBeEventWaiting(now: LocalDateTime): BooleanExpression {
         val eventWaitingCondition = event.recruitmentStartAt.isNull
+            .and(event.recruitmentEndAt.isNull)
             .or(event.recruitmentEndAt.isNotNull.and(event.recruitmentEndAt.lt(now)))
             .and(event.startAt.gt(now))
 
@@ -361,10 +367,7 @@ class EventRepositoryImpl(
     private fun shouldBeRecruiting(now: LocalDateTime): BooleanExpression {
         val recruitingCondition = event.recruitmentStartAt.isNotNull
             .and(event.recruitmentStartAt.loe(now))
-            .and(
-                event.recruitmentEndAt.isNotNull.and(event.recruitmentEndAt.goe(now))
-                    .or(event.recruitmentEndAt.isNull.and(event.startAt.gt(now)))
-            )
+            .and(event.recruitmentEndAt.isNotNull.and(event.recruitmentEndAt.goe(now)))
 
         return recruitingCondition.and(event.status.ne(EventStatus.RECRUITING))
     }
@@ -372,6 +375,7 @@ class EventRepositoryImpl(
     private fun shouldBeRecruitmentWaiting(now: LocalDateTime): BooleanExpression {
         val recruitmentWaitingCondition = event.recruitmentStartAt.isNotNull
             .and(event.recruitmentStartAt.gt(now))
+            .or(event.recruitmentEndAt.isNotNull.and(event.recruitmentEndAt.gt(now)))
 
         return recruitmentWaitingCondition.and(event.status.ne(EventStatus.RECRUITMENT_WAITING))
     }

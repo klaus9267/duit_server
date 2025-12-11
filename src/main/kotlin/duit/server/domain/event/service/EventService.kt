@@ -160,15 +160,11 @@ class EventService(
     }
 
     @Transactional
-    fun updateStatus(eventId: Long, newStatus: EventStatus? = null) {
+    fun updateStatus(eventId: Long) {
         val event = getEvent(eventId)
 
-        if (newStatus == null) {
-            event.isApproved = true
-            event.updateStatus()
-        } else {
-            event.updateStatus(newStatus)
-        }
+        event.isApproved = true
+        event.updateStatus(LocalDateTime.now())
     }
 
     @Transactional
