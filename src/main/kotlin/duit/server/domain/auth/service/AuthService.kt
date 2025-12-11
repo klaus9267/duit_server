@@ -29,9 +29,9 @@ class AuthService(
         val token = try {
             firebaseAuth.verifyIdToken(idToken.trim())
         } catch (e: IllegalArgumentException) {
-            throw IllegalArgumentException("유효하지 않은 토큰 형식입니다. 올바른 Firebase ID 토큰을 전달해주세요.", e)
+            throw IllegalArgumentException("유효하지 않은 토큰 형식입니다.($idToken) 올바른 Firebase ID 토큰을 전달해주세요.", e)
         } catch (e: FirebaseAuthException) {
-            throw IllegalArgumentException("Firebase 토큰 검증 실패: ${e.message}", e)
+            throw IllegalArgumentException("Firebase 토큰 검증 실패($idToken): ${e.message}", e)
         }
 
         val existingUser = userRepository.findByProviderId(token.uid)

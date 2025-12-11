@@ -62,16 +62,10 @@ data class EventCursorPaginationParam(
     @get:Schema(defaultValue = "false")
     val bookmarked: Boolean = false,
 
-    @get:Parameter(
-        description = "검색 키워드 (행사 제목 검색)",
-        example = "개발"
-    )
+    @get:Parameter(description = "검색 키워드 (행사 제목 검색)")
     val searchKeyword: String? = null,
 
-    @get:Parameter(
-        description = "주최자 ID (특정 주최자의 행사만 조회)",
-        example = "1"
-    )
+    @get:Parameter(description = "주최자 ID (특정 주최자의 행사만 조회)")
     val hostId: Long? = null
 ) {
     init {
