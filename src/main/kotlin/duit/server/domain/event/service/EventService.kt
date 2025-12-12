@@ -35,7 +35,7 @@ class EventService(
         eventThumbnail: MultipartFile?,
         hostThumbnail: MultipartFile?,
         isApproved: Boolean
-    ): EventResponse {
+    ): EventResponseV2 {
         val eventThumbnailUrl = eventThumbnail?.let { fileStorageService.uploadFile(it, "events") }
         val hostThumbnailUrl = hostThumbnail?.let { fileStorageService.uploadFile(it, "hosts") }
 
@@ -66,7 +66,7 @@ class EventService(
                 if (!isApproved) {
                     discordService.sendNewEventNotification(it)
                 }
-                EventResponse.from(it, false)
+                EventResponseV2.from(it, false)
             }
     }
 
@@ -150,13 +150,13 @@ class EventService(
         return eventRepository.countActiveEvents()
     }
 
-    fun getEvents4Calendar(request: Event4CalendarRequest): List<EventResponse> {
+    fun getEvents4Calendar(request: Event4CalendarRequest): List<EventResponseV2> {
         val currentUserId = securityUtil.getCurrentUserId()
         val start = LocalDateTime.of(request.year, request.month, 1, 0, 0)
         val end = start.plusMonths(1).minusNanos(1)
         val events = eventRepository.findEvents4Calendar(currentUserId, start, end, request.type)
 
-        return events.map { EventResponse.from(it, true) }
+        return events.map { EventResponseV2.from(it, true) }
     }
 
     @Transactional

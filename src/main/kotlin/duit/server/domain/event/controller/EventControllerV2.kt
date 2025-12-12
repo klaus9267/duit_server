@@ -41,6 +41,10 @@ class EventControllerV2(
     ) = eventService.getEvents(param)
 
     @GetMapping("count")
+    @Operation(
+        summary = "승인 행사 총 갯수 조회",
+        description = "미승인 행사를 제외한 승인된 행사들의 총 갯수를 조회합니다."
+    )
     @ResponseStatus(HttpStatus.OK)
     fun getTotalCount() = eventService.countActiveEvents()
 }

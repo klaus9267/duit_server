@@ -67,7 +67,7 @@ class EventController(
     fun getEvents4Calendar(
         @Valid @ParameterObject
         param: Event4CalendarRequest
-    ): List<EventResponse> = eventService.getEvents4Calendar(param)
+    ): List<EventResponseV2> = eventService.getEvents4Calendar(param)
 
     @PatchMapping("{eventId}/approve")
     @Operation(summary = "행사 승인", description = "행사를 승인합니다")
