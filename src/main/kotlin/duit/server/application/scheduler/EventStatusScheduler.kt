@@ -81,7 +81,7 @@ class EventStatusScheduler(
             EventStatus.RECRUITING -> event.recruitmentEndAt
             EventStatus.EVENT_WAITING -> event.startAt
             EventStatus.ACTIVE -> event.startAt
-            EventStatus.FINISHED -> event.endAt ?: event.startAt.plusDays(1)
+            EventStatus.FINISHED -> event.endAt ?: event.startAt
             else -> null
         }
 
