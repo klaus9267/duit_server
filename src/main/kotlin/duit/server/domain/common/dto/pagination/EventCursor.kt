@@ -58,7 +58,7 @@ sealed interface EventCursor {
          */
         fun decode(encoded: String, field: PaginationField): EventCursor {
             return try {
-                val decoded = String(Base64.getUrlDecoder().decode(encoded))
+                val decoded = String(Base64.getUrlDecoder().decode(encoded), Charsets.UTF_8)
                 val cursorType = when (field) {
                     PaginationField.CREATED_AT -> CreatedAtCursor::class.java
                     PaginationField.START_DATE -> StartDateCursor::class.java
@@ -114,5 +114,5 @@ sealed interface EventCursor {
  */
 fun EventCursor.encode(): String {
     val json = EventCursor.objectMapper.writeValueAsString(this)
-    return Base64.getUrlEncoder().encodeToString(json.toByteArray())
+    return Base64.getUrlEncoder().encodeToString(json.toByteArray(Charsets.UTF_8))
 }
