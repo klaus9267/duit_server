@@ -57,7 +57,8 @@ jobs:
           REDIS_PORT=${{ secrets.REDIS_PORT }}
           REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
           REDIS_TIMEOUT=${{ secrets.REDIS_TIMEOUT }}
-          DISCORD_WEBHOOK_URL=${{ secrets.DISCORD_WEBHOOK_URL }}
+          DISCORD_ALARM_WEBHOOK_URL=${{ secrets.DISCORD_ALARM_WEBHOOK_URL }}
+          DISCORD_ERROR_WEBHOOK_URL=${{ secrets.DISCORD_ERROR_WEBHOOK_URL }}
           UPLOAD_DIR=${{ secrets.UPLOAD_DIR }}
           BASE_URL=${{ secrets.BASE_URL }}
           EOF
