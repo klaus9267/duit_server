@@ -51,4 +51,7 @@ springdoc:
 
 discord:
   webhook:
-    url: ${DISCORD_WEBHOOK_URL}
+    alarm:
+      url: ${DISCORD_ALARM_WEBHOOK_URL}
+    error-monitoring:
+      url: ${DISCORD_ERROR_WEBHOOK_URL}

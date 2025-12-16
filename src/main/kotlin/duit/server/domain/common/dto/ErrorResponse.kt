@@ -27,9 +27,6 @@ data class ErrorResponse(
     
     @Schema(description = "요청 경로", example = "/api/users/1")
     val path: String? = null,
-    
-    @Schema(description = "추적 ID", example = "abc123-def456")
-    val traceId: String? = null
 )
 
 /**
