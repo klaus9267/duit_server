@@ -30,7 +30,6 @@ class JwtAuthenticationEntryPoint(
             fieldErrors = emptyList(),
             timestamp = LocalDateTime.now(),
             path = request.requestURI,
-            traceId = generateTraceId()
         )
         
         response.contentType = MediaType.APPLICATION_JSON_VALUE
@@ -38,9 +37,5 @@ class JwtAuthenticationEntryPoint(
         response.characterEncoding = "UTF-8"
         
         response.writer.write(objectMapper.writeValueAsString(errorResponse))
-    }
-    
-    private fun generateTraceId(): String {
-        return java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 8)
     }
 }

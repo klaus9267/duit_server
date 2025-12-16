@@ -3,6 +3,7 @@ package duit.server.application.exception
 import duit.server.application.common.ErrorCode
 import duit.server.domain.common.dto.ErrorResponse
 import duit.server.domain.common.dto.FieldError
+import duit.server.infrastructure.external.discord.DiscordService
 import jakarta.persistence.EntityNotFoundException
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.validation.ConstraintViolationException
@@ -21,12 +22,15 @@ import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
 import org.springframework.web.servlet.NoHandlerFoundException
+import org.springframework.web.servlet.resource.NoResourceFoundException
 import java.time.LocalDateTime
 import java.util.*
 
 @RestControllerAdvice
-class GlobalExceptionHandler {
-    
+class GlobalExceptionHandler(
+    private val discordService: DiscordService
+) {
+
     private val log = LoggerFactory.getLogger(GlobalExceptionHandler::class.java)
     
     @ExceptionHandler(EntityNotFoundException::class)
@@ -113,7 +117,6 @@ class GlobalExceptionHandler {
             fieldErrors = fieldErrors,
             timestamp = LocalDateTime.now(),
             path = request.requestURI,
-            traceId = UUID.randomUUID().toString()
         )
         
         log.warn("Validation failed for request: {} - {}", request.requestURI, ex.message)
@@ -149,13 +152,25 @@ class GlobalExceptionHandler {
             fieldErrors = fieldErrors,
             timestamp = LocalDateTime.now(),
             path = request.requestURI,
-            traceId = UUID.randomUUID().toString()
         )
         
         log.warn("Binding failed for request: {} - {}", request.requestURI, ex.message)
         return ResponseEntity.badRequest().body(errorResponse)
     }
-    
+
+    @ExceptionHandler(NoResourceFoundException::class)
+    fun handleNoResourceFoundException(
+        ex: NoResourceFoundException,
+        request: HttpServletRequest
+    ): ResponseEntity<ErrorResponse> {
+        return buildErrorResponse(
+            errorCode = ErrorCode.NOT_FOUND,
+            message = "요청한 리소스를 찾을 수 없습니다",
+            request = request,
+            ex = ex
+        )
+    }
+
     @ExceptionHandler(
         HttpRequestMethodNotSupportedException::class,
         NoHandlerFoundException::class,
@@ -229,12 +244,24 @@ class GlobalExceptionHandler {
             fieldErrors = emptyList(),
             timestamp = LocalDateTime.now(),
             path = request.requestURI,
-            traceId = UUID.randomUUID().toString()
         )
         
         when (errorCode.httpStatus.value()) {
+            404 -> log.info("Not found: {}", request.requestURI)
+            401, 403 -> log.info("Access denied: {} - {}", request.requestURI, errorCode.name)
             in 400..499 -> log.warn("Client error: {} - {}", request.requestURI, ex.message)
-            in 500..599 -> log.error("Server error: {} - {}", request.requestURI, ex.message, ex)
+            in 500..599 -> {
+                log.error("Server error: {} - {}", request.requestURI, ex.message, ex)
+
+                // Discord 알림 전송
+                discordService.sendServerErrorNotification(
+                    errorCode = errorCode.name,
+                    message = errorResponse.message,
+                    path = request.requestURI,
+                    timestamp = errorResponse.timestamp,
+                    exception = ex
+                )
+            }
         }
         
         return ResponseEntity.status(errorCode.httpStatus).body(errorResponse)

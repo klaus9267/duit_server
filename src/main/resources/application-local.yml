@@ -1,17 +1,16 @@
 # Local Development Profile (H2 Database)
 spring:
   datasource:
-    # 파일 기반 H2: 데이터 영구 보존 (재시작 후에도 유지)
-#    driver-class-name: org.h2.Driver
-#    url: jdbc:h2:file:./data/duit;MODE=MySQL;AUTO_SERVER=TRUE
-#    username: sa
-#    password:
+    #    driver-class-name: org.h2.Driver
+    #    url: jdbc:h2:file:./data/duit;MODE=MySQL;AUTO_SERVER=TRUE
+    #    username: sa
+    #    password:
 
     # local mysql
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://${DB_HOST}:${LOCAL_DB_PORT}/${DB_NAME}?rewriteBatchedStatements=true&allowLoadLocalInfile=true&useServerPrepStmts=false&cachePrepStmts=true&prepStmtCacheSize=500&prepStmtCacheSqlLimit=2048
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
+    username: ${LOCAL_DB_USERNAME}
+    password: ${LOCAL_DB_PASSWORD}
 
   h2:
     console:
