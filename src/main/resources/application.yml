@@ -34,6 +34,10 @@ management:
   endpoint:
     health:
       show-details: never
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
 
 # JWT 설정
 jwt:
