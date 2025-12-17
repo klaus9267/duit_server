@@ -58,7 +58,7 @@ class Event(
     var statusGroup: EventStatusGroup = EventStatusGroup.PENDING,
 
     @Enumerated(EnumType.STRING)
-    val eventType: EventType,
+    var eventType: EventType,
 
     @CreatedDate
     val createdAt: LocalDateTime = LocalDateTime.now(),
@@ -85,6 +85,7 @@ class Event(
         recruitmentStartAt = updateRequest.recruitmentStartAt
         recruitmentEndAt = updateRequest.recruitmentEndAt
         uri = updateRequest.uri
+        eventType = updateRequest.eventType
         this.host = host
         thumbnailUrl?.let { thumbnail = it }
     }
