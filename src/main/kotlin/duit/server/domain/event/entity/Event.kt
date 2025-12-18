@@ -16,13 +16,12 @@ import java.time.LocalDateTime
 @Table(
     name = "events", indexes = [
         Index(name = "idx_status_id", columnList = "status, id DESC"),
-        Index(name = "idx_status_created_at_id", columnList = "status, created_at DESC, id DESC"),
         Index(name = "idx_status_start_at_asc_id", columnList = "status, start_at ASC, id DESC"),
         Index(name = "idx_status_start_at_desc_id", columnList = "status, start_at DESC, id DESC"),
         Index(name = "idx_status_recruitment_asc_id", columnList = "status, recruitment_end_at ASC, id DESC"),
         Index(name = "idx_status_recruitment_desc_id", columnList = "status, recruitment_end_at DESC, id DESC"),
 
-        Index(name = "idx_status_group_created_at_id", columnList = "status_group, created_at DESC, id DESC"),
+        Index(name = "idx_status_group_id", columnList = "status_group, id DESC"),
         Index(name = "idx_status_group_start_at_asc_id", columnList = "status_group, start_at ASC, id DESC"),
         Index(name = "idx_status_group_start_at_desc_id", columnList = "status_group, start_at DESC, id DESC"),
         Index(
