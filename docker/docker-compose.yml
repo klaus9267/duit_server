@@ -157,6 +157,42 @@ services:
       - duit-network-prod
     restart: unless-stopped
 
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: duit-node-exporter-prod
+    profiles: ["monitoring", "full"]
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--path.rootfs=/host'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/host:ro
+    ports:
+      - "9100:9100"
+    restart: unless-stopped
+    networks:
+      - duit-network-prod
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: duit-cadvisor-prod
+    profiles: ["monitoring", "full"]
+    ports:
+      - "8081:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    privileged: true
+    restart: unless-stopped
+    networks:
+      - duit-network-prod
+
 volumes:
   mysql_data_prod:
     driver: local
