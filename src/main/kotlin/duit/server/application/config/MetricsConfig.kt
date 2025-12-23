@@ -16,7 +16,7 @@ class MetricsConfig {
             if (id.name == "http.server.requests") {
                 val uri = id.getTag("uri")
                 // /api/ 또는 /upload/로 시작하지 않으면 거부
-                uri != null && !uri.startsWith("/api/") && !uri.startsWith("/upload/")
+                uri != null && !uri.startsWith("/api/") && !uri.startsWith("/uploads/")
             } else {
                 false  // 다른 메트릭(JVM, 시스템 등)은 그대로 허용
             }
