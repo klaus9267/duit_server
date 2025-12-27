@@ -18,7 +18,8 @@ import org.springframework.web.bind.annotation.*
 class AuthController(
     private val jwtTokenProvider: JwtTokenProvider,
     private val userService: UserService,
-    private val authService: AuthService
+    private val authService: AuthService,
+    private val firebaseUtil: duit.server.infrastructure.external.firebase.FirebaseUtil
 ) {
 
     @PostMapping("/social")
@@ -40,4 +41,15 @@ class AuthController(
         userService.findUserById(userId)
         return jwtTokenProvider.createAccessToken(userId)
     }
+
+    @PostMapping("/id-token")
+    @Operation(
+        summary = "Firebase ID Token 발급 (테스트용)",
+        description = "개발 및 테스트 용도로 이메일 기반 Firebase ID Token을 발급합니다"
+    )
+    @ResponseStatus(HttpStatus.OK)
+    fun issueIdToken(
+        @Parameter(description = "사용자 UID")
+        @RequestParam uid: String
+    ): String = firebaseUtil.createIdTokenByUid(uid)
 }

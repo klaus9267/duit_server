@@ -1,6 +1,6 @@
 spring:
   profiles:
-    active: prod
+    active: local
 
   # 파일 업로드 크기 제한 설정
   servlet:
@@ -59,3 +59,7 @@ discord:
       url: ${DISCORD_ALARM_WEBHOOK_URL}
     error-monitoring:
       url: ${DISCORD_ERROR_WEBHOOK_URL}
+
+# Firebase 설정
+firebase:
+  web-api-key: ${FIREBASE_WEB_API_KEY}
