@@ -169,7 +169,6 @@ jobs:
               echo "::notice::Switching traffic to $TARGET_ENV environment..."
               
               if [ -f "switch-traffic.sh" ]; then
-                chmod +x switch-traffic.sh
                 ./switch-traffic.sh $TARGET_ENV
                 echo "::notice title=Success::✅ Traffic switched to $TARGET_ENV"
                 
