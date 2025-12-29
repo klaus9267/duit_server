@@ -41,7 +41,20 @@ jobs:
       - name: Setup configuration
         run: |
           cat > src/main/resources/application.properties << EOF
-          ${{ secrets.PROPERTIES }}
+          JWT_SECRET=${{ secrets.JWT_SECRET }}
+          DB_HOST=${{ secrets.DB_HOST }}
+          DB_USERNAME=${{ secrets.DB_USERNAME }}
+          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+          DB_PORT=${{ secrets.DB_PORT }}
+          DB_NAME=${{ secrets.DB_NAME }}
+          REDIS_HOST=${{ secrets.REDIS_HOST }}
+          REDIS_PORT=${{ secrets.REDIS_PORT }}
+          REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
+          REDIS_TIMEOUT=${{ secrets.REDIS_TIMEOUT }}
+          DISCORD_ALARM_WEBHOOK_URL=${{ secrets.DISCORD_ALARM_WEBHOOK_URL }}
+          DISCORD_ERROR_WEBHOOK_URL=${{ secrets.DISCORD_ERROR_WEBHOOK_URL }}
+          UPLOAD_DIR=${{ secrets.UPLOAD_DIR }}
+          BASE_URL=${{ secrets.BASE_URL }}
           EOF
 
           cat > src/main/resources/firebase-key.json << EOF
