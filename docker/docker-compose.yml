@@ -1,12 +1,35 @@
 version: "3.8"
 
 services:
-  app:
-    image: ${IMAGE_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG:-latest}
-    container_name: duit-server-prod
-    profiles: ["app", "full"]
+  # Blue Environment - Active
+  app-blue:
+    image: ${IMAGE_REGISTRY}/${IMAGE_NAME}:${BLUE_VERSION:-latest}
+    container_name: duit-server-blue
+    profiles: ["blue", "app", "full"]
     ports:
       - "8080:8080"
+    volumes:
+      - /home/vagom/duit-server/images:/home/vagom/duit-server/images
+    environment:
+      TZ: Asia/Seoul
+      JAVA_TOOL_OPTIONS: "-Duser.timezone=Asia/Seoul"
+    restart: unless-stopped
+    networks:
+      - duit-network-prod
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Green Environment - Standby  
+  app-green:
+    image: ${IMAGE_REGISTRY}/${IMAGE_NAME}:${GREEN_VERSION:-latest}
+    container_name: duit-server-green
+    profiles: ["green", "app", "full"]
+    ports:
+      - "8081:8080"
     volumes:
       - /home/vagom/duit-server/images:/home/vagom/duit-server/images
     environment:

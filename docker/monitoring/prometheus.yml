@@ -6,11 +6,21 @@ scrape_configs:
     static_configs:
       - targets: ['localhost:9090']
 
-  - job_name: 'duit-server'
+  - job_name: 'duit-server-blue'
     static_configs:
-      - targets: ['duit-server-prod:8080']
+      - targets: ['duit-server-blue:8080']
     metrics_path: '/actuator/prometheus'
     scrape_interval: 5s
+    labels:
+      environment: 'blue'
+
+  - job_name: 'duit-server-green'
+    static_configs:
+      - targets: ['duit-server-green:8080']
+    metrics_path: '/actuator/prometheus'
+    scrape_interval: 5s
+    labels:
+      environment: 'green'
 
   - job_name: 'node-exporter'
     static_configs:
