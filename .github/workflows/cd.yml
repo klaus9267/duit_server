@@ -78,15 +78,12 @@ jobs:
             cd /home/vagom/duit-server
   
             # Docker 레지스트리 로그인
-            echo "::notice::Docker 레지스트리 로그인 중..."
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             
             # 최신 이미지 다운로드
-            echo "::notice::최신 이미지 다운로드 중..."
             docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
             
             # 현재 활성 환경 감지
-            echo "::group::🔍 현재 활성 환경 감지"
             CURRENT_ENV="blue"  # 기본값
             
             # Blue 환경 체크
@@ -98,7 +95,7 @@ jobs:
             
             # Green 환경 체크  
             if docker ps --format "{{.Names}}" | grep -q "duit-server-green"; then
-              if curl -f -s http://localhost:8081/actuator/health >/dev/null 2>&1; then
+              if curl -f -s http://localhost:8082/actuator/health >/dev/null 2>&1; then
                 CURRENT_ENV="green"
               fi
             fi
@@ -106,20 +103,12 @@ jobs:
             # 타겟 환경 결정
             if [ "$CURRENT_ENV" = "blue" ]; then
               TARGET_ENV="green"
-              TARGET_PORT="8081"
+              TARGET_PORT="8082"
             else
               TARGET_ENV="blue"
               TARGET_PORT="8080"
             fi
             
-            echo "::notice::Current active environment: $CURRENT_ENV"
-            echo "::notice::Target deployment environment: $TARGET_ENV"
-            echo "::notice::Target port: $TARGET_PORT"
-            echo "::endgroup::"
-            
-            # 타겟 환경에 배포
-            echo "::group::🚀 Deploying to $TARGET_ENV Environment"
-            echo "::notice::Setting environment variables for $TARGET_ENV..."
             
             # 환경별 버전 설정
             if [ "$TARGET_ENV" = "blue" ]; then
@@ -130,14 +119,7 @@ jobs:
               export BLUE_VERSION="${BLUE_VERSION:-latest}"
             fi
             
-            echo "::notice::Starting $TARGET_ENV environment..."
             docker-compose --profile $TARGET_ENV up -d app-$TARGET_ENV
-            echo "::notice title=Success::✅ $TARGET_ENV environment started"
-            echo "::endgroup::"
-            
-            # 헬스체크 (기존 로직을 Blue-Green에 맞게 수정)
-            echo "::group::🏥 Health Check - $TARGET_ENV Environment"
-            echo "::notice::Target: http://localhost:$TARGET_PORT"
             
             HEALTH_SUCCESS=false
             for i in {1..60}; do
