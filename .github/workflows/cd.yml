@@ -47,20 +47,7 @@ jobs:
         run: |
           # Docker 빌드용 설정 파일 생성
           cat > src/main/resources/application.properties << EOF
-          JWT_SECRET=${{ secrets.JWT_SECRET }}
-          DB_HOST=${{ secrets.DB_HOST }}
-          DB_USERNAME=${{ secrets.DB_USERNAME }}
-          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-          DB_PORT=${{ secrets.DB_PORT }}
-          DB_NAME=${{ secrets.DB_NAME }}
-          REDIS_HOST=${{ secrets.REDIS_HOST }}
-          REDIS_PORT=${{ secrets.REDIS_PORT }}
-          REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
-          REDIS_TIMEOUT=${{ secrets.REDIS_TIMEOUT }}
-          DISCORD_ALARM_WEBHOOK_URL=${{ secrets.DISCORD_ALARM_WEBHOOK_URL }}
-          DISCORD_ERROR_WEBHOOK_URL=${{ secrets.DISCORD_ERROR_WEBHOOK_URL }}
-          UPLOAD_DIR=${{ secrets.UPLOAD_DIR }}
-          BASE_URL=${{ secrets.BASE_URL }}
+          ${{ secrets.PROPERTIES }}
           EOF
 
           cat > src/main/resources/firebase-key.json << EOF
@@ -91,18 +78,125 @@ jobs:
             cd /home/vagom/duit-server
   
             # Docker 레지스트리 로그인
-            echo "🔑 Docker 레지스트리 로그인 중..."
+            echo "::notice::Docker 레지스트리 로그인 중..."
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-  
+            
             # 최신 이미지 다운로드
-            echo "📦 최신 이미지 다운로드 중..."
+            echo "::notice::최신 이미지 다운로드 중..."
             docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-  
-            # 배포 실행
-            docker compose pull app
-            docker compose up -d --no-deps app
+            
+            # 현재 활성 환경 감지
+            echo "::group::🔍 현재 활성 환경 감지"
+            CURRENT_ENV="blue"  # 기본값
+            
+            # Blue 환경 체크
+            if docker ps --format "{{.Names}}" | grep -q "duit-server-blue"; then
+              if curl -f -s http://localhost:8080/actuator/health >/dev/null 2>&1; then
+                CURRENT_ENV="blue"
+              fi
+            fi
+            
+            # Green 환경 체크  
+            if docker ps --format "{{.Names}}" | grep -q "duit-server-green"; then
+              if curl -f -s http://localhost:8081/actuator/health >/dev/null 2>&1; then
+                CURRENT_ENV="green"
+              fi
+            fi
+            
+            # 타겟 환경 결정
+            if [ "$CURRENT_ENV" = "blue" ]; then
+              TARGET_ENV="green"
+              TARGET_PORT="8081"
+            else
+              TARGET_ENV="blue"
+              TARGET_PORT="8080"
+            fi
+            
+            echo "::notice::Current active environment: $CURRENT_ENV"
+            echo "::notice::Target deployment environment: $TARGET_ENV"
+            echo "::notice::Target port: $TARGET_PORT"
+            echo "::endgroup::"
+            
+            # 타겟 환경에 배포
+            echo "::group::🚀 Deploying to $TARGET_ENV Environment"
+            echo "::notice::Setting environment variables for $TARGET_ENV..."
+            
+            # 환경별 버전 설정
+            if [ "$TARGET_ENV" = "blue" ]; then
+              export BLUE_VERSION="latest"
+              export GREEN_VERSION="${GREEN_VERSION:-latest}"
+            else
+              export GREEN_VERSION="latest"  
+              export BLUE_VERSION="${BLUE_VERSION:-latest}"
+            fi
+            
+            echo "::notice::Starting $TARGET_ENV environment..."
+            docker-compose --profile $TARGET_ENV up -d app-$TARGET_ENV
+            echo "::notice title=Success::✅ $TARGET_ENV environment started"
+            echo "::endgroup::"
+            
+            # 헬스체크 (기존 로직을 Blue-Green에 맞게 수정)
+            echo "::group::🏥 Health Check - $TARGET_ENV Environment"
+            echo "::notice::Target: http://localhost:$TARGET_PORT"
+            
+            HEALTH_SUCCESS=false
+            for i in {1..60}; do
+              # 컨테이너가 실행 중인지 확인
+              if ! docker ps --format "{{.Names}}" | grep -q "duit-server-$TARGET_ENV"; then
+                echo "::error::Container duit-server-$TARGET_ENV is not running"
+                break
+              fi
+              
+              # 헬스체크 실행
+              if docker exec duit-server-$TARGET_ENV curl -f -s http://localhost:8080/actuator/health >/dev/null 2>&1; then
+                echo "::notice title=Success::✅ $TARGET_ENV environment is healthy! (attempt $i)"
+                HEALTH_SUCCESS=true
+                break
+              fi
+              
+              if [ $i -eq 60 ]; then
+                echo "::error title=Health Check Failed::❌ Health check timeout after 60 attempts (3 minutes)"
+                echo "::group::📋 Container Logs"
+                docker logs --tail 50 duit-server-$TARGET_ENV || true
+                echo "::endgroup::"
+                break
+              else
+                echo "::notice::Health check attempt $i/60 - waiting 3s..."
+                sleep 3
+              fi
+            done
+            echo "::endgroup::"
+            
+            # 헬스체크 결과에 따른 처리
+            if [ "$HEALTH_SUCCESS" = true ]; then
+              # 트래픽 전환
+              echo "::group::🔄 Traffic Switching"
+              echo "::notice::Switching traffic to $TARGET_ENV environment..."
+              
+              if [ -f "scripts/switch-traffic.sh" ]; then
+                chmod +x scripts/switch-traffic.sh
+                ./scripts/switch-traffic.sh $TARGET_ENV
+                echo "::notice title=Success::✅ Traffic switched to $TARGET_ENV"
+              else
+                echo "::warning::Traffic switching script not found. Manual configuration required."
+                echo "::notice::Please update Nginx configuration to route traffic to $TARGET_ENV (port $TARGET_PORT)"
+              fi
+              echo "::endgroup::"
+              
+            else
+              # 배포 실패 시 롤백
+              echo "::group::🔄 Rollback Process"  
+              echo "::error::Health check failed. Rolling back $TARGET_ENV environment..."
+              docker-compose --profile $TARGET_ENV stop app-$TARGET_ENV || true
+              docker-compose --profile $TARGET_ENV rm -f app-$TARGET_ENV || true
+              echo "::notice::Rollback completed. $CURRENT_ENV environment remains active."
+              echo "::endgroup::"
+              echo "::endgroup::"  # Close main deployment group
+              exit 1
+            fi
+            echo "::endgroup::"
 
-      - name: Health check and verification
+      - name: Post-deployment verification
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.DEPLOY_HOST }}
@@ -110,49 +204,46 @@ jobs:
           password: ${{ secrets.SSH_PASSWORD }}
           port: ${{ secrets.DEPLOY_PORT }}
           script: |
+            echo "::group::🔍 Deployment Verification"
             cd /home/vagom/duit-server
             
-            # 헬스체크 (3분 대기)
-            for i in {1..60}; do
-              if curl -f -s http://localhost:8080/actuator/health >/dev/null 2>&1; then
-                echo "✅ 애플리케이션이 정상적으로 구동되었습니다! (${i}번째 시도)"
-                break
-              fi
-              
-              if [ $i -eq 60 ]; then
-                echo "❌ 헬스체크 실패 (60회 시도 후 타임아웃)"
-                echo "📋 컨테이너 로그 확인:"
-                APP_CONTAINER=$(docker composes  ps -q app)
-                if [ -n "$APP_CONTAINER" ]; then
-                  docker logs --tail 50 $APP_CONTAINER || true
-                else
-                  echo "앱 컨테이너를 찾을 수 없습니다"
-                  docker composes ps
-                fi
-                exit 1
-              else
-                echo "⏳ 대기 중... (${i}/60)"
-                sleep 3
-              fi
-            done
+            # 최종 헬스체크 (외부에서 접근)
+            echo "::notice::Final health check via external endpoint..."
+            sleep 10  # 트래픽 전환 후 안정화 대기
             
-            cd ..
+            if curl -f -s ${{ secrets.BASE_URL }}/actuator/health >/dev/null 2>&1; then
+              echo "::notice title=Success::✅ External health check passed"
+            else
+              echo "::warning::External health check failed, but deployment may still be successful"
+            fi
             
             # 배포 상태 확인
-            echo ""
-            echo "📊 최종 배포 상태:"
-            docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep duit
+            echo "::group::📊 Deployment Status"
+            echo "::notice::Container status:"
+            docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep duit || echo "No duit containers found"
             
             # 이전 이미지 정리
-            echo ""
-            echo "🧹 이전 이미지 정리 중..."
+            echo "::notice::Cleaning up old images..."
             docker image prune -f
             
-            echo ""
-            echo "🎉 배포가 성공적으로 완료되었습니다!"
+            echo "::notice title=Success::🎉 Blue-Green deployment completed successfully!"
+            echo "::endgroup::"
 
       - name: Create deployment summary
+        if: always()
         run: |
-          echo "### 🚀 배포 완료!" >> $GITHUB_STEP_SUMMARY
-          echo "**배포 시간:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "### 🎉 Blue-Green 배포 완료!" >> $GITHUB_STEP_SUMMARY
+            echo "**배포 시간:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+            echo "**이미지:** ${{ steps.meta.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
+            echo "**배포 방식:** Blue-Green 무중단 배포" >> $GITHUB_STEP_SUMMARY
+            echo "**헬스체크:** /actuator/health" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "✅ 무중단 배포가 성공적으로 완료되었습니다!" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "### ❌ 배포 실패" >> $GITHUB_STEP_SUMMARY
+            echo "**실패 시간:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+            echo "**오류:** 배포 과정에서 문제가 발생했습니다." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "기존 환경이 유지되고 있으니 서비스에는 영향이 없습니다." >> $GITHUB_STEP_SUMMARY
+          fi
