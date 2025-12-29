@@ -170,8 +170,14 @@ jobs:
               
               if [ -f "scripts/switch-traffic.sh" ]; then
                 chmod +x scripts/switch-traffic.sh
-                ./scripts/switch-traffic.sh $TARGET_ENV
+                ./switch-traffic.sh $TARGET_ENV
                 echo "::notice title=Success::✅ Traffic switched to $TARGET_ENV"
+                
+                # 이전 환경 컨테이너 중지
+                echo "::notice::Stopping previous environment: $CURRENT_ENV"
+                docker-compose --profile $CURRENT_ENV stop app-$CURRENT_ENV || true
+                echo "::notice title=Success::✅ Previous environment ($CURRENT_ENV) stopped"
+                
               else
                 echo "::warning::Traffic switching script not found. Manual configuration required."
               fi
