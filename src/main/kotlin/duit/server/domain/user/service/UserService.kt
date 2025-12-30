@@ -1,5 +1,7 @@
 package duit.server.domain.user.service
 
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseToken
 import duit.server.application.security.SecurityUtil
 import duit.server.domain.common.dto.pagination.PageInfo
 import duit.server.domain.common.dto.pagination.PageResponse
@@ -7,6 +9,7 @@ import duit.server.domain.user.dto.UpdateNicknameRequest
 import duit.server.domain.user.dto.UpdateUserSettingsRequest
 import duit.server.domain.user.dto.UserPaginationParam
 import duit.server.domain.user.dto.UserResponse
+import duit.server.domain.user.entity.ProviderType
 import duit.server.domain.user.entity.User
 import duit.server.domain.user.repository.UserRepository
 import jakarta.persistence.EntityNotFoundException
@@ -19,6 +22,31 @@ class UserService(
     private val userRepository: UserRepository,
     private val securityUtil: SecurityUtil
 ) {
+
+    @Transactional
+    fun createUser(providerType: ProviderType, token: FirebaseToken): User {
+        val newUser = User(
+            email = FirebaseAuth.getInstance().getUser(token.uid).providerData.first().email,
+            nickname = generateNickname(
+                token.name ?: token.email?.substringBefore("@") ?: "사용자"
+            ),
+            providerType = providerType,
+            providerId = token.uid
+        )
+        return userRepository.save(newUser)
+    }
+
+    private fun generateNickname(baseName: String): String {
+        var nickname = baseName
+        var counter = 1
+
+        while (userRepository.existsByNickname(nickname)) {
+            nickname = "${baseName}${counter}"
+            counter++
+        }
+
+        return nickname
+    }
 
     /**
      * 사용자 목록 조회 (관리자용)
