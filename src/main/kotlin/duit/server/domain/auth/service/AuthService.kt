@@ -7,17 +7,19 @@ import duit.server.application.security.JwtTokenProvider
 import duit.server.domain.auth.dto.AuthResponse
 import duit.server.domain.user.dto.UserResponse
 import duit.server.domain.user.entity.ProviderType
-import duit.server.domain.user.entity.User
 import duit.server.domain.user.repository.UserRepository
+import duit.server.domain.user.service.UserService
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.util.StopWatch
 
 @Service
 @Transactional(readOnly = true)
 class AuthService(
     private val firebaseAuth: FirebaseAuth,
     private val jwtTokenProvider: JwtTokenProvider,
-    private val userRepository: UserRepository
+    private val userRepository: UserRepository,
+    private val userService: UserService
 ) {
 
     @Transactional
@@ -37,19 +39,10 @@ class AuthService(
         }
 
         val existingUser = userRepository.findByProviderId(token.uid)
-        val userRecord = FirebaseAuth.getInstance().getUser(token.uid)
 
         val user = existingUser ?: run {
             val providerType = determineProviderType(token)
-            val newUser = User(
-                email = userRecord.providerData.first().email,
-                nickname = generateNickname(
-                    token.name ?: token.email?.substringBefore("@") ?: "사용자"
-                ),
-                providerType = providerType,
-                providerId = token.uid
-            )
-            userRepository.save(newUser)
+            userService.createUser(providerType, token)
         }
 
         val accessToken = jwtTokenProvider.createAccessToken(user.id!!)
@@ -59,18 +52,6 @@ class AuthService(
             user = UserResponse.from(user),
             isNewUser = existingUser == null
         )
-    }
-
-    private fun generateNickname(baseName: String): String {
-        var nickname = baseName
-        var counter = 1
-
-        while (userRepository.existsByNickname(nickname)) {
-            nickname = "${baseName}${counter}"
-            counter++
-        }
-
-        return nickname
     }
 
     /**

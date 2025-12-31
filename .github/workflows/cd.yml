@@ -48,6 +48,7 @@ jobs:
           # Docker 빌드용 설정 파일 생성
           cat > src/main/resources/application.properties << EOF
           JWT_SECRET=${{ secrets.JWT_SECRET }}
+          JWT_VALIDITY=${{ secrets.JWT_VALIDITY }}
           DB_HOST=${{ secrets.DB_HOST }}
           DB_USERNAME=${{ secrets.DB_USERNAME }}
           DB_PASSWORD=${{ secrets.DB_PASSWORD }}
