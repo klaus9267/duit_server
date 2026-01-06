@@ -10,7 +10,7 @@ COPY settings.gradle .
 RUN chmod +x gradlew && ./gradlew dependencies --no-daemon || true
 
 COPY . .
-RUN ./gradlew bootJar --no-daemon
+RUN chmod +x gradlew && ./gradlew bootJar
 
 FROM openjdk:17.0.2-jdk
 
