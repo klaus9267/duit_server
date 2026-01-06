@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   # Blue Environment - Active
   app-blue:
@@ -7,7 +5,7 @@ services:
     container_name: duit-server-blue
     profiles: ["blue", "app", "full"]
     ports:
-      - "8080:8080"
+      - "8083:8080"
     volumes:
       - /home/vagom/duit-server/images:/home/vagom/duit-server/images
     environment:
