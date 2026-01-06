@@ -8,13 +8,6 @@ spring:
       max-file-size: 10MB      # 개별 파일 최대 크기
       max-request-size: 20MB   # 전체 요청 최대 크기
 
-# Tomcat 서버 설정 (nginx keep-alive와 맞춤)
-server:
-  tomcat:
-    keep-alive-timeout: 65000  # 65초 (nginx 60초보다 5초 더 길게)
-    max-keep-alive-requests: 1000  # nginx keepalive_requests와 동일
-    connection-timeout: 60000  # 60초
-
   # Redis 설정
   data:
     redis:
