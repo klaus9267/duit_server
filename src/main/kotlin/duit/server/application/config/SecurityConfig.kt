@@ -58,6 +58,7 @@ class SecurityConfig(
                         HttpMethod.POST,
                         "/api/v1/auth/social",
                         "/api/v1/auth/token",
+                        "/api/v1/auth/id-token",
                         "/api/v1/events",
                         "/api/v1/admin/auth/login",
                         "/api/v1/alarms/test"

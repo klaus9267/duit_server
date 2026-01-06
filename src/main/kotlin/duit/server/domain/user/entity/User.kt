@@ -14,6 +14,10 @@ import java.time.LocalDateTime
     name = "users",
     uniqueConstraints = [
         UniqueConstraint(name = "uk_provider", columnNames = ["provider_type", "provider_id"])
+    ],
+    indexes = [
+        Index(name = "providerId", columnList = "provider_id"),
+        Index(name = "nickname", columnList = "nickname"),
     ]
 )
 @EntityListeners(AuditingEntityListener::class)

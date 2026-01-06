@@ -72,3 +72,6 @@ jooq:
 # 스케줄러 비활성화 (테스트에서는 스케줄러 실행 안 함)
 scheduler:
   enabled: false
+
+firebase:
+  web-api-key: $test_api_key
