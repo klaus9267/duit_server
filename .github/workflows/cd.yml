@@ -62,6 +62,7 @@ jobs:
           DISCORD_ERROR_WEBHOOK_URL=${{ secrets.DISCORD_ERROR_WEBHOOK_URL }}
           UPLOAD_DIR=${{ secrets.UPLOAD_DIR }}
           BASE_URL=${{ secrets.BASE_URL }}
+          FIREBASE_WEB_API_KEY=${{ secrets.FIREBASE_WEB_API_KEY }}
           EOF
 
           cat > src/main/resources/firebase-key.json << EOF
