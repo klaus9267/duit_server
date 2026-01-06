@@ -145,7 +145,7 @@ jobs:
               fi
               
               # 헬스체크 실행
-              if docker exec duit-server-$TARGET_ENV curl -f -s http://localhost:8083/actuator/health >/dev/null 2>&1; then
+              if docker exec duit-server-$TARGET_ENV curl -f -s http://localhost:8080/actuator/health >/dev/null 2>&1; then
                 echo "::notice title=Success::✅ $TARGET_ENV environment is healthy! (attempt $i)"
                 HEALTH_SUCCESS=true
                 break
