@@ -10,7 +10,15 @@ services:
       - /home/vagom/duit-server/images:/home/vagom/duit-server/images
     environment:
       TZ: Asia/Seoul
-      JAVA_TOOL_OPTIONS: "-Duser.timezone=Asia/Seoul"
+      JAVA_TOOL_OPTIONS: >-
+        -Duser.timezone=Asia/Seoul
+        -XX:+UnlockExperimentalVMOptions
+        -Xms2g
+        -Xmx4g
+        -XX:NewRatio=1
+        -XX:G1HeapRegionSize=16m
+        -XX:G1NewSizePercent=40
+        -XX:G1MaxNewSizePercent=50
     restart: unless-stopped
     networks:
       - duit-network-prod
@@ -32,7 +40,15 @@ services:
       - /home/vagom/duit-server/images:/home/vagom/duit-server/images
     environment:
       TZ: Asia/Seoul
-      JAVA_TOOL_OPTIONS: "-Duser.timezone=Asia/Seoul"
+      JAVA_TOOL_OPTIONS: >-
+        -Duser.timezone=Asia/Seoul
+        -XX:+UnlockExperimentalVMOptions
+        -Xms2g
+        -Xmx4g
+        -XX:NewRatio=1
+        -XX:G1HeapRegionSize=16m
+        -XX:G1NewSizePercent=40
+        -XX:G1MaxNewSizePercent=50
     restart: unless-stopped
     networks:
       - duit-network-prod
