@@ -44,6 +44,11 @@ jwt:
   secret: ${JWT_SECRET}
   access-token-validity: ${JWT_VALIDITY}
 
+server:
+  tomcat:
+    keep-alive-timeout: 60s
+    max-keep-alive-requests: 100
+
 # Swagger 설정
 springdoc:
   swagger-ui:
@@ -51,6 +56,8 @@ springdoc:
     operationsSorter: method
     tagsSorter: alpha
     docExpansion: none
+  cache:
+    disabled: false  # 캐시 활성화
   enable-kotlin: true
 
 discord:
