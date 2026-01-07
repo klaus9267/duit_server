@@ -230,25 +230,6 @@ jobs:
             
             echo "::notice title=Success::🎉 Blue-Green deployment completed successfully!"
             echo "::endgroup::"
-            exit 1
-
-      - name: Create deployment summary
-        if: always()
-        run: |
-          if [ "${{ job.status }}" == "success" ]; then
-            echo "### 🎉 Blue-Green 배포 완료!" >> $GITHUB_STEP_SUMMARY
-            echo "**배포 시간:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
-            echo "**이미지:** ${{ steps.meta.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
-            echo "**헬스체크:** /actuator/health" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "✅ 무중단 배포가 성공적으로 완료되었습니다!" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "### ❌ 배포 실패" >> $GITHUB_STEP_SUMMARY
-            echo "**실패 시간:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
-            echo "**오류:** 배포 과정에서 문제가 발생했습니다." >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "기존 환경이 유지되고 있으니 서비스에는 영향이 없습니다." >> $GITHUB_STEP_SUMMARY
-          fi
 
       - name: Discord Notification
         uses: sarisia/actions-status-discord@v1
