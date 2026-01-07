@@ -230,6 +230,7 @@ jobs:
             
             echo "::notice title=Success::🎉 Blue-Green deployment completed successfully!"
             echo "::endgroup::"
+            exit 1
 
       - name: Create deployment summary
         if: always()
@@ -254,3 +255,4 @@ jobs:
         if: always() # 빌드 실패 시에도 보내기 위해 설정
         with:
           webhook: ${{ secrets.DISCORD_DEPLOY_WEBHOOK }}
+          status: ${{ job.status }}
