@@ -248,3 +248,9 @@ jobs:
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "기존 환경이 유지되고 있으니 서비스에는 영향이 없습니다." >> $GITHUB_STEP_SUMMARY
           fi
+
+      - name: Discord Notification
+        uses: sarisia/actions-status-discord@v1
+        if: always() # 빌드 실패 시에도 보내기 위해 설정
+        with:
+          webhook: ${{ secrets.DISCORD_DEPLOY_WEBHOOK }}
