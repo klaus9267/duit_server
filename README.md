@@ -7,7 +7,7 @@
 [![MySQL](https://img.shields.io/badge/MySQL-8.0-4479A1?logo=mysql)](https://www.mysql.com)
 [![Gradle](https://img.shields.io/badge/Gradle-8.14-02303A?logo=gradle)](https://gradle.org)
 
-**🚀 현재 운영 중** | MAU 800+ | DAU 100+
+**🚀 현재 운영 중** | MAU 900+ | DAU 100+
 
 ---
 
