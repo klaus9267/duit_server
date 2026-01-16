@@ -92,7 +92,7 @@ jobs:
             cd /home/vagom/duit-server
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-            ./scripts/deploy.sh 
+            ./deploy.sh 
             docker image prune -f
 
       - name: Discord Notification
