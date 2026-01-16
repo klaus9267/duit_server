@@ -771,9 +771,10 @@ class EventControllerV2IntegrationTest {
                 }
 
                 @Test
-                @DisplayName("2, 3번째 페이지 순차 조회")
+                @DisplayName("1, 2, 3번째 페이지 순차 조회")
                 fun cursorPaginationMultiplePagesTest() {
-                    // Page 1
+                    // ACTIVE 그룹 11개: EventType별 7개 + EventStatus별 4개
+                    // Page 1 (5개)
                     val page1Result = mockMvc.perform(
                         get("/api/v2/events")
                             .param("size", "5")
@@ -789,7 +790,7 @@ class EventControllerV2IntegrationTest {
                     Assertions.assertNotNull(cursor1, "첫 페이지의 nextCursor가 null입니다")
                     val page1Ids = extractValuesFromResponse(page1Result, "id")
 
-                    // Page 2
+                    // Page 2 (5개)
                     val page2Result = mockMvc.perform(
                         get("/api/v2/events")
                             .param("size", "5")
@@ -803,10 +804,9 @@ class EventControllerV2IntegrationTest {
                         .andReturn()
 
                     val cursor2 = extractCursorFromResponse(page2Result)
-                    Assertions.assertNotNull(cursor2, "두 번째 페이지의 nextCursor가 null입니다")
                     val page2Ids = extractValuesFromResponse(page2Result, "id")
 
-                    // Page 3
+                    // Page 3 (마지막 페이지, 1개)
                     val page3Result = mockMvc.perform(
                         get("/api/v2/events")
                             .param("size", "5")
@@ -814,18 +814,16 @@ class EventControllerV2IntegrationTest {
                     )
                         .andDo(print())
                         .andExpect(status().isOk)
-                        .andExpect(jsonPath("$.content.length()").value(5))
-                        .andExpect(jsonPath("$.pageInfo.hasNext").value(true))
-                        .andExpect(jsonPath("$.pageInfo.nextCursor").exists())
+                        .andExpect(jsonPath("$.content.length()").value(1))
+                        .andExpect(jsonPath("$.pageInfo.hasNext").value(false))
                         .andReturn()
 
                     val page3Ids = extractValuesFromResponse(page3Result, "id")
 
-                    // 검증: 각 페이지가 5개씩 조회되고 중복이 없어야 함
+                    // 검증: 총 11개 조회, 중복 없음
                     val allIds = page1Ids + page2Ids + page3Ids
-                    Assertions.assertEquals(15, allIds.size, "3페이지에서 총 15개의 이벤트를 조회해야 합니다")
+                    Assertions.assertEquals(11, allIds.size, "3페이지에서 총 11개의 이벤트를 조회해야 합니다")
 
-                    // Cursor pagination이 제대로 동작하면 중복이 없어야 함
                     val uniqueIds = allIds.toSet()
                     Assertions.assertEquals(
                         allIds.size,
@@ -839,9 +837,10 @@ class EventControllerV2IntegrationTest {
                 fun cursorPaginationNoDuplicatesTest() {
                     val allEventIds = mutableListOf<Any>()
                     var currentCursor: String? = null
+                    var hasNext = true
 
-                    // 3페이지 반복 조회
-                    repeat(3) { pageIndex ->
+                    // hasNext가 false가 될 때까지 반복 조회
+                    while (hasNext) {
                         val requestBuilder = get("/api/v2/events").param("size", "5")
                         if (currentCursor != null) {
                             requestBuilder.param("cursor", currentCursor!!)
@@ -857,7 +856,7 @@ class EventControllerV2IntegrationTest {
                         allEventIds.addAll(pageIds)
 
                         currentCursor = extractCursorFromResponse(result)
-                        Assertions.assertNotNull(currentCursor, "${pageIndex + 1}페이지의 nextCursor가 null입니다")
+                        hasNext = extractHasNextFromResponse(result)
                     }
 
                     // Cursor가 exclusive하게 동작하므로 중복이 없어야 함
@@ -867,7 +866,7 @@ class EventControllerV2IntegrationTest {
                         uniqueIds.size,
                         "중복된 eventId가 발견되었습니다. 전체: ${allEventIds.size}, 고유: ${uniqueIds.size}"
                     )
-                    Assertions.assertEquals(15, allEventIds.size, "총 15개 이벤트 조회")
+                    Assertions.assertEquals(11, allEventIds.size, "총 11개 이벤트 조회 (ACTIVE 그룹)")
                 }
 
                 @Test
@@ -876,7 +875,8 @@ class EventControllerV2IntegrationTest {
                     var currentCursor: String? = null
                     val allEventIds = mutableListOf<Any>()
 
-                    // Page 1
+                    // ACTIVE 그룹 11개: 5 + 5 + 1
+                    // Page 1 (5개)
                     var result = mockMvc.perform(
                         get("/api/v2/events")
                             .param("size", "5")
@@ -889,7 +889,7 @@ class EventControllerV2IntegrationTest {
                     allEventIds.addAll(extractValuesFromResponse(result, "id"))
                     currentCursor = extractCursorFromResponse(result)
 
-                    // Page 2
+                    // Page 2 (5개)
                     result = mockMvc.perform(
                         get("/api/v2/events")
                             .param("size", "5")
@@ -897,27 +897,14 @@ class EventControllerV2IntegrationTest {
                     )
                         .andDo(print())
                         .andExpect(status().isOk)
+                        .andExpect(jsonPath("$.content.length()").value(5))
                         .andExpect(jsonPath("$.pageInfo.hasNext").value(true))
                         .andExpect(jsonPath("$.pageInfo.nextCursor").exists())
                         .andReturn()
                     allEventIds.addAll(extractValuesFromResponse(result, "id"))
                     currentCursor = extractCursorFromResponse(result)
 
-                    // Page 3
-                    result = mockMvc.perform(
-                        get("/api/v2/events")
-                            .param("size", "5")
-                            .param("cursor", currentCursor!!)
-                    )
-                        .andDo(print())
-                        .andExpect(status().isOk)
-                        .andExpect(jsonPath("$.pageInfo.hasNext").value(true))
-                        .andExpect(jsonPath("$.pageInfo.nextCursor").exists())
-                        .andReturn()
-                    allEventIds.addAll(extractValuesFromResponse(result, "id"))
-                    currentCursor = extractCursorFromResponse(result)
-
-                    // Page 4 (마지막 페이지, 1개 이벤트만 남음)
+                    // Page 3 (마지막 페이지, 1개)
                     result = mockMvc.perform(
                         get("/api/v2/events")
                             .param("size", "5")
@@ -930,10 +917,10 @@ class EventControllerV2IntegrationTest {
                         .andReturn()
                     allEventIds.addAll(extractValuesFromResponse(result, "id"))
 
-                    // 전체 개수 검증: 16개 unique events (중복 없음)
+                    // 전체 개수 검증: 11개 unique events (ACTIVE 그룹만, 중복 없음)
                     val uniqueIds = allEventIds.toSet()
-                    Assertions.assertEquals(16, allEventIds.size, "총 16개의 이벤트를 조회해야 합니다")
-                    Assertions.assertEquals(16, uniqueIds.size, "중복 없이 16개 unique 이벤트 조회")
+                    Assertions.assertEquals(11, allEventIds.size, "총 11개의 이벤트를 조회해야 합니다")
+                    Assertions.assertEquals(11, uniqueIds.size, "중복 없이 11개 unique 이벤트 조회")
                 }
 
                 @Test
