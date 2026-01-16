@@ -103,9 +103,10 @@ class EventRepositoryImpl(
         val conditions = mutableListOf<BooleanExpression?>()
 
         // status 또는 statusGroup 필터
-        when {
-            param.status != null -> conditions.add(event.status.eq(param.status))
-            param.statusGroup != null -> conditions.add(event.statusGroup.eq(param.statusGroup))
+        if (param.status != null) {
+            conditions.add(event.status.eq(param.status))
+        } else {
+            conditions.add(event.statusGroup.eq(param.statusGroup))
         }
 
         // eventType 필터
@@ -295,9 +296,10 @@ class EventRepositoryImpl(
         val query = entityManager.createNativeQuery(sql, Event::class.java)
 
         // 파라미터 바인딩
-        when {
-            param.status != null -> query.setParameter("status", param.status.name)
-            param.statusGroup != null -> query.setParameter("statusGroup", param.statusGroup.name)
+        if (param.status != null) {
+            query.setParameter("status", param.status.name)
+        } else {
+            query.setParameter("statusGroup", param.statusGroup!!.name)
         }
 
         if (!param.types.isNullOrEmpty()) {

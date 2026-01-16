@@ -5,7 +5,7 @@ services:
     container_name: duit-server-blue
     profiles: ["blue", "app", "full"]
     ports:
-      - "8083:8080"
+      - "8080:8080"
     volumes:
       - /home/vagom/duit-server/images:/home/vagom/duit-server/images
     environment:

@@ -53,7 +53,7 @@ data class EventCursorPaginationParam(
         example = "ACTIVE"
     )
     @get:Schema(defaultValue = "ACTIVE")
-    val statusGroup: EventStatusGroup? = null,
+    var statusGroup: EventStatusGroup? = null,
 
     @get:Parameter(
         description = "북마크한 이벤트만 조회 (로그인 필요)",
@@ -69,9 +69,14 @@ data class EventCursorPaginationParam(
     val hostId: Long? = null
 ) {
     init {
-        require(status == null || statusGroup == null) {
-            "status와 statusGroup 중 하나만 사용 가능합니다"
+        require(status==null || statusGroup==null){
+            "status, statusGroup 하나만 입력 가능합니다"
         }
+
+        if (status == null && statusGroup == null) {
+            statusGroup = EventStatusGroup.ACTIVE
+        }
+
         require(size in 1..100) {
             "size는 1 이상 100 이하여야 합니다 (현재: $size)"
         }
