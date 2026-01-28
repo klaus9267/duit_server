@@ -6,7 +6,6 @@ import duit.server.domain.admin.dto.AdminLoginResponse
 import duit.server.domain.admin.dto.AdminRegisterRequest
 import duit.server.domain.admin.dto.AdminResponse
 import duit.server.domain.admin.entity.Admin
-import duit.server.domain.admin.entity.BannedIp
 import duit.server.domain.admin.repository.AdminRepository
 import duit.server.domain.admin.repository.BannedIpRepository
 import duit.server.domain.user.repository.UserRepository
@@ -20,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional
 class AdminAuthService(
     private val adminRepository: AdminRepository,
     private val bannedIpRepository: BannedIpRepository,
+    private val bannedIpService: BannedIpService,
     private val userRepository: UserRepository,
     private val passwordEncoder: PasswordEncoder,
     private val jwtTokenProvider: JwtTokenProvider,
@@ -37,22 +37,13 @@ class AdminAuthService(
         val admin = adminRepository.findByAdminId(adminId)
             ?.takeIf { passwordEncoder.matches(password, it.password) }
             ?: run {
-                handleLoginFailure(ip)
+                bannedIpService.handleLoginFailure(ip)
                 throw IllegalArgumentException("아이디 또는 비밀번호가 일치하지 않습니다")
             }
 
         // 3. 로그인 성공 - JWT 발급
         val token = jwtTokenProvider.createAccessToken(admin.user.id!!)
         return AdminLoginResponse(token)
-    }
-
-    @Transactional
-    private fun handleLoginFailure(ip: String) {
-        bannedIpRepository.findByIpAddress(ip)
-            ?.apply { recordFailure() }
-            ?.also { bannedIpRepository.save(it) }
-            ?: BannedIp(ipAddress = ip, failureCount = 1)
-                .also { bannedIpRepository.save(it) }
     }
 
     @Transactional
