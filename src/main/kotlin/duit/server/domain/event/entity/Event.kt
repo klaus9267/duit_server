@@ -89,45 +89,47 @@ class Event(
         thumbnailUrl?.let { thumbnail = it }
     }
 
-    fun updateStatus(time:LocalDateTime) {
-
-        when {
+    fun updateStatus(time: LocalDateTime) {
+        status = when {
             // 1. 이미 종료됨
-            (endAt != null && endAt!! <= time)
-                    || (endAt == null && startAt <= time) -> {
-                status = EventStatus.FINISHED
-                statusGroup = EventStatusGroup.FINISHED
-            }
+            isFinished(time) -> EventStatus.FINISHED
 
             // 2. 행사 진행 중
-            startAt <= time && (endAt != null && endAt!! >= time) -> {
-                status = EventStatus.ACTIVE
-                statusGroup = EventStatusGroup.ACTIVE
-            }
+            isActive(time) -> EventStatus.ACTIVE
 
             // 3. 모집 없이 행사 대기, 4. 모집 기간 지남
-            (recruitmentStartAt == null && recruitmentEndAt == null)
-                    || (recruitmentEndAt != null && recruitmentEndAt!! <= time) -> {
-                status = EventStatus.EVENT_WAITING
-                statusGroup = EventStatusGroup.ACTIVE
-            }
+            isEventWaiting(time) -> EventStatus.EVENT_WAITING
 
             // 5. 모집 중
-            (recruitmentStartAt != null && recruitmentStartAt!! <= time)
-                    || (recruitmentStartAt == null && recruitmentEndAt != null && recruitmentEndAt!! >= time) -> {
-                status = EventStatus.RECRUITING
-                statusGroup = EventStatusGroup.ACTIVE
-            }
+            isRecruiting(time) -> EventStatus.RECRUITING
 
             // 6. 모집 대기
-            recruitmentStartAt != null && recruitmentStartAt!! >= time -> {
-                status = EventStatus.RECRUITMENT_WAITING
-                statusGroup = EventStatusGroup.ACTIVE
-            }
+            isRecruitmentWaiting(time) -> EventStatus.RECRUITMENT_WAITING
 
-            else -> {
-                throw RuntimeException("잘못된 행사 케이스")
-            }
+            else -> error("잘못된 행사 상태: startAt=$startAt, endAt=$endAt, recruitmentStartAt=$recruitmentStartAt, recruitmentEndAt=$recruitmentEndAt, time=$time")
+        }
+
+        statusGroup = when (status) {
+            EventStatus.PENDING -> EventStatusGroup.PENDING
+            EventStatus.FINISHED -> EventStatusGroup.FINISHED
+            else -> EventStatusGroup.ACTIVE
         }
     }
+
+    private fun isFinished(time: LocalDateTime): Boolean =
+        endAt?.let { it <= time } ?: (startAt <= time)
+
+    private fun isActive(time: LocalDateTime): Boolean =
+        startAt <= time && endAt?.let { it >= time } == true
+
+    private fun isEventWaiting(time: LocalDateTime): Boolean =
+        (recruitmentStartAt == null && recruitmentEndAt == null) ||
+                recruitmentEndAt?.let { it <= time } == true
+
+    private fun isRecruiting(time: LocalDateTime): Boolean =
+        recruitmentStartAt?.let { it <= time } == true ||
+                (recruitmentStartAt == null && recruitmentEndAt?.let { it >= time } == true)
+
+    private fun isRecruitmentWaiting(time: LocalDateTime): Boolean =
+        recruitmentStartAt?.let { it >= time } == true
 }

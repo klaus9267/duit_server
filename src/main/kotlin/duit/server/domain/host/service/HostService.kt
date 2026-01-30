@@ -2,6 +2,7 @@ package duit.server.domain.host.service
 
 import duit.server.domain.common.dto.pagination.PageInfo
 import duit.server.domain.common.dto.pagination.PageResponse
+import duit.server.domain.common.extensions.findByIdOrThrow
 import duit.server.domain.host.dto.HostPaginationParam
 import duit.server.domain.host.dto.HostRequest
 import duit.server.domain.host.dto.HostResponse
@@ -23,8 +24,7 @@ class HostService(
 ) {
 
     fun getHost(hostId: Long): Host =
-        hostRepository.findById(hostId)
-            .orElseThrow { EntityNotFoundException("주최 기관을 찾을 수 없습니다: $hostId") }
+        hostRepository.findByIdOrThrow(hostId, "주최 기관")
 
     @Transactional
     fun createHost(name: String, thumbnail: MultipartFile?): HostResponse {

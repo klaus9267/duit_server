@@ -8,8 +8,8 @@ import duit.server.domain.admin.dto.AdminResponse
 import duit.server.domain.admin.entity.Admin
 import duit.server.domain.admin.repository.AdminRepository
 import duit.server.domain.admin.repository.BannedIpRepository
+import duit.server.domain.common.extensions.findByIdOrThrow
 import duit.server.domain.user.repository.UserRepository
-import jakarta.persistence.EntityNotFoundException
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -54,8 +54,7 @@ class AdminAuthService(
 
         val currentUserId = securityUtil.getCurrentUserId()
 
-        return userRepository.findById(currentUserId)
-            .orElseThrow { EntityNotFoundException("사용자를 찾을 수 없습니다") }
+        return userRepository.findByIdOrThrow(currentUserId, "사용자")
             .let { user ->
                 val admin = Admin(
                     user = user,
