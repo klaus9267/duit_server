@@ -5,6 +5,7 @@ import com.google.firebase.auth.FirebaseToken
 import duit.server.application.security.SecurityUtil
 import duit.server.domain.common.dto.pagination.PageInfo
 import duit.server.domain.common.dto.pagination.PageResponse
+import duit.server.domain.common.extensions.findByIdOrThrow
 import duit.server.domain.user.dto.UpdateNicknameRequest
 import duit.server.domain.user.dto.UpdateUserSettingsRequest
 import duit.server.domain.user.dto.UserPaginationParam
@@ -12,7 +13,6 @@ import duit.server.domain.user.dto.UserResponse
 import duit.server.domain.user.entity.ProviderType
 import duit.server.domain.user.entity.User
 import duit.server.domain.user.repository.UserRepository
-import jakarta.persistence.EntityNotFoundException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -134,7 +134,6 @@ class UserService(
     }
 
     fun findUserById(userId: Long): User {
-        return userRepository.findById(userId)
-            .orElseThrow { EntityNotFoundException("사용자를 찾을 수 없습니다: $userId") }
+        return userRepository.findByIdOrThrow(userId)
     }
 }

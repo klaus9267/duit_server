@@ -2,6 +2,7 @@ package duit.server.domain.event.service
 
 import duit.server.application.security.SecurityUtil
 import duit.server.domain.common.dto.pagination.*
+import duit.server.domain.common.extensions.findByIdOrThrow
 import duit.server.domain.event.dto.*
 import duit.server.domain.event.entity.Event
 import duit.server.domain.event.entity.EventStatus
@@ -12,7 +13,6 @@ import duit.server.domain.host.service.HostService
 import duit.server.domain.view.service.ViewService
 import duit.server.infrastructure.external.discord.DiscordService
 import duit.server.infrastructure.external.file.FileStorageService
-import jakarta.persistence.EntityNotFoundException
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -70,9 +70,7 @@ class EventService(
             }
     }
 
-    fun getEvent(eventId: Long): Event =
-        eventRepository.findById(eventId)
-            .orElseThrow { EntityNotFoundException("이벤트를 찾을 수 없습니다: $eventId") }
+    fun getEvent(eventId: Long): Event = eventRepository.findByIdOrThrow(eventId)
 
     fun getEvents(
         param: EventPaginationParam,
@@ -144,6 +142,19 @@ class EventService(
                 pageSize = actualEvents.size
             )
         )
+    }
+
+    fun getEventDetail(eventId: Long): EventResponseV2 {
+        val event = getEvent(eventId)
+        val currentUserId = securityUtil.getCurrentUserIdOrNull()
+
+        val isBookmarked = if (currentUserId != null) {
+            eventRepository.findBookmarkedEventIds(currentUserId, listOf(event.id!!)).isNotEmpty()
+        } else {
+            false
+        }
+
+        return EventResponseV2.from(event, isBookmarked)
     }
 
     fun countActiveEvents(): Long {

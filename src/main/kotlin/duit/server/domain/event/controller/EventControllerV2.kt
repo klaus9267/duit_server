@@ -8,6 +8,7 @@ import jakarta.validation.Valid
 import org.springdoc.core.annotations.ParameterObject
 import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
@@ -39,6 +40,14 @@ class EventControllerV2(
         @Valid @ParameterObject
         param: EventCursorPaginationParam
     ) = eventService.getEvents(param)
+
+    @GetMapping("{eventId}")
+    @Operation(
+        summary = "행사 단건 조회",
+        description = "행사 ID로 행사 상세 정보를 조회합니다. 로그인 시 북마크 여부가 포함됩니다."
+    )
+    @ResponseStatus(HttpStatus.OK)
+    fun getEventDetail(@PathVariable eventId: Long) = eventService.getEventDetail(eventId)
 
     @GetMapping("count")
     @Operation(

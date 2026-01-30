@@ -17,6 +17,14 @@ class FileStorageService {
     @Value("\${file.base-url}")
     private lateinit var baseUrl: String
 
+    companion object {
+        private const val MAX_FILE_SIZE_MB = 10
+        private const val BYTES_PER_MB = 1024 * 1024
+        private const val MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * BYTES_PER_MB
+        private val ALLOWED_IMAGE_EXTENSIONS = listOf("jpg", "jpeg", "png", "gif", "webp")
+        private const val CONTENT_TYPE_IMAGE_PREFIX = "image/"
+    }
+
     fun uploadFile(file: MultipartFile, folder: String): String = runCatching {
         // 1. 파일 검증
         validateFile(file)
@@ -45,24 +53,23 @@ class FileStorageService {
     }.getOrElse { throw RuntimeException("파일 업로드 실패: ${it.message}", it) }
 
     private fun validateFile(file: MultipartFile) {
-        // 파일 크기 검증 (10MB 제한)
-        if (file.size > 10 * 1024 * 1024) {
-            throw IllegalArgumentException("파일 크기는 10MB를 초과할 수 없습니다")
+        // 파일 크기 검증
+        if (file.size > MAX_FILE_SIZE_BYTES) {
+            throw IllegalArgumentException("파일 크기는 ${MAX_FILE_SIZE_MB}MB를 초과할 수 없습니다")
         }
 
         // 파일 확장자 검증 (이미지만 허용)
-        val allowedExtensions = listOf("jpg", "jpeg", "png", "gif", "webp")
         val extension = file.originalFilename
             ?.substringAfterLast(".", "")
             ?.lowercase() ?: ""
 
-        if (extension !in allowedExtensions) {
-            throw IllegalArgumentException("허용되지 않는 파일 형식입니다. (jpg, jpeg, png, gif, webp만 가능)")
+        if (extension !in ALLOWED_IMAGE_EXTENSIONS) {
+            throw IllegalArgumentException("허용되지 않는 파일 형식입니다. (${ALLOWED_IMAGE_EXTENSIONS.joinToString(", ")}만 가능)")
         }
 
         // Content-Type 검증
         val contentType = file.contentType ?: ""
-        if (!contentType.startsWith("image/")) {
+        if (!contentType.startsWith(CONTENT_TYPE_IMAGE_PREFIX)) {
             throw IllegalArgumentException("이미지 파일만 업로드 가능합니다")
         }
     }

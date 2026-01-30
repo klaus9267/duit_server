@@ -66,18 +66,9 @@ class UserController(
         @Valid @RequestBody request: UpdateUserSettingsRequest
     ): UserResponse = userService.updateUserSettings(request)
 
-    @DeleteMapping("/{userId}")
+    @DeleteMapping
     @Operation(summary = "회원 탈퇴", description = "현재 사용자의 계정을 삭제합니다")
     @RequireAuth
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    fun withdraw(
-        @Parameter(description = "사용자 ID", required = true)
-        @PathVariable userId: Long
-    ) = userService.withdraw()
-
-    @DeleteMapping
-    @Operation(summary = "회원 탈퇴 V2", description = "현재 사용자의 계정을 삭제합니다")
-    @RequireAuth
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    fun withdrawV2() = userService.withdraw()
+    fun withdraw() = userService.withdraw()
 }

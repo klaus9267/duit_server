@@ -68,6 +68,7 @@ class SecurityConfig(
                         "/api/v1/events",
                         "/",
                         "/api/v2/events",
+                        "/api/v2/events/{eventId}",
                         "/api/v1/users",
                     ).permitAll()
 
