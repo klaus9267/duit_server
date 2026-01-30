@@ -54,7 +54,7 @@ class AdminAuthService(
 
         val currentUserId = securityUtil.getCurrentUserId()
 
-        return userRepository.findByIdOrThrow(currentUserId, "사용자")
+        return userRepository.findByIdOrThrow(currentUserId)
             .let { user ->
                 val admin = Admin(
                     user = user,

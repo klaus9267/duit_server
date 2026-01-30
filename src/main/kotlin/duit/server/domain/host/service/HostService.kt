@@ -23,8 +23,7 @@ class HostService(
     private val fileStorageService: FileStorageService
 ) {
 
-    fun getHost(hostId: Long): Host =
-        hostRepository.findByIdOrThrow(hostId, "주최 기관")
+    fun getHost(hostId: Long): Host = hostRepository.findByIdOrThrow(hostId)
 
     @Transactional
     fun createHost(name: String, thumbnail: MultipartFile?): HostResponse {
