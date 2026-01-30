@@ -70,8 +70,7 @@ class EventService(
             }
     }
 
-    fun getEvent(eventId: Long): Event =
-        eventRepository.findByIdOrThrow(eventId, "이벤트")
+    fun getEvent(eventId: Long): Event = eventRepository.findByIdOrThrow(eventId)
 
     fun getEvents(
         param: EventPaginationParam,
@@ -143,6 +142,19 @@ class EventService(
                 pageSize = actualEvents.size
             )
         )
+    }
+
+    fun getEventDetail(eventId: Long): EventResponseV2 {
+        val event = getEvent(eventId)
+        val currentUserId = securityUtil.getCurrentUserIdOrNull()
+
+        val isBookmarked = if (currentUserId != null) {
+            eventRepository.findBookmarkedEventIds(currentUserId, listOf(event.id!!)).isNotEmpty()
+        } else {
+            false
+        }
+
+        return EventResponseV2.from(event, isBookmarked)
     }
 
     fun countActiveEvents(): Long {
