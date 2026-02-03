@@ -34,7 +34,7 @@ class EventStatusScheduler(
     /**
      * 매일 자정에 실행 - 놓친 업데이트 처리 및 오늘 상태 전환 스케줄링
      */
-    @Scheduled(cron = "0 0 0 * * *")
+    @Scheduled(cron = "0 0 4 * * *")
     fun scheduleDailyStatusUpdates() {
         logger.info("=== Starting daily event status batch job at 00:00 ===")
 
