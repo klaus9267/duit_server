@@ -16,7 +16,6 @@ class ViewController(
 
     @PatchMapping("{eventId}")
     @Operation(summary = "조회수 증가", description = "행사 조회수를 증가시킵니다")
-    @RequireAuth
     @ResponseStatus(HttpStatus.NO_CONTENT)
     fun increaseCount(
         @PathVariable eventId: Long

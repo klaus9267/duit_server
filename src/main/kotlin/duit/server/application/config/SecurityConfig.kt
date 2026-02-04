@@ -51,6 +51,7 @@ class SecurityConfig(
                         "/api/v2/events/count",
                         "/api/v1/events/migrate-status",
                         "/api/v1/scheduler/**",
+                        "/api/v1/views/**",
                         "/actuator/**",
                         "/uploads/**",
                     ).permitAll()
