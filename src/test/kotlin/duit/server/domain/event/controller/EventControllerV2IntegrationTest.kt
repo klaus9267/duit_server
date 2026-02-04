@@ -1009,7 +1009,7 @@ class EventControllerV2IntegrationTest {
                 )
                     .andDo(print())
                     // require() 검증 실패 시 GlobalExceptionHandler가 500으로 처리
-                    .andExpect(status().isInternalServerError)
+                    .andExpect(status().isBadRequest)
             }
 
             @Test
@@ -1023,7 +1023,7 @@ class EventControllerV2IntegrationTest {
                 )
                     .andDo(print())
                     // require() 검증 실패 시 GlobalExceptionHandler가 500으로 처리
-                    .andExpect(status().isInternalServerError)
+                    .andExpect(status().isBadRequest)
             }
 
             @Test
