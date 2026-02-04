@@ -1,6 +1,5 @@
 package duit.server.domain.view.controller
 
-import duit.server.application.common.RequireAuth
 import duit.server.domain.view.service.ViewService
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag

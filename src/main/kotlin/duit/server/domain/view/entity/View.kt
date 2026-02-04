@@ -16,6 +16,4 @@ class View(
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "event_id", unique = true)
     val event: Event
-) {
-    fun increaseCount() = count++
-}
+)

@@ -14,7 +14,8 @@ class ViewService(
     fun createView(event: Event) = viewRepository.save(View(event = event))
 
     @Transactional
-    fun increaseCount(eventId: Long) = viewRepository.findByEventId(eventId)
-        ?.also { it.increaseCount() }
-        ?: throw EntityNotFoundException("조회수 정보를 찾을 수 없습니다: $eventId")
+    fun increaseCount(eventId: Long) =
+        viewRepository.incrementCount(eventId)
+            .takeIf { it > 0 }
+            ?: throw EntityNotFoundException("조회수 정보를 찾을 수 없습니다: $eventId")
 }
