@@ -8,10 +8,12 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
 @Service
+@Transactional(readOnly = true)
 class ViewService(
     private val viewRepository: ViewRepository
 ) {
-    fun createView(event: Event) = viewRepository.save(View(event = event))
+    @Transactional
+    fun createView(event: Event): View = viewRepository.save(View(event = event))
 
     @Transactional
     fun increaseCount(eventId: Long) =
