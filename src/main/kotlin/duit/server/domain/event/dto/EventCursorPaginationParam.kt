@@ -69,7 +69,7 @@ data class EventCursorPaginationParam(
     val hostId: Long? = null
 ) {
     init {
-        require(status==null || statusGroup==null){
+        require(status == null || statusGroup == null) {
             "status, statusGroup 하나만 입력 가능합니다"
         }
 

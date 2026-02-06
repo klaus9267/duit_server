@@ -8,6 +8,7 @@ import jakarta.persistence.EntityNotFoundException
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.validation.ConstraintViolationException
 import org.slf4j.LoggerFactory
+import org.springframework.beans.BeanInstantiationException
 import org.springframework.dao.DataAccessException
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.http.ResponseEntity
@@ -59,6 +60,28 @@ class GlobalExceptionHandler(
         )
     }
     
+    @ExceptionHandler(BeanInstantiationException::class)
+    fun handleBeanInstantiationException(
+        ex: BeanInstantiationException,
+        request: HttpServletRequest
+    ): ResponseEntity<ErrorResponse> {
+        val cause = ex.cause
+        if (cause is IllegalArgumentException) {
+            return buildErrorResponse(
+                errorCode = ErrorCode.INVALID_REQUEST,
+                message = cause.message,
+                request = request,
+                ex = ex
+            )
+        }
+        return buildErrorResponse(
+            errorCode = ErrorCode.INTERNAL_SERVER_ERROR,
+            message = null,
+            request = request,
+            ex = ex
+        )
+    }
+
     @ExceptionHandler(IllegalStateException::class)
     fun handleIllegalStateException(
         ex: IllegalStateException,

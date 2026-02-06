@@ -1,6 +1,5 @@
 package duit.server.domain.view.controller
 
-import duit.server.application.common.RequireAuth
 import duit.server.domain.view.service.ViewService
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
@@ -16,7 +15,6 @@ class ViewController(
 
     @PatchMapping("{eventId}")
     @Operation(summary = "조회수 증가", description = "행사 조회수를 증가시킵니다")
-    @RequireAuth
     @ResponseStatus(HttpStatus.NO_CONTENT)
     fun increaseCount(
         @PathVariable eventId: Long
