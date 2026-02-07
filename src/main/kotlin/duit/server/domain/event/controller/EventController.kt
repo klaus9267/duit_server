@@ -75,12 +75,6 @@ class EventController(
     @ResponseStatus(HttpStatus.NO_CONTENT)
     fun approveEvent(@PathVariable eventId: Long) = eventService.updateStatus(eventId)
 
-    @DeleteMapping("{eventId}")
-    @Operation(summary = "행사 삭제")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    @RequireAuth
-    fun deleteEvent(@PathVariable eventId: Long) = eventService.deleteEvent(eventId)
-
     @PutMapping("{eventId}", consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
     @Operation(summary = "행사 수정 (관리자)", description = "관리자가 행사를 수정합니다")
     @RequireAuth
