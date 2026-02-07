@@ -36,7 +36,7 @@ class EventStatusScheduler(
      */
     @Scheduled(cron = "0 0 4 * * *")
     fun scheduleDailyStatusUpdates() {
-        logger.info("=== Starting daily event status batch job at 00:00 ===")
+        logger.info("=== Starting daily event status batch job at 04:00 ===")
 
         try {
             // STEP 1: 놓친 상태 업데이트 일괄 처리 (catch-up)
