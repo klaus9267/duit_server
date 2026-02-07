@@ -117,19 +117,30 @@ class Event(
     }
 
     private fun isFinished(time: LocalDateTime): Boolean =
-        endAt?.let { it <= time } ?: (startAt <= time)
+        time > (endAt ?: startAt)
 
     private fun isActive(time: LocalDateTime): Boolean =
-        startAt <= time && endAt?.let { it >= time } == true
+        time in startAt..(endAt ?: startAt)
 
     private fun isEventWaiting(time: LocalDateTime): Boolean =
         (recruitmentStartAt == null && recruitmentEndAt == null) ||
-                recruitmentEndAt?.let { it <= time } == true
+                recruitmentEndAt?.let { it <= time } ?: false
 
-    private fun isRecruiting(time: LocalDateTime): Boolean =
-        recruitmentStartAt?.let { it <= time } == true ||
-                (recruitmentStartAt == null && recruitmentEndAt?.let { it >= time } == true)
+    private fun isRecruiting(time: LocalDateTime): Boolean {
+        val start = recruitmentStartAt
+        val end = recruitmentEndAt
+
+        return when {
+            // 시작/종료일 모두 있는 경우
+            start != null && end != null -> time in start..end
+            // 종료일만 있는 경우 (오늘부터 종료일까지 모집)
+            start == null && end != null -> time <= end
+            // 시작일만 있는 경우 (시작일부터 행사 전까지 모집)
+            start != null && end == null -> time in start..<startAt
+            else -> false
+        }
+    }
 
     private fun isRecruitmentWaiting(time: LocalDateTime): Boolean =
-        recruitmentStartAt?.let { it >= time } == true
+        recruitmentStartAt?.let { it >= time } ?: false
 }
