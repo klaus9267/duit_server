@@ -30,25 +30,6 @@ jwt:
   secret: testSecretKeyForUnitTestingOnly12345678901234567890testSecretKeyForUnitTestingOnly12345678901234567890testSecretKeyForUnitTestingOnly12345678901234567890
   access-token-validity: 3600000  # 1시간 (테스트용으로 짧게)
 
-# 로깅 설정 (테스트는 조용하게)
-logging:
-  level:
-    root: WARN
-    duit: INFO
-    org.hibernate.SQL: WARN
-    org.springframework.security: WARN
-    org.springframework.test: INFO
-
-# Actuator 테스트용 설정
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health
-  endpoint:
-    health:
-      show-details: never
-
 # Redis 설정 (테스트용 - 없어도 됨)
 spring.data.redis:
   host: localhost
@@ -64,10 +45,6 @@ discord:
 file:
   upload-dir: ${java.io.tmpdir}/duit-test-uploads
   base-url: http://localhost:8080
-
-# JOOQ 비활성화 (H2에서는 JOOQ 쿼리 사용 안 함)
-jooq:
-  enabled: false
 
 # 스케줄러 비활성화 (테스트에서는 스케줄러 실행 안 함)
 scheduler:
