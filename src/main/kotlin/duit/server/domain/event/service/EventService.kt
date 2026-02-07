@@ -157,9 +157,7 @@ class EventService(
         return EventResponseV2.from(event, isBookmarked)
     }
 
-    fun countActiveEvents(): Long {
-        return eventRepository.countActiveEvents()
-    }
+    fun countActiveEvents(): Long = eventRepository.countActiveEvents()
 
     fun getEvents4Calendar(request: Event4CalendarRequest): List<EventResponseV2> {
         val currentUserId = securityUtil.getCurrentUserId()
@@ -223,9 +221,6 @@ class EventService(
     }
 
     @Transactional
-    fun deleteEvent(eventId: Long) = eventRepository.deleteById(eventId)
-
-    @Transactional
     fun deleteEvents(eventIds: List<Long>) {
         eventRepository.findAllByIdInAndThumbnailNotNull(eventIds)
             .forEach {
@@ -233,6 +228,4 @@ class EventService(
             }
         eventRepository.deleteAllById(eventIds)
     }
-
-
 }

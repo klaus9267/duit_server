@@ -24,6 +24,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
 import org.springframework.web.servlet.NoHandlerFoundException
 import org.springframework.web.servlet.resource.NoResourceFoundException
+import java.io.FileNotFoundException
 import java.time.LocalDateTime
 import java.util.*
 
@@ -89,6 +90,19 @@ class GlobalExceptionHandler(
     ): ResponseEntity<ErrorResponse> {
         return buildErrorResponse(
             errorCode = ErrorCode.CONFLICT,
+            message = ex.message,
+            request = request,
+            ex = ex
+        )
+    }
+
+    @ExceptionHandler(FileNotFoundException::class)
+    fun handleFileNotFoundException(
+        ex: FileNotFoundException,
+        request: HttpServletRequest
+    ): ResponseEntity<ErrorResponse> {
+        return buildErrorResponse(
+            errorCode = ErrorCode.NOT_FOUND,
             message = ex.message,
             request = request,
             ex = ex
