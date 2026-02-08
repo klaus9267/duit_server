@@ -22,7 +22,6 @@ class WebMvcConfig : WebMvcConfigurer {
         registry.addResourceHandler("/uploads/**")
             .addResourceLocations("file:$uploadDir/")
             .setCachePeriod(3600) // 1시간 캐싱
-            .resourceChain(true)
     }
 
     private fun multipartJsonConverter(): MappingJackson2HttpMessageConverter {
