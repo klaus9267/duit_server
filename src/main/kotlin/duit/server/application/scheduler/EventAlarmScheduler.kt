@@ -4,9 +4,11 @@ import duit.server.domain.alarm.entity.AlarmType
 import duit.server.domain.alarm.service.AlarmService
 import duit.server.domain.event.entity.EventDate
 import duit.server.domain.event.repository.EventRepository
+import org.slf4j.LoggerFactory
 import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.context.annotation.Profile
 import org.springframework.context.event.EventListener
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.scheduling.TaskScheduler
 import org.springframework.scheduling.annotation.EnableScheduling
 import org.springframework.scheduling.annotation.Scheduled
@@ -23,8 +25,10 @@ class EventAlarmScheduler(
     private val alarmService: AlarmService,
     private val taskScheduler: TaskScheduler
 ) {
+    private val log = LoggerFactory.getLogger(javaClass)
+
     // 매일 자정에 알람 생성
-    @Scheduled(cron = "0 0 0 * * *")
+    @Scheduled(cron = "0 0 4 * * *")
     fun createDailyAlarms() {
         createAlarmsByType(EventDate.RECRUITMENT_START_AT, AlarmType.RECRUITMENT_START)
         createAlarmsByType(EventDate.RECRUITMENT_END_AT, AlarmType.RECRUITMENT_END)
@@ -52,7 +56,11 @@ class EventAlarmScheduler(
                 val instant: Instant = alarmTime.atZone(ZoneId.of("Asia/Seoul")).toInstant()
 
                 taskScheduler.schedule({
-                    alarmService.createAlarms(alarmType, event.id!!)
+                    try {
+                        alarmService.createAlarms(alarmType, event.id!!)
+                    } catch (_: DataIntegrityViolationException) {
+                        log.debug("알람 중복 생성 무시 - eventId: {}, type: {} (동시 스케줄 실행)", event.id, alarmType)
+                    }
                 }, instant)
             }
         }
