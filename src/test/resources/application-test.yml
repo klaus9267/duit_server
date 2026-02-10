@@ -39,7 +39,11 @@ spring.data.redis:
 # Discord 설정 (테스트용)
 discord:
   webhook:
-    url: "https://discord.com/api/webhooks/test"  # 테스트용 더미 URL
+    url: "https://discord.com/api/webhooks/test"
+    alarm:
+      url: "https://discord.com/api/webhooks/test/alarm"
+    error-monitoring:
+      url: "https://discord.com/api/webhooks/test/error"
 
 # 파일 스토리지 설정 (테스트용)
 file:

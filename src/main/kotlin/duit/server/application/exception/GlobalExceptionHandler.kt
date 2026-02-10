@@ -26,7 +26,6 @@ import org.springframework.web.servlet.NoHandlerFoundException
 import org.springframework.web.servlet.resource.NoResourceFoundException
 import java.io.FileNotFoundException
 import java.time.LocalDateTime
-import java.util.*
 
 @RestControllerAdvice
 class GlobalExceptionHandler(

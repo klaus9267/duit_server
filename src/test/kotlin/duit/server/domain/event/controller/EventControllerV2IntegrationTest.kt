@@ -868,6 +868,57 @@ class EventControllerV2IntegrationTest : IntegrationTestSupport() {
         }
 
         @Nested
+        @DisplayName("단건 조회")
+        inner class GetEventDetailTests {
+
+            @Test
+            @DisplayName("행사 단건 조회에 성공한다")
+            fun getEventDetailSuccess() {
+                // setUp에서 생성된 이벤트 중 하나를 조회
+                val listResult = mockMvc.perform(
+                    get("/api/v2/events")
+                        .param("size", "1")
+                )
+                    .andExpect(status().isOk)
+                    .andReturn()
+
+                val eventId = extractValuesFromResponse(listResult, "id").first()
+
+                mockMvc.perform(get("/api/v2/events/{eventId}", eventId))
+                    .andDo(print())
+                    .andExpect(status().isOk)
+                    .andExpect(jsonPath("$.id").value(eventId))
+                    .andExpect(jsonPath("$.title").isString)
+                    .andExpect(jsonPath("$.eventType").isString)
+                    .andExpect(jsonPath("$.eventStatus").isString)
+                    .andExpect(jsonPath("$.host").exists())
+                    .andExpect(jsonPath("$.viewCount").isNumber)
+            }
+
+            @Test
+            @DisplayName("존재하지 않는 eventId로 요청하면 404를 반환한다")
+            fun getEventDetailNotFound() {
+                mockMvc.perform(get("/api/v2/events/{eventId}", 999999))
+                    .andDo(print())
+                    .andExpect(status().isNotFound)
+            }
+        }
+
+        @Nested
+        @DisplayName("승인 행사 총 갯수 조회")
+        inner class GetTotalCountTests {
+
+            @Test
+            @DisplayName("승인된 행사 총 갯수를 조회한다")
+            fun getTotalCountSuccess() {
+                mockMvc.perform(get("/api/v2/events/count"))
+                    .andDo(print())
+                    .andExpect(status().isOk)
+                    .andExpect(jsonPath("$").isNumber)
+            }
+        }
+
+        @Nested
         @DisplayName("실패 케이스")
         inner class FailureTests {
 
