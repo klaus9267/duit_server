@@ -11,6 +11,7 @@ import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.validation.Valid
+import jakarta.validation.constraints.NotBlank
 import org.springdoc.core.annotations.ParameterObject
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
@@ -38,6 +39,7 @@ class HostController(
     @ResponseStatus(HttpStatus.CREATED)
     fun createHost(
         @Parameter
+        @NotBlank(message = "주최 기관명은 필수입니다")
         name: String,
         @RequestPart("thumbnail", required = false)
         @Parameter(description = "주최 기관 로고 이미지")

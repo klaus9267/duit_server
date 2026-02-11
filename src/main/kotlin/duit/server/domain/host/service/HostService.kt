@@ -27,7 +27,7 @@ class HostService(
 
     @Transactional
     fun createHost(name: String, thumbnail: MultipartFile?): HostResponse {
-        require(hostRepository.findByName(name) == null) {
+        if (hostRepository.findByName(name) != null) {
             throw EntityExistsException("이미 존재하는 호스트입니다 $name")
         }
 

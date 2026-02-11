@@ -84,7 +84,7 @@ class Event(
         uri = updateRequest.uri
         eventType = updateRequest.eventType
         this.host = host
-        thumbnailUrl?.let { thumbnail = it }
+        thumbnail = thumbnailUrl
     }
 
     fun updateStatus(time: LocalDateTime) {
