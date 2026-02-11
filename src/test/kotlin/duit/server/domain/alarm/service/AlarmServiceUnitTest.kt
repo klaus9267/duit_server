@@ -210,7 +210,7 @@ class AlarmServiceUnitTest {
         }
 
         @Test
-        @DisplayName("이미 알람이 존재하는 사용자는 중복 생성하지 않는다")
+        @DisplayName("이미 알람이 존재하는 사용자는 중복 생성하지 않고 FCM도 전송하지 않는다")
         fun skipsExistingAlarm() {
             every { eventRepository.findById(10L) } returns Optional.of(event)
             every { bookmarkRepository.findEligibleUsersForAlarms(10L) } returns listOf(user)
@@ -219,7 +219,7 @@ class AlarmServiceUnitTest {
             alarmService.createAlarms(AlarmType.EVENT_START, 10L)
 
             verify(exactly = 0) { alarmRepository.save(any()) }
-            verify(exactly = 1) { fcmService.sendAlarms(any(), any(), any(), any()) }
+            verify(exactly = 0) { fcmService.sendAlarms(any(), any(), any(), any()) }
         }
     }
 }

@@ -947,6 +947,18 @@ class EventControllerV2IntegrationTest : IntegrationTestSupport() {
             }
 
             @Test
+            @DisplayName("잘못된 커서 형식으로 요청하면 에러를 반환한다")
+            fun invalidCursorFormat() {
+                mockMvc.perform(
+                    get("/api/v2/events")
+                        .param("cursor", "invalid-not-base64!!!")
+                        .param("size", "5")
+                )
+                    .andDo(print())
+                    .andExpect(status().isBadRequest)
+            }
+
+            @Test
             @DisplayName("잘못된 정렬 필드 전달 시 처리")
             fun invalidSortFieldTest() {
                 mockMvc.perform(

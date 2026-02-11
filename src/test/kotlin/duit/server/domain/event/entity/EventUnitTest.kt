@@ -82,19 +82,6 @@ class EventUnitTest {
         }
 
         @Test
-        @DisplayName("endAt이 null이고 정확히 startAt → ACTIVE")
-        fun activeExactlyAtStartWhenEndAtNull() {
-            val event = createEvent(
-                startAt = baseTime,
-                endAt = null
-            )
-            event.updateStatus(baseTime)
-
-            assertEquals(EventStatus.ACTIVE, event.status)
-            assertEquals(EventStatusGroup.ACTIVE, event.statusGroup)
-        }
-
-        @Test
         @DisplayName("모집 없음 (both null), 행사 전 → EVENT_WAITING")
         fun eventWaitingNoRecruitment() {
             val event = createEvent(
@@ -208,6 +195,51 @@ class EventUnitTest {
             event.updateStatus(baseTime)
 
             assertEquals(EventStatus.ACTIVE, event.status)
+        }
+
+        @Test
+        @DisplayName("endAt=null, 정확히 startAt 시각 → ACTIVE (time in startAt..startAt)")
+        fun activeExactlyAtStartWhenEndAtNull() {
+            val event = createEvent(
+                startAt = baseTime,
+                endAt = null,
+                recruitmentStartAt = null,
+                recruitmentEndAt = null
+            )
+            event.updateStatus(baseTime)
+
+            assertEquals(EventStatus.ACTIVE, event.status)
+            assertEquals(EventStatusGroup.ACTIVE, event.statusGroup)
+        }
+
+        @Test
+        @DisplayName("endAt=null, startAt 지난 후 → FINISHED (endAt ?: startAt 기준)")
+        fun finishedWhenEndAtNullAndAfterStart() {
+            val event = createEvent(
+                startAt = baseTime.minusHours(1),
+                endAt = null,
+                recruitmentStartAt = null,
+                recruitmentEndAt = null
+            )
+            event.updateStatus(baseTime)
+
+            assertEquals(EventStatus.FINISHED, event.status)
+            assertEquals(EventStatusGroup.FINISHED, event.statusGroup)
+        }
+
+        @Test
+        @DisplayName("endAt=null, 모집 정보 없이 행사 시작 전 → EVENT_WAITING")
+        fun eventWaitingWhenNoRecruitmentDatesAndEndAtNull() {
+            val event = createEvent(
+                startAt = baseTime.plusDays(5),
+                endAt = null,
+                recruitmentStartAt = null,
+                recruitmentEndAt = null
+            )
+            event.updateStatus(baseTime)
+
+            assertEquals(EventStatus.EVENT_WAITING, event.status)
+            assertEquals(EventStatusGroup.ACTIVE, event.statusGroup)
         }
 
         @Test

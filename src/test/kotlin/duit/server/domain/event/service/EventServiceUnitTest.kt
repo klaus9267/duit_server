@@ -476,6 +476,7 @@ class EventServiceUnitTest {
             eventService.updateEvent(1L, updateRequest, null, null)
 
             verify(exactly = 1) { fileStorageService.deleteFile("https://storage.com/old.jpg") }
+            assertNull(event.thumbnail, "썸네일이 null로 설정되어야 합니다")
         }
 
         @Test

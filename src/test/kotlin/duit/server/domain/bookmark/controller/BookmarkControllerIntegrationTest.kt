@@ -7,6 +7,7 @@ import duit.server.domain.host.entity.Host
 import duit.server.domain.user.entity.User
 import duit.server.support.IntegrationTestSupport
 import duit.server.support.fixture.TestFixtures
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -80,6 +81,16 @@ class BookmarkControllerIntegrationTest : IntegrationTestSupport() {
                     .andExpect(status().isOk)
                     .andExpect(jsonPath("$.eventId").value(approvedEvent.id!!.toInt()))
                     .andExpect(jsonPath("$.isBookmarked").value(true))
+
+                entityManager.flush()
+                entityManager.clear()
+                val bookmarks = entityManager.createQuery(
+                    "SELECT b FROM Bookmark b WHERE b.event.id = :eventId AND b.user.id = :userId",
+                    duit.server.domain.bookmark.entity.Bookmark::class.java
+                ).setParameter("eventId", approvedEvent.id!!)
+                    .setParameter("userId", user.id!!)
+                    .resultList
+                assertEquals(1, bookmarks.size, "북마크가 DB에 저장되어야 합니다")
             }
 
             @Test

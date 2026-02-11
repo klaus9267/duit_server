@@ -4,6 +4,7 @@ import duit.server.domain.event.entity.EventStatus
 import duit.server.domain.event.entity.EventStatusGroup
 import duit.server.support.IntegrationTestSupport
 import duit.server.support.fixture.TestFixtures
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -48,6 +49,16 @@ class ViewControllerIntegrationTest : IntegrationTestSupport() {
                 mockMvc.perform(patch("/api/v1/views/{eventId}", eventId))
                     .andDo(print())
                     .andExpect(status().isNoContent)
+
+                entityManager.flush()
+                entityManager.clear()
+
+                val updatedView = entityManager.createQuery(
+                    "SELECT v FROM View v WHERE v.event.id = :eventId",
+                    duit.server.domain.view.entity.View::class.java
+                ).setParameter("eventId", eventId).singleResult
+
+                assertEquals(6, updatedView.count, "조회수가 5에서 6으로 증가해야 합니다")
             }
         }
 
