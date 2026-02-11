@@ -61,8 +61,8 @@ class AdminAuthService(
                     adminId = request.adminId,
                     password = passwordEncoder.encode(request.password)
                 )
-                adminRepository.save(admin)
-                AdminResponse.from(admin)
+                val savedAdmin = adminRepository.save(admin)
+                AdminResponse.from(savedAdmin)
             }
     }
 }

@@ -9,6 +9,7 @@ application-*.properties
 !application-*.properties.example
 .mcp.json
 CLAUDE.md
+AGENTS.md
 
 ### STS ###
 .apt_generated
