@@ -10,6 +10,7 @@ application-*.properties
 .mcp.json
 CLAUDE.md
 AGENTS.md
+rules/
 
 ### STS ###
 .apt_generated

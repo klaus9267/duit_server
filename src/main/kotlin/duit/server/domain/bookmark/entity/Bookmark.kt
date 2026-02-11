@@ -4,6 +4,7 @@ import duit.server.domain.event.entity.Event
 import duit.server.domain.user.entity.User
 import jakarta.persistence.*
 import org.hibernate.annotations.UpdateTimestamp
+import org.springframework.data.annotation.CreatedDate
 import org.springframework.data.annotation.LastModifiedDate
 import org.springframework.data.jpa.domain.support.AuditingEntityListener
 import java.time.LocalDateTime
@@ -28,10 +29,10 @@ class Bookmark(
 
     var isAddedToCalendar: Boolean = false,
 
-    @LastModifiedDate
+    @CreatedDate
     var createdAt: LocalDateTime = LocalDateTime.now(),
 
-    @UpdateTimestamp
+    @LastModifiedDate
     var updatedAt: LocalDateTime = LocalDateTime.now(),
 ) {
 }
