@@ -31,14 +31,14 @@ data class EventPaginationParam(
 ) : PaginationParam(page, size, sortDirection, field) {
     fun toFilter(
         currentUserId: Long?,
-        isApproved: Boolean = true,
+        excludePending: Boolean = true,
         isBookmarked: Boolean = false,
         includeFinished: Boolean = false
     ): EventSearchFilter {
         return EventSearchFilter(
             eventTypes = this.type,
             hostId = this.hostId,
-            isApproved = isApproved,
+            excludePending = excludePending,
             isBookmarked = isBookmarked,
             includeFinished = includeFinished,
             searchKeyword = this.searchKeyword,

@@ -42,7 +42,6 @@ class AlarmControllerIntegrationTest : IntegrationTestSupport() {
         event = TestFixtures.event(
             title = "알람 테스트 행사",
             host = host,
-            isApproved = true,
             status = EventStatus.ACTIVE,
             statusGroup = EventStatusGroup.ACTIVE
         )

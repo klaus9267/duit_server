@@ -36,7 +36,6 @@ class BookmarkControllerIntegrationTest : IntegrationTestSupport() {
         approvedEvent = TestFixtures.event(
             title = "승인된 행사",
             host = host,
-            isApproved = true,
             status = EventStatus.ACTIVE,
             statusGroup = EventStatusGroup.ACTIVE
         )
@@ -44,8 +43,7 @@ class BookmarkControllerIntegrationTest : IntegrationTestSupport() {
 
         unapprovedEvent = TestFixtures.event(
             title = "미승인 행사",
-            host = host,
-            isApproved = false
+            host = host
         )
         entityManager.persist(unapprovedEvent)
 
@@ -53,7 +51,6 @@ class BookmarkControllerIntegrationTest : IntegrationTestSupport() {
         val event2 = TestFixtures.event(
             title = "북마크된 행사",
             host = host,
-            isApproved = true,
             status = EventStatus.RECRUITING,
             statusGroup = EventStatusGroup.ACTIVE
         )

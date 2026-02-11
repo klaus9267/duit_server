@@ -34,7 +34,7 @@ class EventService(
         eventRequest: EventCreateRequest,
         eventThumbnail: MultipartFile?,
         hostThumbnail: MultipartFile?,
-        isApproved: Boolean
+        autoApprove: Boolean
     ): EventResponseV2 {
         val eventThumbnailUrl = eventThumbnail?.let { fileStorageService.uploadFile(it, "events") }
         val hostThumbnailUrl = hostThumbnail?.let { fileStorageService.uploadFile(it, "hosts") }
@@ -50,9 +50,8 @@ class EventService(
 
         val event = eventRequest.toEntity(host).apply {
             thumbnail = eventThumbnailUrl
-            this.isApproved = isApproved
 
-            if (isApproved) {
+            if (autoApprove) {
                 this.status = EventStatus.RECRUITMENT_WAITING
                 this.statusGroup = EventStatusGroup.ACTIVE
             } else {
@@ -63,7 +62,7 @@ class EventService(
 
         return eventRepository.save(event).also { viewService.createView(it) }
             .let {
-                if (!isApproved) {
+                if (!autoApprove) {
                     discordService.sendNewEventNotification(it)
                 }
                 EventResponseV2.from(it, false)
@@ -74,7 +73,6 @@ class EventService(
 
     fun getEvents(
         param: EventPaginationParam,
-        isApproved: Boolean?,
         isBookmarked: Boolean?,
         includeFinished: Boolean?
     ): PageResponse<EventResponse> {
@@ -82,7 +80,7 @@ class EventService(
 
         val filter = param.toFilter(
             currentUserId = currentUserId,
-            isApproved = isApproved ?: true,
+            excludePending = true,
             isBookmarked = isBookmarked ?: false,
             includeFinished = includeFinished ?: false
         )
@@ -172,7 +170,6 @@ class EventService(
     fun updateStatus(eventId: Long) {
         val event = getEvent(eventId)
 
-        event.isApproved = true
         event.updateStatus(LocalDateTime.now())
     }
 

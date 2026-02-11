@@ -30,7 +30,7 @@ class EventController(
         @RequestPart("hostThumbnail", required = false)
         @Parameter(description = "주최 기관 로고 이미지")
         hostThumbnail: MultipartFile?
-    ) = eventService.createEvent(eventRequest, eventThumbnail, hostThumbnail, isApproved = false)
+    ) = eventService.createEvent(eventRequest, eventThumbnail, hostThumbnail, autoApprove = false)
 
     @PostMapping("/admin", consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
     @Operation(summary = "관리자 행사 생성", description = "관리자가 행사를 생성합니다 (자동 승인)")
@@ -44,21 +44,19 @@ class EventController(
         @RequestPart("hostThumbnail", required = false)
         @Parameter(description = "주최 기관 로고 이미지")
         hostThumbnail: MultipartFile?
-    ) = eventService.createEvent(eventRequest, eventThumbnail, hostThumbnail, isApproved = true)
+    ) = eventService.createEvent(eventRequest, eventThumbnail, hostThumbnail, autoApprove = true)
 
     @GetMapping
     @Operation(summary = "행사 목록 조회", description = "행사 목록을 페이지네이션으로 조회합니다")
     @ResponseStatus(HttpStatus.OK)
     fun getEvents(
-        @Parameter(description = "행사 승인 여부", example = "true")
-        isApproved: Boolean? = true,
         @Parameter(description = "종료된 행사 포함 여부", example = "false")
         includeFinished: Boolean? = true,
         @Parameter(description = "북마크된 행사 출력 여부", example = "false")
         isBookmarked: Boolean? = false,
         @Valid @ParameterObject
         param: EventPaginationParam
-    ) = eventService.getEvents(param, isApproved, isBookmarked, includeFinished)
+    ) = eventService.getEvents(param, isBookmarked, includeFinished)
 
     @GetMapping("calendar")
     @Operation(summary = "북마크한 행사 달력 조회", description = "북마크한 행사들을 월별 달력 형태로 조회합니다")

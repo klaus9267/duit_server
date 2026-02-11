@@ -7,7 +7,7 @@ import org.springframework.data.domain.Sort
 data class EventSearchFilter(
     val eventTypes: List<EventType>? = null,
     val hostId: Long? = null,
-    val isApproved: Boolean = true,
+    val excludePending: Boolean = true,
     val isBookmarked: Boolean = false,
     val includeFinished: Boolean = false,
     val searchKeyword: String? = null,
