@@ -1,5 +1,7 @@
 package duit.server.domain.view.controller
 
+import duit.server.domain.event.entity.EventStatus
+import duit.server.domain.event.entity.EventStatusGroup
 import duit.server.support.IntegrationTestSupport
 import duit.server.support.fixture.TestFixtures
 import org.junit.jupiter.api.BeforeEach
@@ -20,7 +22,7 @@ class ViewControllerIntegrationTest : IntegrationTestSupport() {
         val host = TestFixtures.host()
         entityManager.persist(host)
 
-        val event = TestFixtures.event(host = host, isApproved = true)
+        val event = TestFixtures.event(host = host, status = EventStatus.ACTIVE, statusGroup = EventStatusGroup.ACTIVE)
         entityManager.persist(event)
 
         val view = TestFixtures.view(event = event, count = 5)

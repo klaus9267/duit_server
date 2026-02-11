@@ -42,14 +42,13 @@ class EventServiceUnitTest {
         uri: String = "https://example.com",
         thumbnail: String? = null,
         eventType: EventType = EventType.CONFERENCE,
-        isApproved: Boolean = true,
         status: EventStatus = EventStatus.RECRUITMENT_WAITING,
         statusGroup: EventStatusGroup = EventStatusGroup.ACTIVE,
     ) = Event(
         id = id, title = title, startAt = startAt, endAt = endAt,
         recruitmentStartAt = recruitmentStartAt, recruitmentEndAt = recruitmentEndAt,
         uri = uri, thumbnail = thumbnail, eventType = eventType, host = host,
-        isApproved = isApproved, status = status, statusGroup = statusGroup,
+        status = status, statusGroup = statusGroup,
     )
 
     private fun createEventService(
@@ -146,7 +145,7 @@ class EventServiceUnitTest {
         }
 
         @Test
-        @DisplayName("isApproved=true - status=RECRUITMENT_WAITING, statusGroup=ACTIVE")
+        @DisplayName("autoApprove=true - status=RECRUITMENT_WAITING, statusGroup=ACTIVE")
         fun createEventApprovedTrue() {
             val host = createHost()
             val savedEvent = createEvent(host = host)
@@ -167,16 +166,15 @@ class EventServiceUnitTest {
             val captured = eventSlot.captured
             assertEquals(EventStatus.RECRUITMENT_WAITING, captured.status)
             assertEquals(EventStatusGroup.ACTIVE, captured.statusGroup)
-            assertTrue(captured.isApproved)
             verify(exactly = 0) { discordService.sendNewEventNotification(any()) }
         }
 
         @Test
-        @DisplayName("isApproved=false - status=PENDING, statusGroup=PENDING, Discord 호출")
+        @DisplayName("autoApprove=false - status=PENDING, statusGroup=PENDING, Discord 호출")
         fun createEventApprovedFalse() {
             val host = createHost()
             val savedEvent = createEvent(
-                host = host, isApproved = false,
+                host = host,
                 status = EventStatus.PENDING, statusGroup = EventStatusGroup.PENDING
             )
             val eventRequest = EventCreateRequest(
@@ -197,7 +195,6 @@ class EventServiceUnitTest {
             val captured = eventSlot.captured
             assertEquals(EventStatus.PENDING, captured.status)
             assertEquals(EventStatusGroup.PENDING, captured.statusGroup)
-            assertFalse(captured.isApproved)
             verify(exactly = 1) { discordService.sendNewEventNotification(any()) }
         }
 
@@ -730,11 +727,11 @@ class EventServiceUnitTest {
         }
 
         @Test
-        @DisplayName("isApproved=true 설정 및 updateStatus 호출")
+        @DisplayName("승인 처리 - status 변경 및 updateStatus 호출")
         fun updateStatusSuccess() {
             val host = createHost()
             val event = createEvent(
-                host = host, isApproved = false,
+                host = host,
                 status = EventStatus.PENDING, statusGroup = EventStatusGroup.PENDING,
                 recruitmentStartAt = LocalDateTime.now().plusDays(1),
             )
@@ -743,7 +740,6 @@ class EventServiceUnitTest {
 
             eventService.updateStatus(1L)
 
-            assertTrue(event.isApproved)
             assertEquals(EventStatus.RECRUITMENT_WAITING, event.status)
             assertEquals(EventStatusGroup.ACTIVE, event.statusGroup)
         }

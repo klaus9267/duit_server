@@ -42,7 +42,6 @@ class EventControllerIntegrationTest : IntegrationTestSupport() {
         approvedEvent = TestFixtures.event(
             title = "승인된 행사",
             host = host,
-            isApproved = true,
             status = EventStatus.ACTIVE,
             statusGroup = EventStatusGroup.ACTIVE,
             eventType = EventType.CONFERENCE
@@ -53,7 +52,6 @@ class EventControllerIntegrationTest : IntegrationTestSupport() {
         pendingEvent = TestFixtures.event(
             title = "승인대기 행사",
             host = host,
-            isApproved = false,
             status = EventStatus.PENDING,
             statusGroup = EventStatusGroup.PENDING,
             eventType = EventType.SEMINAR
@@ -64,7 +62,6 @@ class EventControllerIntegrationTest : IntegrationTestSupport() {
         finishedEvent = TestFixtures.event(
             title = "종료된 행사",
             host = host,
-            isApproved = true,
             status = EventStatus.FINISHED,
             statusGroup = EventStatusGroup.FINISHED,
             eventType = EventType.WORKSHOP,
@@ -100,35 +97,11 @@ class EventControllerIntegrationTest : IntegrationTestSupport() {
             }
 
             @Test
-            @DisplayName("승인된 행사만 조회한다")
-            fun getApprovedEvents() {
-                mockMvc.perform(
-                    get("/api/v1/events")
-                        .param("isApproved", "true")
-                )
-                    .andDo(print())
-                    .andExpect(status().isOk)
-                    .andExpect(jsonPath("$.content").isArray)
-            }
-
-            @Test
             @DisplayName("종료된 행사를 포함하여 조회한다")
             fun getEventsIncludeFinished() {
                 mockMvc.perform(
                     get("/api/v1/events")
                         .param("includeFinished", "true")
-                )
-                    .andDo(print())
-                    .andExpect(status().isOk)
-                    .andExpect(jsonPath("$.content").isArray)
-            }
-
-            @Test
-            @DisplayName("미승인 행사를 조회한다")
-            fun getUnapprovedEvents() {
-                mockMvc.perform(
-                    get("/api/v1/events")
-                        .param("isApproved", "false")
                 )
                     .andDo(print())
                     .andExpect(status().isOk)
@@ -146,7 +119,7 @@ class EventControllerIntegrationTest : IntegrationTestSupport() {
         inner class Success {
 
             @Test
-            @DisplayName("행사를 생성한다 (isApproved=false)")
+            @DisplayName("행사를 생성한다 (사용자 - PENDING)")
             fun createEvent() {
                 val eventData = objectMapper.writeValueAsBytes(
                     mapOf(
@@ -181,7 +154,7 @@ class EventControllerIntegrationTest : IntegrationTestSupport() {
         inner class Success {
 
             @Test
-            @DisplayName("관리자가 행사를 생성한다 (isApproved=true)")
+            @DisplayName("관리자가 행사를 생성한다 (자동 승인)")
             fun createAdminEvent() {
                 val eventData = objectMapper.writeValueAsBytes(
                     mapOf(

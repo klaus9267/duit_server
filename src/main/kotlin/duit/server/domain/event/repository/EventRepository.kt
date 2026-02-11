@@ -20,7 +20,7 @@ interface EventRepository : JpaRepository<Event, Long>, EventRepositoryCustom {
         JOIN hosts h ON h.id = e.host_id
         LEFT JOIN views v ON v.event_id = e.id
         LEFT JOIN bookmarks b ON b.event_id = e.id AND (b.user_id = :#{#filter.userId} OR :#{#filter.userId} IS NULL)
-        WHERE e.is_approved = :#{#filter.isApproved}
+        WHERE (:#{#filter.excludePending} = false OR e.status_group <> 'PENDING')
         AND (:#{#filter.eventTypesToString()} IS NULL OR FIND_IN_SET(e.event_type, :#{#filter.eventTypesToString()}) > 0)
         AND (:#{#filter.includeFinished} = 1 OR (e.end_at IS NOT NULL AND e.end_at <= CURDATE()) OR (e.end_at IS NULL AND e.start_at <= CURDATE()))
         AND (:#{#filter.isBookmarked} = 0 OR b.id IS NOT NULL)
@@ -51,7 +51,7 @@ interface EventRepository : JpaRepository<Event, Long>, EventRepositoryCustom {
         FROM events e
         JOIN hosts h ON h.id = e.host_id
         LEFT JOIN bookmarks b ON b.event_id = e.id AND (b.user_id = :#{#filter.userId} OR :#{#filter.userId} IS NULL)
-        WHERE e.is_approved = :#{#filter.isApproved}
+        WHERE (:#{#filter.excludePending} = false OR e.status_group <> 'PENDING')
         AND (:#{#filter.eventTypesToString()} IS NULL OR FIND_IN_SET(e.event_type, :#{#filter.eventTypesToString()}) > 0)
         AND (:#{#filter.includeFinished} = 1 OR (e.end_at IS NOT NULL AND e.end_at <= CURDATE()) OR (e.end_at IS NULL AND e.start_at <= CURDATE()))
         AND (:#{#filter.isBookmarked} = 0 OR b.id IS NOT NULL)
@@ -68,7 +68,7 @@ interface EventRepository : JpaRepository<Event, Long>, EventRepositoryCustom {
         FROM Event e
         JOIN FETCH e.host h
         JOIN FETCH e.view v
-        WHERE e.isApproved = TRUE
+        WHERE e.statusGroup <> duit.server.domain.event.entity.EventStatusGroup.PENDING
         AND e.title LIKE CONCAT('%', :keyword, '%')
         OR h.name LIKE CONCAT('%', :keyword, '%')
         """
@@ -79,7 +79,7 @@ interface EventRepository : JpaRepository<Event, Long>, EventRepositoryCustom {
         """
       SELECT e
       FROM Event e
-      WHERE e.isApproved = true
+      WHERE e.status <> duit.server.domain.event.entity.EventStatus.PENDING
       AND (
           (:fieldName = 'START_AT' AND e.startAt >= :tomorrow AND e.startAt < :nextDay) OR
           (:fieldName = 'RECRUITMENT_START_AT' AND e.recruitmentStartAt >= :tomorrow AND e.recruitmentStartAt < :nextDay) OR
@@ -113,7 +113,7 @@ interface EventRepository : JpaRepository<Event, Long>, EventRepositoryCustom {
         JOIN FETCH e.view
         JOIN Bookmark b ON b.event = e
         WHERE b.user.id = :userId
-        AND e.isApproved = true
+        AND e.status <> duit.server.domain.event.entity.EventStatus.PENDING
         AND e.startAt BETWEEN :start AND :end
         AND (:eventType IS NULL OR e.eventType = :eventType)
         ORDER BY e.startAt ASC

@@ -47,8 +47,6 @@ class Event(
     var uri: String,
     @Column(columnDefinition = "TEXT")
     var thumbnail: String?,
-    var isApproved: Boolean = false,
-
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     var status: EventStatus = EventStatus.PENDING,

@@ -185,8 +185,8 @@ class EventUnitTest {
         }
 
         @Test
-        @DisplayName("정확히 모집 시작 시각 → RECRUITMENT_WAITING (recruitmentStartAt >= time)")
-        fun recruitmentWaitingExactlyAtStart() {
+        @DisplayName("정확히 모집 시작 시각 → RECRUITING (time in recruitmentStartAt..recruitmentEndAt)")
+        fun recruitingExactlyAtStart() {
             val event = createEvent(
                 startAt = baseTime.plusDays(10),
                 endAt = baseTime.plusDays(11),

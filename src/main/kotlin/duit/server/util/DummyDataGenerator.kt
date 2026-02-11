@@ -303,7 +303,6 @@ class DummyDataGenerator(
 
                 val randomTitle = "${SAMPLE_TITLES.random()}_$i"
                 val hostId = Random.nextLong(1, HOST_COUNT.toLong() + 1)
-                val isApproved = if (Random.nextDouble() > 0.3) 1 else 0
                 val eventType = EVENT_TYPES.random().name
                 val (status, statusGroup) = calculateStatusAndGroup(
                     now = now,
@@ -322,7 +321,6 @@ class DummyDataGenerator(
                     "${recruitmentEndAt ?: "\\N"}\t" +
                     "https://duit.com/events/$i\t" +
                     "\\N\t" +  // thumbnail
-                    "$isApproved\t" +
                     "$eventType\t" +
                     "$hostId\t" +
                     "$status\t" +

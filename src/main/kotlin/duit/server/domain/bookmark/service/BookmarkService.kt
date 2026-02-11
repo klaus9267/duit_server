@@ -8,6 +8,7 @@ import duit.server.domain.bookmark.entity.Bookmark
 import duit.server.domain.bookmark.repository.BookmarkRepository
 import duit.server.domain.common.dto.pagination.PageInfo
 import duit.server.domain.common.dto.pagination.PageResponse
+import duit.server.domain.event.entity.EventStatus
 import duit.server.domain.event.service.EventService
 import duit.server.domain.user.service.UserService
 import org.springframework.security.access.AccessDeniedException
@@ -32,7 +33,7 @@ class BookmarkService(
             false
         } else {
             val event = eventService.getEvent(eventId)
-            if (!event.isApproved) {
+            if (event.status == EventStatus.PENDING) {
                 throw AccessDeniedException("승인되지 않은 행사입니다.")
             }
 

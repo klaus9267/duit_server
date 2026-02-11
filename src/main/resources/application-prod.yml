@@ -8,7 +8,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: validate  # 프로덕션: 스키마 검증만 수행
+      ddl-auto: update  # 프로덕션: 스키마 검증만 수행
     show-sql: false  # SQL 로그 비활성화
     properties:
       hibernate:

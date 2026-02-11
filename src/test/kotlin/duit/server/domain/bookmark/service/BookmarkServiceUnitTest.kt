@@ -4,6 +4,8 @@ import duit.server.application.security.SecurityUtil
 import duit.server.domain.bookmark.entity.Bookmark
 import duit.server.domain.bookmark.repository.BookmarkRepository
 import duit.server.domain.event.entity.Event
+import duit.server.domain.event.entity.EventStatus
+import duit.server.domain.event.entity.EventStatusGroup
 import duit.server.domain.event.entity.EventType
 import duit.server.domain.event.service.EventService
 import duit.server.domain.host.entity.Host
@@ -46,8 +48,9 @@ class BookmarkServiceUnitTest {
         approvedEvent = Event(
             id = 10L, title = "승인 행사", startAt = LocalDateTime.now().plusDays(7),
             endAt = null, recruitmentStartAt = null, recruitmentEndAt = null,
-            uri = "https://example.com", thumbnail = null, isApproved = true,
-            eventType = EventType.CONFERENCE, host = host
+            uri = "https://example.com", thumbnail = null,
+            eventType = EventType.CONFERENCE, host = host,
+            status = EventStatus.ACTIVE, statusGroup = EventStatusGroup.ACTIVE
         )
     }
 
@@ -88,7 +91,7 @@ class BookmarkServiceUnitTest {
         @Test
         @DisplayName("미승인 행사를 북마크하면 AccessDeniedException이 발생한다")
         fun throwsOnUnapprovedEvent() {
-            val unapprovedEvent = approvedEvent.copy(isApproved = false)
+            val unapprovedEvent = approvedEvent.copy(status = EventStatus.PENDING, statusGroup = EventStatusGroup.PENDING)
             every { securityUtil.getCurrentUserId() } returns 1L
             every { bookmarkRepository.findByEventIdAndUserId(10L, 1L) } returns null
             every { eventService.getEvent(10L) } returns unapprovedEvent
@@ -142,10 +145,11 @@ class BookmarkServiceUnitTest {
         }
     }
 
-    private fun Event.copy(isApproved: Boolean): Event = Event(
+    private fun Event.copy(status: EventStatus, statusGroup: EventStatusGroup): Event = Event(
         id = this.id, title = this.title, startAt = this.startAt, endAt = this.endAt,
         recruitmentStartAt = this.recruitmentStartAt, recruitmentEndAt = this.recruitmentEndAt,
-        uri = this.uri, thumbnail = this.thumbnail, isApproved = isApproved,
-        eventType = this.eventType, host = this.host
+        uri = this.uri, thumbnail = this.thumbnail,
+        eventType = this.eventType, host = this.host,
+        status = status, statusGroup = statusGroup
     )
 }
