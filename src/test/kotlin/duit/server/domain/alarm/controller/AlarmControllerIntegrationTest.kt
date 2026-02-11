@@ -22,6 +22,7 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 class AlarmControllerIntegrationTest : IntegrationTestSupport() {
 
     private lateinit var user: User
+    private lateinit var otherUser: User
     private lateinit var host: Host
     private lateinit var event: Event
     private lateinit var unreadAlarm: Alarm
@@ -31,6 +32,9 @@ class AlarmControllerIntegrationTest : IntegrationTestSupport() {
     fun setUp() {
         user = TestFixtures.user(nickname = "알람유저", providerId = "alarm-provider")
         entityManager.persist(user)
+
+        otherUser = TestFixtures.user(nickname = "다른유저", providerId = "other-provider", email = "other@example.com")
+        entityManager.persist(otherUser)
 
         host = TestFixtures.host(name = "알람테스트주최")
         entityManager.persist(host)
@@ -168,6 +172,17 @@ class AlarmControllerIntegrationTest : IntegrationTestSupport() {
             }
 
             @Test
+            @DisplayName("다른 유저의 알림을 읽음 처리하면 에러를 반환한다")
+            fun otherUsersAlarm() {
+                mockMvc.perform(
+                    patch("/api/v1/alarms/{alarmId}/read", unreadAlarm.id!!)
+                        .header("Authorization", authHeader(otherUser.id!!))
+                )
+                    .andDo(print())
+                    .andExpect(status().isBadRequest)
+            }
+
+            @Test
             @DisplayName("인증 없이 접근하면 401을 반환한다")
             fun unauthorized() {
                 mockMvc.perform(patch("/api/v1/alarms/{alarmId}/read", unreadAlarm.id!!))
@@ -241,6 +256,17 @@ class AlarmControllerIntegrationTest : IntegrationTestSupport() {
                 mockMvc.perform(
                     delete("/api/v1/alarms/{alarmId}", 999999)
                         .header("Authorization", authHeader(user.id!!))
+                )
+                    .andDo(print())
+                    .andExpect(status().isBadRequest)
+            }
+
+            @Test
+            @DisplayName("다른 유저의 알림을 삭제하면 에러를 반환한다")
+            fun otherUsersAlarm() {
+                mockMvc.perform(
+                    delete("/api/v1/alarms/{alarmId}", readAlarm.id!!)
+                        .header("Authorization", authHeader(otherUser.id!!))
                 )
                     .andDo(print())
                     .andExpect(status().isBadRequest)

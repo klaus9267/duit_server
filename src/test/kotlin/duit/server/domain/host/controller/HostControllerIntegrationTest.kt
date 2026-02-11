@@ -167,6 +167,24 @@ class HostControllerIntegrationTest : IntegrationTestSupport() {
         inner class Failure {
 
             @Test
+            @DisplayName("존재하지 않는 hostId로 수정하면 404를 반환한다")
+            fun notFoundHost() {
+                val data = MockMultipartFile(
+                    "data", "", "application/json",
+                    objectMapper.writeValueAsBytes(mapOf("name" to "수정", "deleteThumbnail" to false))
+                )
+
+                mockMvc.perform(
+                    multipart("/api/v1/hosts/{hostId}", 999999)
+                        .file(data)
+                        .with { it.method = "PUT"; it }
+                        .header("Authorization", authHeader(user.id!!))
+                )
+                    .andDo(print())
+                    .andExpect(status().isNotFound)
+            }
+
+            @Test
             @DisplayName("인증 없이 접근하면 401을 반환한다")
             fun unauthorized() {
                 val data = MockMultipartFile(
@@ -208,6 +226,17 @@ class HostControllerIntegrationTest : IntegrationTestSupport() {
         @Nested
         @DisplayName("실패")
         inner class Failure {
+
+            @Test
+            @DisplayName("존재하지 않는 hostId로 삭제하면 404를 반환한다")
+            fun notFoundHost() {
+                mockMvc.perform(
+                    delete("/api/v1/hosts/{hostId}", 999999)
+                        .header("Authorization", authHeader(user.id!!))
+                )
+                    .andDo(print())
+                    .andExpect(status().isNotFound)
+            }
 
             @Test
             @DisplayName("인증 없이 접근하면 401을 반환한다")

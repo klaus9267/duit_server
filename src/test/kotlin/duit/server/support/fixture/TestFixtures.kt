@@ -1,5 +1,7 @@
 package duit.server.support.fixture
 
+import duit.server.domain.admin.entity.Admin
+import duit.server.domain.admin.entity.BannedIp
 import duit.server.domain.alarm.entity.Alarm
 import duit.server.domain.alarm.entity.AlarmType
 import duit.server.domain.bookmark.entity.Bookmark
@@ -96,5 +98,25 @@ object TestFixtures {
         event = event,
         type = type,
         isRead = isRead,
+    )
+
+    fun admin(
+        user: User,
+        adminId: String = "testadmin",
+        password: String = "encoded-password",
+    ): Admin = Admin(
+        user = user,
+        adminId = adminId,
+        password = password,
+    )
+
+    fun bannedIp(
+        ipAddress: String = "192.168.1.100",
+        failureCount: Int = 0,
+        isBanned: Boolean = false,
+    ): BannedIp = BannedIp(
+        ipAddress = ipAddress,
+        failureCount = failureCount,
+        isBanned = isBanned,
     )
 }
