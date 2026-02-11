@@ -64,7 +64,96 @@ jobs:
           EOF
 
       - name: Run tests
-        run: ./gradlew test
+        run: ./gradlew test jacocoTestReport
+
+      - name: Parse coverage report
+        if: github.event_name == 'pull_request'
+        id: coverage
+        run: |
+          python3 << 'PYEOF'
+          import xml.etree.ElementTree as ET, glob, os
+
+          # JaCoCo
+          tree = ET.parse('build/reports/jacoco/test/jacocoTestReport.xml')
+          counters = {}
+          for c in tree.getroot().findall('counter'):
+              t = c.get('type')
+              missed, covered = int(c.get('missed')), int(c.get('covered'))
+              total = missed + covered
+              pct = f"{covered / total * 100:.1f}" if total > 0 else "0.0"
+              counters[t] = (covered, total, pct)
+
+          def bar(pct_str):
+              filled = round(float(pct_str) / 5)
+              return '█' * filled + '░' * (20 - filled)
+
+          line, branch, method = counters['LINE'], counters['BRANCH'], counters['METHOD']
+
+          # Test results
+          tests = skipped = failed = 0
+          for f in glob.glob('build/test-results/test/TEST-*.xml'):
+              suite = ET.parse(f).getroot()
+              tests += int(suite.get('tests', 0))
+              skipped += int(suite.get('skipped', 0))
+              failed += int(suite.get('failures', 0)) + int(suite.get('errors', 0))
+          passed = tests - skipped - failed
+
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write(f"line_bar={bar(line[2])}\n")
+              f.write(f"line_pct={line[2]}\n")
+              f.write(f"line_detail={line[0]}/{line[1]}\n")
+              f.write(f"branch_bar={bar(branch[2])}\n")
+              f.write(f"branch_pct={branch[2]}\n")
+              f.write(f"branch_detail={branch[0]}/{branch[1]}\n")
+              f.write(f"method_bar={bar(method[2])}\n")
+              f.write(f"method_pct={method[2]}\n")
+              f.write(f"method_detail={method[0]}/{method[1]}\n")
+              f.write(f"passed={passed}\n")
+              f.write(f"skipped={skipped}\n")
+              f.write(f"failed={failed}\n")
+          PYEOF
+
+      - name: Post coverage comment
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = [
+              '## 📊 Test Coverage',
+              '',
+              '```',
+              `Line     ${{ steps.coverage.outputs.line_bar }}  ${{ steps.coverage.outputs.line_pct }}% (${{ steps.coverage.outputs.line_detail }})`,
+              `Branch   ${{ steps.coverage.outputs.branch_bar }}  ${{ steps.coverage.outputs.branch_pct }}% (${{ steps.coverage.outputs.branch_detail }})`,
+              `Method   ${{ steps.coverage.outputs.method_bar }}  ${{ steps.coverage.outputs.method_pct }}% (${{ steps.coverage.outputs.method_detail }})`,
+              '```',
+              '',
+              `✅ ${{ steps.coverage.outputs.passed }} passed · ⏭️ ${{ steps.coverage.outputs.skipped }} skipped · ❌ ${{ steps.coverage.outputs.failed }} failed`,
+            ].join('\n');
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const marker = '## 📊 Test Coverage';
+            const existing = comments.find(c => c.body.startsWith(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
 
       - name: Publish test results
         uses: EnricoMi/publish-unit-test-result-action@v2
