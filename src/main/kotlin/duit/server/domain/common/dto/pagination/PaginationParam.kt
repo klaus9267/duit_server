@@ -10,15 +10,20 @@ abstract class PaginationParam(
     open val sortDirection: Sort.Direction?,
     open val field: PaginationField?
 ) {
-    open fun toPageable(): Pageable = PageRequest.of(
-        page ?: 0,
-        size ?: 10,
-        sortDirection ?: Sort.Direction.DESC,
-        (field ?: PaginationField.ID).displayName
-    )
+    open fun toPageable(): Pageable {
+        val safePage = (page ?: 0).coerceAtLeast(0)
+        val safeSize = (size ?: 10).coerceIn(1, 100)
+        return PageRequest.of(
+            safePage,
+            safeSize,
+            sortDirection ?: Sort.Direction.DESC,
+            (field ?: PaginationField.ID).displayName
+        )
+    }
 
-    open fun toPageableUnsorted(): Pageable = PageRequest.of(
-        page ?: 0,
-        size ?: 10
-    )
+    open fun toPageableUnsorted(): Pageable {
+        val safePage = (page ?: 0).coerceAtLeast(0)
+        val safeSize = (size ?: 10).coerceIn(1, 100)
+        return PageRequest.of(safePage, safeSize)
+    }
 }

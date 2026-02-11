@@ -107,7 +107,7 @@ class AlarmService(
             return
         }
 
-        eligibleUsers.forEach { user ->
+        val newAlarmUsers = eligibleUsers.filter { user ->
             if (!alarmRepository.existsByUserIdAndEventIdAndType(user.id!!, event.id!!, alarmType)) {
                 val alarm = Alarm(
                     user = user,
@@ -115,13 +115,21 @@ class AlarmService(
                     type = alarmType,
                 )
                 alarmRepository.save(alarm)
+                true
+            } else {
+                false
             }
         }
+
+        if (newAlarmUsers.isEmpty()) return
+
+        val deviceTokens = newAlarmUsers.mapNotNull { it.deviceToken }
+        if (deviceTokens.isEmpty()) return
 
         val (title, body, data) = createAlarmContent(alarmType, event)
 
         fcmService.sendAlarms(
-            deviceTokens = eligibleUsers.map { it.deviceToken!! },
+            deviceTokens = deviceTokens,
             title = title,
             body = body,
             data = data

@@ -75,6 +75,10 @@ class AlarmControllerIntegrationTest : IntegrationTestSupport() {
                     .andExpect(status().isOk)
                     .andExpect(jsonPath("$.content").isArray)
                     .andExpect(jsonPath("$.content.length()").value(2))
+                    .andExpect(jsonPath("$.content[0].type").exists())
+                    .andExpect(jsonPath("$.content[0].isRead").exists())
+                    .andExpect(jsonPath("$.content[0].event").exists())
+                    .andExpect(jsonPath("$.content[0].event.title").value("알람 테스트 행사"))
             }
 
             @Test

@@ -108,7 +108,8 @@ class EventService(
     fun getEvents(param: EventCursorPaginationParam): CursorPageResponse<EventResponseV2> {
         val currentUserId = securityUtil.getCurrentUserIdOrNull()
 
-        // size + 1 조회 (hasNext 감지용)
+        param.cursor?.let { EventCursor.decode(it, param.field) }
+
         val events = eventRepository.findEvents(param, currentUserId)
 
         // hasNext 감지 및 실제 이벤트 분리
