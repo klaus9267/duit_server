@@ -26,7 +26,6 @@ import org.springframework.web.servlet.NoHandlerFoundException
 import org.springframework.web.servlet.resource.NoResourceFoundException
 import java.io.FileNotFoundException
 import java.time.LocalDateTime
-import java.util.*
 
 @RestControllerAdvice
 class GlobalExceptionHandler(
@@ -291,13 +290,13 @@ class GlobalExceptionHandler(
                 log.error("Server error: {} - {}", request.requestURI, ex.message, ex)
 
                 // Discord 알림 전송
-//                discordService.sendServerErrorNotification(
-//                    errorCode = errorCode.name,
-//                    message = errorResponse.message,
-//                    path = request.requestURI,
-//                    timestamp = errorResponse.timestamp,
-//                    exception = ex
-//                )
+                discordService.sendServerErrorNotification(
+                    errorCode = errorCode.name,
+                    message = errorResponse.message,
+                    path = request.requestURI,
+                    timestamp = errorResponse.timestamp,
+                    exception = ex
+                )
             }
         }
         

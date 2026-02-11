@@ -1,26 +1,14 @@
 package duit.server.domain.event.controller
 
+import duit.server.support.IntegrationTestSupport
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
-import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.test.context.ActiveProfiles
-import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.result.MockMvcResultHandlers.print
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.*
-import org.springframework.transaction.annotation.Transactional
 
-@SpringBootTest
-@AutoConfigureMockMvc
-@ActiveProfiles("test")
-@Transactional
 @DisplayName("Event API v2 응답 구조 디버그 테스트")
-class EventControllerV2DebugTest {
-
-    @Autowired
-    private lateinit var mockMvc: MockMvc
+class EventControllerV2DebugTest : IntegrationTestSupport() {
 
     @Test
     @DisplayName("기본 API 호출 응답 구조 확인")
@@ -36,7 +24,7 @@ class EventControllerV2DebugTest {
         val responseBody = result.response.contentAsString
         println("=== 실제 응답 구조 ===")
         println(responseBody)
-        
+
         // 응답이 JSON인지 확인
         if (responseBody.startsWith("{")) {
             println("=== JSON 응답 확인됨 ===")

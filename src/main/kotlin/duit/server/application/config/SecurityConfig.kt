@@ -47,7 +47,6 @@ class SecurityConfig(
                         "/api/v1/users/check-nickname",
                         "/api/v1/webhooks/**",
                         "/api/v1/dummy/**",
-                        "/api/v1/hosts",
                         "/api/v2/events/count",
                         "/api/v1/events/migrate-status",
                         "/api/v1/scheduler/**",
@@ -71,6 +70,7 @@ class SecurityConfig(
                         "/api/v2/events",
                         "/api/v2/events/{eventId}",
                         "/api/v1/users",
+                        "/api/v1/hosts",
                     ).permitAll()
 
                     // CORS preflight 요청 (OPTIONS) 허용

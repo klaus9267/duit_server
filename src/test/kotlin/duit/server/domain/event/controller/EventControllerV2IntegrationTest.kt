@@ -1,159 +1,34 @@
 package duit.server.domain.event.controller
 
-import com.fasterxml.jackson.databind.JsonNode
-import com.fasterxml.jackson.databind.ObjectMapper
-import duit.server.domain.bookmark.entity.Bookmark
-import duit.server.domain.event.entity.Event
 import duit.server.domain.event.entity.EventStatus
 import duit.server.domain.event.entity.EventStatusGroup
 import duit.server.domain.event.entity.EventType
 import duit.server.domain.host.entity.Host
-import duit.server.domain.user.entity.AlarmSettings
 import duit.server.domain.user.entity.ProviderType
 import duit.server.domain.user.entity.User
-import duit.server.domain.view.entity.View
-import jakarta.persistence.EntityManager
+import duit.server.support.IntegrationTestSupport
+import duit.server.support.fixture.TestFixtures
+import duit.server.support.util.assertDateAscendingOrder
+import duit.server.support.util.assertDateDescendingOrder
+import duit.server.support.util.assertDescendingOrder
+import duit.server.support.util.extractCursorFromResponse
+import duit.server.support.util.extractHasNextFromResponse
+import duit.server.support.util.extractValuesFromResponse
 import org.hamcrest.Matchers.*
 import org.junit.jupiter.api.*
-import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.test.context.ActiveProfiles
-import org.springframework.test.web.servlet.MockMvc
-import org.springframework.test.web.servlet.MvcResult
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.result.MockMvcResultHandlers.print
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
-import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDateTime
 
-@SpringBootTest
-@AutoConfigureMockMvc
-@ActiveProfiles("test")
-@Transactional
 @DisplayName("Event API v2 통합 테스트")
-class EventControllerV2IntegrationTest {
-
-    @Autowired
-    private lateinit var mockMvc: MockMvc
-
-    @Autowired
-    private lateinit var entityManager: EntityManager
-
-    private val objectMapper = ObjectMapper()
+class EventControllerV2IntegrationTest : IntegrationTestSupport() {
 
     // 테스트 데이터
     private lateinit var host1: Host
     private lateinit var host2: Host
     private lateinit var user1: User
-
-    /**
-     * MockMvc 응답에서 특정 경로의 값들을 추출하는 유틸리티 함수
-     */
-    private fun extractValuesFromResponse(result: MvcResult, jsonPath: String): List<Any> {
-        val responseBody = result.response.contentAsString
-        val jsonNode = objectMapper.readTree(responseBody)
-        val contentNode = jsonNode.get("content")
-
-        if (!contentNode.isArray) return emptyList()
-
-        val values = mutableListOf<Any>()
-        for (item in contentNode) {
-            val pathParts = jsonPath.split(".")
-            var currentNode: JsonNode = item
-
-            for (part in pathParts) {
-                if (currentNode.has(part)) {
-                    currentNode = currentNode.get(part)
-                } else {
-                    break
-                }
-            }
-
-            when {
-                currentNode.isInt -> values.add(currentNode.asInt())
-                currentNode.isLong -> values.add(currentNode.asLong())
-                currentNode.isTextual -> values.add(currentNode.asText())
-                currentNode.isDouble -> values.add(currentNode.asDouble())
-                else -> values.add(currentNode.toString())
-            }
-        }
-        return values
-    }
-
-    /**
-     * MockMvc 응답에서 nextCursor를 추출하는 유틸리티 함수
-     */
-    private fun extractCursorFromResponse(result: MvcResult): String? {
-        val responseBody = result.response.contentAsString
-        val jsonNode = objectMapper.readTree(responseBody)
-        return jsonNode.get("pageInfo")?.get("nextCursor")?.asText()
-    }
-
-    /**
-     * MockMvc 응답에서 hasNext 값을 추출하는 유틸리티 함수
-     */
-    private fun extractHasNextFromResponse(result: MvcResult): Boolean {
-        val responseBody = result.response.contentAsString
-        val jsonNode = objectMapper.readTree(responseBody)
-        return jsonNode.get("pageInfo")?.get("hasNext")?.asBoolean() ?: false
-    }
-
-    /**
-     * 정수 리스트가 내림차순으로 정렬되었는지 확인
-     */
-    private fun assertDescendingOrder(values: List<Any>, fieldName: String) {
-        if (values.size <= 1) return
-
-        val intValues = values.mapNotNull {
-            when (it) {
-                is Int -> it
-                is Long -> it.toInt()
-                is String -> it.toIntOrNull()
-                else -> null
-            }
-        }
-
-        for (i in 0 until intValues.size - 1) {
-            Assertions.assertTrue(
-                intValues[i] >= intValues[i + 1],
-                "${fieldName}이 내림차순으로 정렬되지 않았습니다: ${intValues[i]} >= ${intValues[i + 1]}"
-            )
-        }
-    }
-
-    /**
-     * 날짜 문자열 리스트가 최신순(내림차순)으로 정렬되었는지 확인
-     */
-    private fun assertDateDescendingOrder(values: List<Any>, fieldName: String) {
-        if (values.size <= 1) return
-
-        val dateStrings = values.mapNotNull { it as? String }
-
-        for (i in 0 until dateStrings.size - 1) {
-            Assertions.assertTrue(
-                dateStrings[i] >= dateStrings[i + 1],
-                "${fieldName}이 최신순으로 정렬되지 않았습니다: ${dateStrings[i]} >= ${dateStrings[i + 1]}"
-            )
-        }
-    }
-
-    /**
-     * 날짜 문자열 리스트가 오름차순으로 정렬되었는지 확인
-     */
-    private fun assertDateAscendingOrder(values: List<Any>, fieldName: String) {
-        if (values.size <= 1) return
-
-        val dateStrings = values.mapNotNull { it as? String }
-
-        for (i in 0 until dateStrings.size - 1) {
-            Assertions.assertTrue(
-                dateStrings[i] <= dateStrings[i + 1],
-                "${fieldName}이 오름차순으로 정렬되지 않았습니다: ${dateStrings[i]} <= ${dateStrings[i + 1]}"
-            )
-        }
-    }
 
     @BeforeEach
     fun setUp() {
@@ -164,18 +39,16 @@ class EventControllerV2IntegrationTest {
         val now = LocalDateTime.now()
 
         // Host 생성
-        host1 = Host(name = "테크 컨퍼런스", thumbnail = null)
-        host2 = Host(name = "교육 센터", thumbnail = null)
+        host1 = TestFixtures.host(name = "테크 컨퍼런스")
+        host2 = TestFixtures.host(name = "교육 센터")
         entityManager.persist(host1)
         entityManager.persist(host2)
 
         // User 생성 (북마크 테스트용)
-        user1 = User(
+        user1 = TestFixtures.user(
             providerId = "test-user-1",
             providerType = ProviderType.GOOGLE,
             nickname = "테스트유저1",
-            deviceToken = null,
-            alarmSettings = AlarmSettings()
         )
         entityManager.persist(user1)
 
@@ -202,7 +75,7 @@ class EventControllerV2IntegrationTest {
             EventStatus.FINISHED
         )
 
-        val events = mutableListOf<Event>()
+        val events = mutableListOf<duit.server.domain.event.entity.Event>()
 
         // EventType별로 이벤트 생성 (각 타입마다 다양한 상태)
         eventTypes.forEachIndexed { typeIndex, (eventType, title) ->
@@ -213,19 +86,18 @@ class EventControllerV2IntegrationTest {
                 else -> EventStatusGroup.ACTIVE
             }
 
-            val event = Event(
+            val event = TestFixtures.event(
                 title = title,
                 startAt = now.plusDays((typeIndex + 1).toLong()),
                 endAt = now.plusDays((typeIndex + 1).toLong()).plusHours(4),
                 recruitmentStartAt = now.minusDays(10),
                 recruitmentEndAt = now.plusDays(typeIndex.toLong()),
                 uri = "https://example.com/event${typeIndex + 1}",
-                thumbnail = null,
                 isApproved = true,
                 host = if (typeIndex % 2 == 0) host1 else host2,
                 eventType = eventType,
                 status = status,
-                statusGroup = statusGroup
+                statusGroup = statusGroup,
             )
             events.add(event)
             entityManager.persist(event)
@@ -239,19 +111,18 @@ class EventControllerV2IntegrationTest {
                 else -> EventStatusGroup.ACTIVE
             }
 
-            val event = Event(
+            val event = TestFixtures.event(
                 title = "${status.description} 상태 이벤트",
                 startAt = now.plusDays((statusIndex + 20).toLong()),
                 endAt = now.plusDays((statusIndex + 20).toLong()).plusHours(3),
                 recruitmentStartAt = now.minusDays(5),
                 recruitmentEndAt = now.plusDays((statusIndex + 15).toLong()),
                 uri = "https://example.com/status${statusIndex + 1}",
-                thumbnail = null,
                 isApproved = true,
                 host = host1,
                 eventType = EventType.SEMINAR,
                 status = status,
-                statusGroup = statusGroup
+                statusGroup = statusGroup,
             )
             events.add(event)
             entityManager.persist(event)
@@ -259,13 +130,13 @@ class EventControllerV2IntegrationTest {
 
         // View 생성 (조회수, 정렬 테스트용)
         events.forEachIndexed { index, event ->
-            val view = View(event = event, count = (100 + index * 50))
+            val view = TestFixtures.view(event = event, count = (100 + index * 50))
             entityManager.persist(view)
         }
 
         // Bookmark 생성 (일부 이벤트만)
         events.take(3).forEach { event ->
-            entityManager.persist(Bookmark(user = user1, event = event))
+            entityManager.persist(TestFixtures.bookmark(user = user1, event = event))
         }
 
         entityManager.flush()
@@ -993,6 +864,57 @@ class EventControllerV2IntegrationTest {
                         .andExpect(jsonPath("$.pageInfo.hasNext").value(false))
                         .andExpect(jsonPath("$.pageInfo.pageSize").value(0))
                 }
+            }
+        }
+
+        @Nested
+        @DisplayName("단건 조회")
+        inner class GetEventDetailTests {
+
+            @Test
+            @DisplayName("행사 단건 조회에 성공한다")
+            fun getEventDetailSuccess() {
+                // setUp에서 생성된 이벤트 중 하나를 조회
+                val listResult = mockMvc.perform(
+                    get("/api/v2/events")
+                        .param("size", "1")
+                )
+                    .andExpect(status().isOk)
+                    .andReturn()
+
+                val eventId = extractValuesFromResponse(listResult, "id").first()
+
+                mockMvc.perform(get("/api/v2/events/{eventId}", eventId))
+                    .andDo(print())
+                    .andExpect(status().isOk)
+                    .andExpect(jsonPath("$.id").value(eventId))
+                    .andExpect(jsonPath("$.title").isString)
+                    .andExpect(jsonPath("$.eventType").isString)
+                    .andExpect(jsonPath("$.eventStatus").isString)
+                    .andExpect(jsonPath("$.host").exists())
+                    .andExpect(jsonPath("$.viewCount").isNumber)
+            }
+
+            @Test
+            @DisplayName("존재하지 않는 eventId로 요청하면 404를 반환한다")
+            fun getEventDetailNotFound() {
+                mockMvc.perform(get("/api/v2/events/{eventId}", 999999))
+                    .andDo(print())
+                    .andExpect(status().isNotFound)
+            }
+        }
+
+        @Nested
+        @DisplayName("승인 행사 총 갯수 조회")
+        inner class GetTotalCountTests {
+
+            @Test
+            @DisplayName("승인된 행사 총 갯수를 조회한다")
+            fun getTotalCountSuccess() {
+                mockMvc.perform(get("/api/v2/events/count"))
+                    .andDo(print())
+                    .andExpect(status().isOk)
+                    .andExpect(jsonPath("$").isNumber)
             }
         }
 
