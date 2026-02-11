@@ -10,7 +10,7 @@ import java.time.LocalDateTime
 @Entity
 @Table(name = "admins")
 @EntityListeners(AuditingEntityListener::class)
-data class Admin(
+class Admin(
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long? = null,
