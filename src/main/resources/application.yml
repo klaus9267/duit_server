@@ -2,6 +2,9 @@ spring:
   profiles:
     active: prod
 
+  jpa:
+    open-in-view: false  # OSIV 비활성화 — 컨트롤러에서 Lazy Loading 방지, 커넥션 풀 점유 최소화
+
   # 파일 업로드 크기 제한 설정
   servlet:
     multipart:
