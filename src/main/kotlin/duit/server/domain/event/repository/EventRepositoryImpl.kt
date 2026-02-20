@@ -333,52 +333,70 @@ class EventRepositoryImpl(
         return queryFactory
             .selectFrom(event)
             .where(
-                shouldBeFinished(now)
-                    .or(shouldBeActive(now))
-                    .or(shouldBeEventWaiting(now))
-                    .or(shouldBeRecruiting(now))
-                    .or(shouldBeRecruitmentWaiting(now))
+                event.status.ne(EventStatus.PENDING)
+                    .and(
+                        shouldBeFinished(now)
+                            .or(shouldBeActive(now))
+                            .or(shouldBeEventWaiting(now))
+                            .or(shouldBeRecruiting(now))
+                            .or(shouldBeRecruitmentWaiting(now))
+                    )
             )
             .fetch()
     }
 
-    private fun shouldBeFinished(now: LocalDateTime): BooleanExpression {
-        val finishedCondition = event.endAt.isNotNull.and(event.endAt.lt(now))
+    /** Entity: time > (endAt ?: startAt) */
+    private fun shouldBeFinished(now: LocalDateTime): BooleanExpression =
+        event.endAt.isNotNull.and(event.endAt.lt(now))
             .or(event.endAt.isNull.and(event.startAt.lt(now)))
+            .and(event.status.ne(EventStatus.FINISHED))
 
-        return finishedCondition.and(event.status.ne(EventStatus.FINISHED))
-    }
-
-    private fun shouldBeActive(now: LocalDateTime): BooleanExpression {
-        val activeCondition = event.startAt.loe(now)
+    /** Entity: startAt <= now AND endAt != null AND endAt >= now */
+    private fun shouldBeActive(now: LocalDateTime): BooleanExpression =
+        event.startAt.loe(now)
             .and(event.endAt.isNotNull)
-            .and(event.endAt.gt(now))
+            .and(event.endAt.goe(now))
+            .and(event.status.ne(EventStatus.ACTIVE))
 
-        return activeCondition.and(event.status.ne(EventStatus.ACTIVE))
-    }
+    /** Entity: (both null) OR (recruitmentEndAt <= now), 행사 시작 전 */
+    private fun shouldBeEventWaiting(now: LocalDateTime): BooleanExpression =
+        event.startAt.gt(now)
+            .and(
+                event.recruitmentStartAt.isNull.and(event.recruitmentEndAt.isNull)
+                    .or(event.recruitmentEndAt.isNotNull.and(event.recruitmentEndAt.loe(now)))
+            )
+            .and(event.status.ne(EventStatus.EVENT_WAITING))
 
-    private fun shouldBeEventWaiting(now: LocalDateTime): BooleanExpression {
-        val eventWaitingCondition = event.recruitmentStartAt.isNull
-            .and(event.recruitmentEndAt.isNull)
-            .or(event.recruitmentEndAt.isNotNull.and(event.recruitmentEndAt.lt(now)))
-            .and(event.startAt.gt(now))
-
-        return eventWaitingCondition.and(event.status.ne(EventStatus.EVENT_WAITING))
-    }
-
+    /**
+     * Entity isRecruiting 3가지 케이스, 행사 시작 전
+     * end > now (gt) 사용 — end == now인 경우 eventWaiting 우선
+     */
     private fun shouldBeRecruiting(now: LocalDateTime): BooleanExpression {
-        val recruitingCondition = event.recruitmentStartAt.isNotNull
+        // Case 1: 시작/종료일 모두 있는 경우
+        val case1 = event.recruitmentStartAt.isNotNull
             .and(event.recruitmentStartAt.loe(now))
-            .and(event.recruitmentEndAt.isNotNull.and(event.recruitmentEndAt.goe(now)))
+            .and(event.recruitmentEndAt.isNotNull)
+            .and(event.recruitmentEndAt.gt(now))
 
-        return recruitingCondition.and(event.status.ne(EventStatus.RECRUITING))
+        // Case 2: 종료일만 있는 경우
+        val case2 = event.recruitmentStartAt.isNull
+            .and(event.recruitmentEndAt.isNotNull)
+            .and(event.recruitmentEndAt.gt(now))
+
+        // Case 3: 시작일만 있는 경우
+        val case3 = event.recruitmentStartAt.isNotNull
+            .and(event.recruitmentStartAt.loe(now))
+            .and(event.recruitmentEndAt.isNull)
+
+        return event.startAt.gt(now)
+            .and(case1.or(case2).or(case3))
+            .and(event.status.ne(EventStatus.RECRUITING))
     }
 
-    private fun shouldBeRecruitmentWaiting(now: LocalDateTime): BooleanExpression {
-        val recruitmentWaitingCondition = event.recruitmentStartAt.isNotNull
+    /** Entity: recruitmentStartAt > now, 행사 시작 전. gt — recruitmentStartAt == now면 recruiting 우선 */
+    private fun shouldBeRecruitmentWaiting(now: LocalDateTime): BooleanExpression =
+        event.startAt.gt(now)
+            .and(event.recruitmentStartAt.isNotNull)
             .and(event.recruitmentStartAt.gt(now))
-            .or(event.recruitmentEndAt.isNotNull.and(event.recruitmentEndAt.gt(now)))
-
-        return recruitmentWaitingCondition.and(event.status.ne(EventStatus.RECRUITMENT_WAITING))
-    }
+            .and(event.status.ne(EventStatus.RECRUITMENT_WAITING))
 }

@@ -107,8 +107,10 @@ class EventStatusScheduler(
         eventsNeedingUpdate.forEach { event ->
             val oldStatus = event.status
             event.updateStatus(now)
-            eventRepository.save(event)
-            logger.info("Updated event ${event.id}: $oldStatus -> ${event.status}")
+            if (oldStatus != event.status) {
+                eventRepository.save(event)
+                logger.info("Updated event ${event.id}: $oldStatus -> ${event.status}")
+            }
         }
     }
 }
