@@ -9,7 +9,6 @@ application-*.properties
 !application-*.properties.example
 .mcp.json
 CLAUDE.md
-AGENTS.md
 
 ### STS ###
 .apt_generated
@@ -64,3 +63,6 @@ docker-compose.yml.backup
 docker-compose-env.yml
 /src/main/resources/application.properties
 /.claude/
+
+### k6 Load Test Results ###
+scripts/k6/results/

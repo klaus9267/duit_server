@@ -8,7 +8,7 @@ import java.time.LocalDateTime
 @Entity
 @Table(name = "banned_ips")
 @EntityListeners(AuditingEntityListener::class)
-data class BannedIp(
+class BannedIp(
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long? = null,

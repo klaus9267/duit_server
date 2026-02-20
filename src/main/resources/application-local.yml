@@ -11,6 +11,12 @@ spring:
     url: jdbc:mysql://${DB_HOST}:${LOCAL_DB_PORT}/${DB_NAME}?rewriteBatchedStatements=true&allowLoadLocalInfile=true&useServerPrepStmts=false&cachePrepStmts=true&prepStmtCacheSize=500&prepStmtCacheSqlLimit=2048
     username: ${LOCAL_DB_USERNAME}
     password: ${LOCAL_DB_PASSWORD}
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 10
+      idle-timeout: 30000
+      max-lifetime: 300000
+      connection-timeout: 3000
 
   h2:
     console:
@@ -22,11 +28,12 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update  # 스키마 자동 업데이트 (데이터 유지)
-    show-sql: true  # SQL 로그 출력 비활성화 (대량 데이터 처리 시 성능 향상)
+    show-sql: false
     properties:
       hibernate:
 #        dialect: org.hibernate.dialect.H2Dialect
         dialect: org.hibernate.dialect.MySQL8Dialect
+        default_batch_fetch_size: 100
 
 # 파일 스토리지 설정 (로컬)
 file:
