@@ -66,15 +66,15 @@ class Event(
     @ManyToOne(fetch = FetchType.LAZY)
     var host: Host,
 
-    @OneToOne(mappedBy = "event", cascade = [CascadeType.ALL], orphanRemoval = true)
-    val view: View? = null,
-
     @OneToMany(mappedBy = "event", cascade = [CascadeType.ALL], orphanRemoval = true)
     val bookmarks: List<Bookmark> = emptyList(),
 
     @OneToMany(mappedBy = "event", cascade = [CascadeType.ALL], orphanRemoval = true)
     val alarms: List<Alarm> = emptyList()
 ) {
+    @OneToOne(mappedBy = "event", cascade = [CascadeType.ALL], orphanRemoval = true)
+    var view: View = View(event = this)
+
     fun update(updateRequest: EventUpdateRequest, thumbnailUrl: String?, host: Host) {
         title = updateRequest.title
         startAt = updateRequest.startAt

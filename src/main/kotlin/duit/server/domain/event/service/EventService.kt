@@ -10,7 +10,6 @@ import duit.server.domain.event.entity.EventStatusGroup
 import duit.server.domain.event.repository.EventRepository
 import duit.server.domain.host.dto.HostRequest
 import duit.server.domain.host.service.HostService
-import duit.server.domain.view.service.ViewService
 import duit.server.infrastructure.external.discord.DiscordService
 import duit.server.infrastructure.external.file.FileStorageService
 import org.springframework.data.domain.PageRequest
@@ -23,7 +22,6 @@ import java.time.LocalDateTime
 @Transactional(readOnly = true)
 class EventService(
     private val eventRepository: EventRepository,
-    private val viewService: ViewService,
     private val securityUtil: SecurityUtil,
     private val discordService: DiscordService,
     private val hostService: HostService,
@@ -58,15 +56,16 @@ class EventService(
                 this.status = EventStatus.PENDING
                 this.statusGroup = EventStatusGroup.PENDING
             }
+
         }
 
-        return eventRepository.save(event).also { viewService.createView(it) }
-            .let {
-                if (!autoApprove) {
-                    discordService.sendNewEventNotification(it)
-                }
-                EventResponseV2.from(it, false)
-            }
+        val savedEvent = eventRepository.save(event)
+
+        if (!autoApprove) {
+            discordService.sendNewEventNotification(savedEvent)
+        }
+
+        return EventResponseV2.from(savedEvent, false)
     }
 
     fun getEvent(eventId: Long): Event = eventRepository.findByIdOrThrow(eventId)
