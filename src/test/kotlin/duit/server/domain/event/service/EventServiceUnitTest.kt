@@ -10,8 +10,6 @@ import duit.server.domain.event.repository.EventRepository
 import duit.server.domain.host.dto.HostRequest
 import duit.server.domain.host.entity.Host
 import duit.server.domain.host.service.HostService
-import duit.server.domain.view.entity.View
-import duit.server.domain.view.service.ViewService
 import duit.server.infrastructure.external.discord.DiscordService
 import duit.server.infrastructure.external.file.FileStorageService
 import io.mockk.*
@@ -53,18 +51,16 @@ class EventServiceUnitTest {
 
     private fun createEventService(
         eventRepository: EventRepository,
-        viewService: ViewService,
         securityUtil: SecurityUtil,
         discordService: DiscordService,
         hostService: HostService,
         fileStorageService: FileStorageService,
-    ) = EventService(eventRepository, viewService, securityUtil, discordService, hostService, fileStorageService)
+    ) = EventService(eventRepository, securityUtil, discordService, hostService, fileStorageService)
 
     @Nested
     @DisplayName("createEvent")
     inner class CreateEventTests {
         private lateinit var eventRepository: EventRepository
-        private lateinit var viewService: ViewService
         private lateinit var securityUtil: SecurityUtil
         private lateinit var discordService: DiscordService
         private lateinit var hostService: HostService
@@ -74,12 +70,11 @@ class EventServiceUnitTest {
         @BeforeEach
         fun setUp() {
             eventRepository = mockk()
-            viewService = mockk()
             securityUtil = mockk()
             discordService = mockk()
             hostService = mockk()
             fileStorageService = mockk()
-            eventService = createEventService(eventRepository, viewService, securityUtil, discordService, hostService, fileStorageService)
+            eventService = createEventService(eventRepository, securityUtil, discordService, hostService, fileStorageService)
         }
 
         @Test
@@ -96,7 +91,6 @@ class EventServiceUnitTest {
 
             every { hostService.getHost(1L) } returns host
             every { eventRepository.save(any<Event>()) } returns savedEvent
-            every { viewService.createView(any()) } returns mockk<View>(relaxed = true)
 
             val result = eventService.createEvent(eventRequest, null, null, true)
 
@@ -119,7 +113,6 @@ class EventServiceUnitTest {
 
             every { hostService.findOrCreateHost(HostRequest(name = "신규 주최", thumbnail = null)) } returns host
             every { eventRepository.save(any<Event>()) } returns savedEvent
-            every { viewService.createView(any()) } returns mockk<View>(relaxed = true)
 
             val result = eventService.createEvent(eventRequest, null, null, true)
 
@@ -159,7 +152,6 @@ class EventServiceUnitTest {
 
             every { hostService.getHost(1L) } returns host
             every { eventRepository.save(capture(eventSlot)) } returns savedEvent
-            every { viewService.createView(any()) } returns mockk<View>(relaxed = true)
 
             eventService.createEvent(eventRequest, null, null, true)
 
@@ -187,7 +179,6 @@ class EventServiceUnitTest {
 
             every { hostService.getHost(1L) } returns host
             every { eventRepository.save(capture(eventSlot)) } returns savedEvent
-            every { viewService.createView(any()) } returns mockk<View>(relaxed = true)
             every { discordService.sendNewEventNotification(any()) } returns Unit
 
             eventService.createEvent(eventRequest, null, null, false)
@@ -214,7 +205,6 @@ class EventServiceUnitTest {
             every { hostService.getHost(1L) } returns host
             every { fileStorageService.uploadFile(eventThumbnail, "events") } returns "https://storage.com/event.jpg"
             every { eventRepository.save(any<Event>()) } returns savedEvent
-            every { viewService.createView(any()) } returns mockk<View>(relaxed = true)
 
             eventService.createEvent(eventRequest, eventThumbnail, null, true)
 
@@ -235,7 +225,6 @@ class EventServiceUnitTest {
 
             every { hostService.getHost(1L) } returns host
             every { eventRepository.save(any<Event>()) } returns savedEvent
-            every { viewService.createView(any()) } returns mockk<View>(relaxed = true)
 
             eventService.createEvent(eventRequest, null, null, true)
 
@@ -260,7 +249,6 @@ class EventServiceUnitTest {
                 hostService.findOrCreateHost(HostRequest(name = "신규 주최", thumbnail = "https://storage.com/host.jpg"))
             } returns host
             every { eventRepository.save(any<Event>()) } returns savedEvent
-            every { viewService.createView(any()) } returns mockk<View>(relaxed = true)
 
             eventService.createEvent(eventRequest, null, hostThumbnail, true)
 
@@ -272,7 +260,6 @@ class EventServiceUnitTest {
     @DisplayName("getEvents (커서 페이지네이션)")
     inner class GetEventsTests {
         private lateinit var eventRepository: EventRepository
-        private lateinit var viewService: ViewService
         private lateinit var securityUtil: SecurityUtil
         private lateinit var discordService: DiscordService
         private lateinit var hostService: HostService
@@ -282,12 +269,11 @@ class EventServiceUnitTest {
         @BeforeEach
         fun setUp() {
             eventRepository = mockk()
-            viewService = mockk()
             securityUtil = mockk()
             discordService = mockk()
             hostService = mockk()
             fileStorageService = mockk()
-            eventService = createEventService(eventRepository, viewService, securityUtil, discordService, hostService, fileStorageService)
+            eventService = createEventService(eventRepository, securityUtil, discordService, hostService, fileStorageService)
         }
 
         @Test
@@ -383,7 +369,6 @@ class EventServiceUnitTest {
     @DisplayName("getEventDetail")
     inner class GetEventDetailTests {
         private lateinit var eventRepository: EventRepository
-        private lateinit var viewService: ViewService
         private lateinit var securityUtil: SecurityUtil
         private lateinit var discordService: DiscordService
         private lateinit var hostService: HostService
@@ -393,12 +378,11 @@ class EventServiceUnitTest {
         @BeforeEach
         fun setUp() {
             eventRepository = mockk()
-            viewService = mockk()
             securityUtil = mockk()
             discordService = mockk()
             hostService = mockk()
             fileStorageService = mockk()
-            eventService = createEventService(eventRepository, viewService, securityUtil, discordService, hostService, fileStorageService)
+            eventService = createEventService(eventRepository, securityUtil, discordService, hostService, fileStorageService)
         }
 
         @Test
@@ -437,7 +421,6 @@ class EventServiceUnitTest {
     @DisplayName("updateEvent")
     inner class UpdateEventTests {
         private lateinit var eventRepository: EventRepository
-        private lateinit var viewService: ViewService
         private lateinit var securityUtil: SecurityUtil
         private lateinit var discordService: DiscordService
         private lateinit var hostService: HostService
@@ -447,12 +430,11 @@ class EventServiceUnitTest {
         @BeforeEach
         fun setUp() {
             eventRepository = mockk()
-            viewService = mockk()
             securityUtil = mockk()
             discordService = mockk()
             hostService = mockk()
             fileStorageService = mockk()
-            eventService = createEventService(eventRepository, viewService, securityUtil, discordService, hostService, fileStorageService)
+            eventService = createEventService(eventRepository, securityUtil, discordService, hostService, fileStorageService)
         }
 
         @Test
@@ -651,7 +633,6 @@ class EventServiceUnitTest {
     @DisplayName("deleteEvents")
     inner class DeleteEventsTests {
         private lateinit var eventRepository: EventRepository
-        private lateinit var viewService: ViewService
         private lateinit var securityUtil: SecurityUtil
         private lateinit var discordService: DiscordService
         private lateinit var hostService: HostService
@@ -661,12 +642,11 @@ class EventServiceUnitTest {
         @BeforeEach
         fun setUp() {
             eventRepository = mockk()
-            viewService = mockk()
             securityUtil = mockk()
             discordService = mockk()
             hostService = mockk()
             fileStorageService = mockk()
-            eventService = createEventService(eventRepository, viewService, securityUtil, discordService, hostService, fileStorageService)
+            eventService = createEventService(eventRepository, securityUtil, discordService, hostService, fileStorageService)
         }
 
         @Test
@@ -709,7 +689,6 @@ class EventServiceUnitTest {
     @DisplayName("updateStatus")
     inner class UpdateStatusTests {
         private lateinit var eventRepository: EventRepository
-        private lateinit var viewService: ViewService
         private lateinit var securityUtil: SecurityUtil
         private lateinit var discordService: DiscordService
         private lateinit var hostService: HostService
@@ -719,12 +698,11 @@ class EventServiceUnitTest {
         @BeforeEach
         fun setUp() {
             eventRepository = mockk()
-            viewService = mockk()
             securityUtil = mockk()
             discordService = mockk()
             hostService = mockk()
             fileStorageService = mockk()
-            eventService = createEventService(eventRepository, viewService, securityUtil, discordService, hostService, fileStorageService)
+            eventService = createEventService(eventRepository, securityUtil, discordService, hostService, fileStorageService)
         }
 
         @Test
@@ -750,7 +728,6 @@ class EventServiceUnitTest {
     @DisplayName("getEvents4Calendar")
     inner class GetEvents4CalendarTests {
         private lateinit var eventRepository: EventRepository
-        private lateinit var viewService: ViewService
         private lateinit var securityUtil: SecurityUtil
         private lateinit var discordService: DiscordService
         private lateinit var hostService: HostService
@@ -760,12 +737,11 @@ class EventServiceUnitTest {
         @BeforeEach
         fun setUp() {
             eventRepository = mockk()
-            viewService = mockk()
             securityUtil = mockk()
             discordService = mockk()
             hostService = mockk()
             fileStorageService = mockk()
-            eventService = createEventService(eventRepository, viewService, securityUtil, discordService, hostService, fileStorageService)
+            eventService = createEventService(eventRepository, securityUtil, discordService, hostService, fileStorageService)
         }
 
         @Test
@@ -825,7 +801,6 @@ class EventServiceUnitTest {
     @DisplayName("countActiveEvents")
     inner class CountActiveEventsTests {
         private lateinit var eventRepository: EventRepository
-        private lateinit var viewService: ViewService
         private lateinit var securityUtil: SecurityUtil
         private lateinit var discordService: DiscordService
         private lateinit var hostService: HostService
@@ -835,12 +810,11 @@ class EventServiceUnitTest {
         @BeforeEach
         fun setUp() {
             eventRepository = mockk()
-            viewService = mockk()
             securityUtil = mockk()
             discordService = mockk()
             hostService = mockk()
             fileStorageService = mockk()
-            eventService = createEventService(eventRepository, viewService, securityUtil, discordService, hostService, fileStorageService)
+            eventService = createEventService(eventRepository, securityUtil, discordService, hostService, fileStorageService)
         }
 
         @Test

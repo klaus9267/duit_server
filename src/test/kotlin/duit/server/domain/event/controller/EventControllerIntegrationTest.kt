@@ -46,8 +46,8 @@ class EventControllerIntegrationTest : IntegrationTestSupport() {
             statusGroup = EventStatusGroup.ACTIVE,
             eventType = EventType.CONFERENCE
         )
+        approvedEvent.view.count = 10
         entityManager.persist(approvedEvent)
-        entityManager.persist(TestFixtures.view(event = approvedEvent, count = 10))
 
         pendingEvent = TestFixtures.event(
             title = "승인대기 행사",
@@ -57,7 +57,6 @@ class EventControllerIntegrationTest : IntegrationTestSupport() {
             eventType = EventType.SEMINAR
         )
         entityManager.persist(pendingEvent)
-        entityManager.persist(TestFixtures.view(event = pendingEvent, count = 0))
 
         finishedEvent = TestFixtures.event(
             title = "종료된 행사",
@@ -68,8 +67,8 @@ class EventControllerIntegrationTest : IntegrationTestSupport() {
             startAt = LocalDateTime.now().minusDays(10),
             endAt = LocalDateTime.now().minusDays(9)
         )
+        finishedEvent.view.count = 5
         entityManager.persist(finishedEvent)
-        entityManager.persist(TestFixtures.view(event = finishedEvent, count = 5))
 
         // 북마크 데이터
         entityManager.persist(TestFixtures.bookmark(user = user, event = approvedEvent))

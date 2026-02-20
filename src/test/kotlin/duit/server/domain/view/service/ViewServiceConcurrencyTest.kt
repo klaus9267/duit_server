@@ -41,64 +41,6 @@ class ViewServiceConcurrencyTest {
     private lateinit var transactionTemplate: TransactionTemplate
 
     @Nested
-    @DisplayName("createView 통합 테스트")
-    inner class CreateViewIntegrationTests {
-
-        @Test
-        @DisplayName("통합 - DB에 View가 실제로 저장되고 count=0으로 초기화된다")
-        fun createViewIntegration() {
-            // given
-            val host = transactionTemplate.execute {
-                val h = Host(name = "통합 테스트 주최")
-                entityManager.persist(h)
-                entityManager.flush()
-                h
-            }!!
-            val event = transactionTemplate.execute {
-                val e = Event(
-                    title = "통합 테스트 행사",
-                    startAt = LocalDateTime.now().plusDays(7),
-                    endAt = LocalDateTime.now().plusDays(8),
-                    recruitmentStartAt = null,
-                    recruitmentEndAt = null,
-                    uri = "https://example.com/event",
-                    thumbnail = null,
-                    eventType = EventType.CONFERENCE,
-                    host = host
-                )
-                entityManager.persist(e)
-                entityManager.flush()
-                e
-            }!!
-
-            try {
-                // when
-                val result = viewService.createView(event)
-
-                // then
-                assertNotNull(result.id, "저장 후 ID가 생성되어야 합니다")
-                assertEquals(0, result.count, "초기 count는 0이어야 합니다")
-
-                val found = transactionTemplate.execute {
-                    viewRepository.findByEventId(event.id!!)
-                }
-                assertNotNull(found, "DB에서 조회 가능해야 합니다")
-                assertEquals(0, found!!.count)
-            } finally {
-                // cleanup — JPQL bulk deletes in FK order (View → Event → Host)
-                transactionTemplate.execute {
-                    entityManager.createQuery("DELETE FROM View v WHERE v.event.id = :id")
-                        .setParameter("id", event.id).executeUpdate()
-                    entityManager.createQuery("DELETE FROM Event e WHERE e.id = :id")
-                        .setParameter("id", event.id).executeUpdate()
-                    entityManager.createQuery("DELETE FROM Host h WHERE h.id = :id")
-                        .setParameter("id", host.id).executeUpdate()
-                }
-            }
-        }
-    }
-
-    @Nested
     @DisplayName("increaseCount 동시성 테스트")
     inner class ConcurrencyTests {
 
@@ -148,12 +90,6 @@ class ViewServiceConcurrencyTest {
                 e
             }!!
             testEventId = event.id
-
-            transactionTemplate.execute {
-                val v = View(event = event, count = 0)
-                entityManager.persist(v)
-                entityManager.flush()
-            }
         }
 
         @Test
