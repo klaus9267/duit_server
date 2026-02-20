@@ -3,6 +3,8 @@ package duit.server.domain.host.dto
 import duit.server.domain.common.dto.pagination.PaginationField
 import duit.server.domain.common.dto.pagination.PaginationParam
 import io.swagger.v3.oas.annotations.media.Schema
+import org.springframework.data.domain.PageRequest
+import org.springframework.data.domain.Pageable
 import org.springframework.data.domain.Sort
 
 data class HostPaginationParam(
@@ -17,4 +19,16 @@ data class HostPaginationParam(
 
     @field:Schema(description = "정렬 필드", example = "NAME", required = false)
     override val field: PaginationField = PaginationField.NAME
-) : PaginationParam(page, size, sortDirection, field)
+) : PaginationParam(page, size, sortDirection, field) {
+
+    override fun toPageable(): Pageable {
+        val safePage = (page ?: 0).coerceAtLeast(0)
+        val safeSize = (size ?: 10).coerceIn(1, 1000)
+        return PageRequest.of(
+            safePage,
+            safeSize,
+            sortDirection ?: Sort.Direction.DESC,
+            field.displayName
+        )
+    }
+}
