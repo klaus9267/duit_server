@@ -24,10 +24,8 @@ class ViewControllerIntegrationTest : IntegrationTestSupport() {
         entityManager.persist(host)
 
         val event = TestFixtures.event(host = host, status = EventStatus.ACTIVE, statusGroup = EventStatusGroup.ACTIVE)
+        event.view.count = 5
         entityManager.persist(event)
-
-        val view = TestFixtures.view(event = event, count = 5)
-        entityManager.persist(view)
 
         entityManager.flush()
         entityManager.clear()

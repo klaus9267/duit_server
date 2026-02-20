@@ -66,3 +66,6 @@ docker-compose-env.yml
 
 ### k6 Load Test Results ###
 scripts/k6/results/
+
+### Agent Rules (local only) ###
+rules/

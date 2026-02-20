@@ -31,7 +31,7 @@ data class EventResponse(
             thumbnail = event.thumbnail,
             eventType = event.eventType,
             host = HostResponse.from(event.host),
-            viewCount = event.view?.count ?: 0,
+            viewCount = event.view.count,
             isBookmarked = isBookmarked
         )
     }

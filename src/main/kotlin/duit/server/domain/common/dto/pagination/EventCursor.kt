@@ -99,7 +99,7 @@ sealed interface EventCursor {
                     id = id
                 )
                 PaginationField.VIEW_COUNT -> ViewCountCursor(
-                    count = event.view?.count?.toLong() ?: 0L,
+                    count = event.view.count.toLong(),
                     id = id
                 )
                 PaginationField.ID -> IdCursor(id = id)

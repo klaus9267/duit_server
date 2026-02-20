@@ -37,7 +37,7 @@ data class EventResponseV2(
             eventStatus = event.status,
             eventStatusGroup = event.statusGroup,
             host = HostResponse.from(event.host),
-            viewCount = event.view?.count ?: 0,
+            viewCount = event.view.count,
             isBookmarked = isBookmarked
         )
     }

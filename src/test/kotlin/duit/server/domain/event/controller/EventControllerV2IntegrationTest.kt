@@ -98,6 +98,7 @@ class EventControllerV2IntegrationTest : IntegrationTestSupport() {
                 status = status,
                 statusGroup = statusGroup,
             )
+            event.view.count = 100 + events.size * 50
             events.add(event)
             entityManager.persist(event)
         }
@@ -122,14 +123,9 @@ class EventControllerV2IntegrationTest : IntegrationTestSupport() {
                 status = status,
                 statusGroup = statusGroup,
             )
+            event.view.count = 100 + events.size * 50
             events.add(event)
             entityManager.persist(event)
-        }
-
-        // View 생성 (조회수, 정렬 테스트용)
-        events.forEachIndexed { index, event ->
-            val view = TestFixtures.view(event = event, count = (100 + index * 50))
-            entityManager.persist(view)
         }
 
         // Bookmark 생성 (일부 이벤트만)
