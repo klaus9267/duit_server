@@ -63,6 +63,7 @@ jobs:
           UPLOAD_DIR=${{ secrets.UPLOAD_DIR }}
           BASE_URL=${{ secrets.BASE_URL }}
           FIREBASE_WEB_API_KEY=${{ secrets.FIREBASE_WEB_API_KEY }}
+          FIREBASE_PROJECT_ID=${{ secrets.FIREBASE_PROJECT_ID }}
           EOF
 
           cat > src/main/resources/firebase-key.json << EOF
