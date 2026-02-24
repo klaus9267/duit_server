@@ -1,6 +1,6 @@
 spring:
   profiles:
-    active: prod
+    active: local
 
   jpa:
     open-in-view: false  # OSIV 비활성화 — 컨트롤러에서 Lazy Loading 방지, 커넥션 풀 점유 최소화
@@ -68,3 +68,4 @@ discord:
 # Firebase 설정
 firebase:
   web-api-key: ${FIREBASE_WEB_API_KEY}
+  project-id: ${FIREBASE_PROJECT_ID}

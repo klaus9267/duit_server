@@ -51,6 +51,9 @@ dependencies {
     // Firebase Admin SDK
     implementation 'com.google.firebase:firebase-admin:9.2.0'
 
+    // OAuth2 Resource Server (for Firebase JWT local verification)
+    implementation 'org.springframework.boot:spring-boot-starter-oauth2-resource-server'
+
     // QueryDSL
     implementation 'com.querydsl:querydsl-jpa:5.0.0:jakarta'
     kapt 'com.querydsl:querydsl-apt:5.0.0:jakarta'
