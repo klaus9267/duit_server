@@ -1,6 +1,5 @@
 package duit.server.domain.user.service
 
-import com.google.firebase.auth.FirebaseToken
 import duit.server.application.security.SecurityUtil
 import duit.server.domain.common.dto.pagination.PageInfo
 import duit.server.domain.common.dto.pagination.PageResponse
@@ -23,14 +22,14 @@ class UserService(
 ) {
 
     @Transactional
-    fun createUser(providerType: ProviderType, token: FirebaseToken): User {
+    fun createUser(providerType: ProviderType, uid: String, email: String?, name: String?): User {
         val newUser = User(
-            email = token.email ?: "",
+            email = email ?: "",
             nickname = generateNickname(
-                token.name ?: token.email?.substringBefore("@") ?: "사용자"
+                name ?: email?.substringBefore("@") ?: "사용자"
             ),
             providerType = providerType,
-            providerId = token.uid
+            providerId = uid
         )
         return userRepository.save(newUser)
     }

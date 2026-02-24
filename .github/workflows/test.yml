@@ -91,13 +91,18 @@ jobs:
 
           # Test results
           tests = skipped = failed = 0
+          total_time = 0.0
           for f in glob.glob('build/test-results/test/TEST-*.xml'):
               suite = ET.parse(f).getroot()
               tests += int(suite.get('tests', 0))
               skipped += int(suite.get('skipped', 0))
               failed += int(suite.get('failures', 0)) + int(suite.get('errors', 0))
+              total_time += float(suite.get('time', 0))
           passed = tests - skipped - failed
-
+          if total_time >= 60:
+              time_str = f"{int(total_time // 60)}m {total_time % 60:.0f}s"
+          else:
+              time_str = f"{total_time:.1f}s"
           with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
               f.write(f"line_bar={bar(line[2])}\n")
               f.write(f"line_pct={line[2]}\n")
@@ -111,6 +116,7 @@ jobs:
               f.write(f"passed={passed}\n")
               f.write(f"skipped={skipped}\n")
               f.write(f"failed={failed}\n")
+              f.write(f"time={time_str}\n")
           PYEOF
 
       - name: Post coverage comment
@@ -127,7 +133,7 @@ jobs:
               `Method   ${{ steps.coverage.outputs.method_bar }}  ${{ steps.coverage.outputs.method_pct }}% (${{ steps.coverage.outputs.method_detail }})`,
               '```',
               '',
-              `✅ ${{ steps.coverage.outputs.passed }} passed · ⏭️ ${{ steps.coverage.outputs.skipped }} skipped · ❌ ${{ steps.coverage.outputs.failed }} failed`,
+              `✅ ${{ steps.coverage.outputs.passed }} passed · ⏭️ ${{ steps.coverage.outputs.skipped }} skipped · ❌ ${{ steps.coverage.outputs.failed }} failed · ⏱️ ${{ steps.coverage.outputs.time }}`,
             ].join('\n');
 
             const { data: comments } = await github.rest.issues.listComments({

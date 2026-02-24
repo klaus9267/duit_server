@@ -226,6 +226,8 @@ class AlarmServiceIntegrationTest : IntegrationTestSupport() {
                     alarms.size <= 4, // 최대 유저2명 × 스레드2개 = 4 (중복 제거 전)
                     "알람이 비정상적으로 많이 생성되면 안 된다 (actual: ${alarms.size})"
                 )
+                // 참고: MySQL에서는 try-catch로 UK 위반을 잡아 유저당 정확히 1개씩 (= 2개) 생성되지만,
+                // H2에서는 동시성 동작이 달라 0~4개까지 가능하므로 하한은 검증하지 않는다.
             } finally {
                 val em = entityManager.entityManagerFactory.createEntityManager()
                 em.transaction.begin()

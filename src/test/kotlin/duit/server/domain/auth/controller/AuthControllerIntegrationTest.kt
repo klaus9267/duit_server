@@ -1,14 +1,13 @@
 package duit.server.domain.auth.controller
 
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.FirebaseToken
 import com.ninjasquad.springmockk.MockkBean
+import duit.server.domain.auth.dto.FirebaseTokenClaims
 import duit.server.domain.user.entity.ProviderType
+import duit.server.infrastructure.external.firebase.FirebaseTokenVerifier
 import duit.server.support.IntegrationTestSupport
 import duit.server.support.fixture.TestFixtures
 import io.mockk.clearMocks
 import io.mockk.every
-import io.mockk.mockk
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -22,25 +21,22 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 @DisplayName("Auth API 통합 테스트")
 class AuthControllerIntegrationTest : IntegrationTestSupport() {
 
-    @MockkBean(relaxed = true)
-    private lateinit var firebaseAuth: FirebaseAuth
+    @MockkBean
+    private lateinit var firebaseTokenVerifier: FirebaseTokenVerifier
 
     @BeforeEach
-    fun resetFirebaseAuthMock() {
-        clearMocks(firebaseAuth, answers = true, recordedCalls = true)
+    fun resetFirebaseTokenVerifierMock() {
+        clearMocks(firebaseTokenVerifier, answers = true, recordedCalls = true)
     }
 
-    private fun stubFirebaseToken(uid: String, provider: String, name: String? = null, email: String? = null): FirebaseToken {
-        val mockToken = mockk<FirebaseToken>()
-        every { mockToken.uid } returns uid
-        every { mockToken.name } returns name
-        every { mockToken.email } returns email
-        every { mockToken.claims } returns mapOf(
-            "firebase" to mapOf("sign_in_provider" to provider),
+    private fun stubFirebaseToken(uid: String, provider: String, name: String? = null, email: String? = null) {
+        val claims = FirebaseTokenClaims(
+            uid = uid,
+            email = email,
+            name = name,
+            claims = mapOf("firebase" to mapOf("sign_in_provider" to provider))
         )
-        every { firebaseAuth.verifyIdToken(any<String>()) } returns mockToken
-        every { firebaseAuth.verifyIdToken(any<String>(), any()) } returns mockToken
-        return mockToken
+        every { firebaseTokenVerifier.verifyIdToken(any()) } returns claims
     }
 
     @Nested
@@ -54,7 +50,6 @@ class AuthControllerIntegrationTest : IntegrationTestSupport() {
             @Test
             @DisplayName("기존 유저가 소셜 로그인하면 isNewUser=false와 JWT 토큰을 반환한다")
             fun existingUserLogin() {
-                // given
                 val user = TestFixtures.user(
                     nickname = "기존유저",
                     providerType = ProviderType.GOOGLE,
@@ -67,7 +62,6 @@ class AuthControllerIntegrationTest : IntegrationTestSupport() {
 
                 stubFirebaseToken(uid = "existing-uid", provider = "google.com")
 
-                // when & then
                 mockMvc.perform(
                     post("/api/v1/auth/social")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -90,10 +84,8 @@ class AuthControllerIntegrationTest : IntegrationTestSupport() {
             @Test
             @DisplayName("Google 신규 유저가 소셜 로그인하면 isNewUser=true와 JWT 토큰을 반환한다")
             fun newUserGoogleSignup() {
-                // given
                 stubFirebaseToken(uid = "new-uid", provider = "google.com", name = "새유저", email = "new@example.com")
 
-                // when & then
                 mockMvc.perform(
                     post("/api/v1/auth/social")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -110,10 +102,8 @@ class AuthControllerIntegrationTest : IntegrationTestSupport() {
             @Test
             @DisplayName("Apple 신규 유저도 정상적으로 회원가입된다")
             fun newUserAppleSignup() {
-                // given
                 stubFirebaseToken(uid = "apple-uid", provider = "apple.com", name = "애플유저", email = "apple@example.com")
 
-                // when & then
                 mockMvc.perform(
                     post("/api/v1/auth/social")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -129,10 +119,8 @@ class AuthControllerIntegrationTest : IntegrationTestSupport() {
             @Test
             @DisplayName("Kakao 신규 유저도 정상적으로 회원가입된다")
             fun newUserKakaoSignup() {
-                // given
                 stubFirebaseToken(uid = "kakao-uid", provider = "oidc.kakao", name = "카카오유저", email = "kakao@example.com")
 
-                // when & then
                 mockMvc.perform(
                     post("/api/v1/auth/social")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -153,13 +141,9 @@ class AuthControllerIntegrationTest : IntegrationTestSupport() {
             @Test
             @DisplayName("유효하지 않은 Firebase 토큰이면 에러를 반환한다")
             fun invalidFirebaseToken() {
-                // given
-                every { firebaseAuth.verifyIdToken(any<String>()) } throws
-                    IllegalArgumentException("Invalid token format")
-                every { firebaseAuth.verifyIdToken(any<String>(), any()) } throws
+                every { firebaseTokenVerifier.verifyIdToken(any()) } throws
                     IllegalArgumentException("Invalid token format")
 
-                // when & then
                 mockMvc.perform(
                     post("/api/v1/auth/social")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -172,10 +156,8 @@ class AuthControllerIntegrationTest : IntegrationTestSupport() {
             @Test
             @DisplayName("알 수 없는 소셜 프로바이더이면 에러를 반환한다")
             fun unknownProvider() {
-                // given
                 stubFirebaseToken(uid = "unknown-uid", provider = "unknown.provider")
 
-                // when & then
                 mockMvc.perform(
                     post("/api/v1/auth/social")
                         .contentType(MediaType.APPLICATION_JSON)

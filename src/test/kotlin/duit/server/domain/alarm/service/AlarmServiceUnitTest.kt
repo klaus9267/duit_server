@@ -15,7 +15,9 @@ import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
 import io.mockk.runs
+import io.mockk.slot
 import io.mockk.verify
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -294,19 +296,71 @@ class AlarmServiceUnitTest {
             verify(exactly = 0) { fcmService.sendAlarms(any(), any(), any(), any()) }
         }
 
-        @Test
-        @DisplayName("모든 알람 타입에 대해 올바른 FCM 내용이 생성된다")
-        fun `각 알람 타입별 FCM 내용 검증`() {
+    }
+
+    @Nested
+    @DisplayName("createAlarms - FCM 메시지 내용 검증")
+    inner class AlarmContentTests {
+
+        @BeforeEach
+        fun setUpMocks() {
             every { eventRepository.findById(10L) } returns Optional.of(event)
             every { bookmarkRepository.findEligibleUsersForAlarms(10L) } returns listOf(user)
             every { alarmRepository.existsByUserIdAndEventIdAndType(any(), any(), any()) } returns false
             every { alarmRepository.save(any<Alarm>()) } answers { firstArg() }
+        }
 
-            AlarmType.entries.forEach { alarmType ->
-                alarmService.createAlarms(alarmType, 10L)
-            }
+        @Test
+        @DisplayName("EVENT_START: 제목에 '시작' 포함, 본문에 행사명과 시작 시각 포함, data에 event_start 타입")
+        fun `EVENT_START FCM 내용 검증`() {
+            alarmService.createAlarms(AlarmType.EVENT_START, 10L)
 
-            verify(exactly = 3) { fcmService.sendAlarms(any(), any(), any(), any()) }
+            val titleSlot = slot<String>()
+            val bodySlot = slot<String>()
+            val dataSlot = slot<Map<String, String>>()
+            verify { fcmService.sendAlarms(any(), capture(titleSlot), capture(bodySlot), capture(dataSlot)) }
+
+            assertTrue(titleSlot.captured.contains("시작"))
+            assertTrue(bodySlot.captured.contains(event.title))
+            assertTrue(bodySlot.captured.contains("${event.startAt.hour}시"))
+            assertEquals("event_start", dataSlot.captured["type"])
+            assertEquals(event.id.toString(), dataSlot.captured["eventId"])
+            assertEquals(event.host.name, dataSlot.captured["hostName"])
+        }
+
+        @Test
+        @DisplayName("RECRUITMENT_START: 제목에 '모집' 포함, 본문에 행사명과 모집 시작 시각 포함")
+        fun `RECRUITMENT_START FCM 내용 검증`() {
+            alarmService.createAlarms(AlarmType.RECRUITMENT_START, 10L)
+
+            val titleSlot = slot<String>()
+            val bodySlot = slot<String>()
+            val dataSlot = slot<Map<String, String>>()
+            verify { fcmService.sendAlarms(any(), capture(titleSlot), capture(bodySlot), capture(dataSlot)) }
+
+            assertTrue(titleSlot.captured.contains("모집"))
+            assertTrue(titleSlot.captured.contains("시작"))
+            assertTrue(bodySlot.captured.contains(event.title))
+            assertTrue(bodySlot.captured.contains("${event.recruitmentStartAt!!.hour}시"))
+            assertEquals("recruitment_start", dataSlot.captured["type"])
+            assertEquals(event.id.toString(), dataSlot.captured["eventId"])
+        }
+
+        @Test
+        @DisplayName("RECRUITMENT_END: 제목에 '마감' 포함, 본문에 행사명과 모집 마감 시각 포함")
+        fun `RECRUITMENT_END FCM 내용 검증`() {
+            alarmService.createAlarms(AlarmType.RECRUITMENT_END, 10L)
+
+            val titleSlot = slot<String>()
+            val bodySlot = slot<String>()
+            val dataSlot = slot<Map<String, String>>()
+            verify { fcmService.sendAlarms(any(), capture(titleSlot), capture(bodySlot), capture(dataSlot)) }
+
+            assertTrue(titleSlot.captured.contains("마감"))
+            assertTrue(bodySlot.captured.contains(event.title))
+            assertTrue(bodySlot.captured.contains("${event.recruitmentEndAt!!.hour}시"))
+            assertEquals("recruitment_end", dataSlot.captured["type"])
+            assertEquals(event.id.toString(), dataSlot.captured["eventId"])
         }
     }
 }

@@ -70,3 +70,6 @@ scripts/k6/results/
 
 ### Agent Rules (local only) ###
 rules/
+
+### Documentation (local only) ###
+docs/

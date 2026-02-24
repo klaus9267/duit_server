@@ -30,17 +30,19 @@ class EventAlarmScheduler(
     private val scheduledKeys = mutableSetOf<String>()
     private var lastScheduledDate: LocalDate? = null
 
-    // 매일 자정에 알람 생성
+    // 매일 새벽 4시에 당일 알람 스케줄 등록
     @Scheduled(cron = "0 0 4 * * *")
     fun createDailyAlarms() {
-        val today = LocalDate.now()
-        if (lastScheduledDate != today) {
-            scheduledKeys.clear()
-            lastScheduledDate = today
+        synchronized(this) {
+            val today = LocalDate.now()
+            if (lastScheduledDate != today) {
+                scheduledKeys.clear()
+                lastScheduledDate = today
+            }
+            createAlarmsByType(EventDate.RECRUITMENT_START_AT, AlarmType.RECRUITMENT_START)
+            createAlarmsByType(EventDate.RECRUITMENT_END_AT, AlarmType.RECRUITMENT_END)
+            createAlarmsByType(EventDate.START_AT, AlarmType.EVENT_START)
         }
-        createAlarmsByType(EventDate.RECRUITMENT_START_AT, AlarmType.RECRUITMENT_START)
-        createAlarmsByType(EventDate.RECRUITMENT_END_AT, AlarmType.RECRUITMENT_END)
-        createAlarmsByType(EventDate.START_AT, AlarmType.EVENT_START)
     }
 
     @EventListener(ApplicationReadyEvent::class)
@@ -71,6 +73,8 @@ class EventAlarmScheduler(
                         alarmService.createAlarms(alarmType, event.id!!)
                     } catch (_: DataIntegrityViolationException) {
                         log.debug("알람 중복 생성 무시 - eventId: {}, type: {} (동시 스케줄 실행)", event.id, alarmType)
+                    } catch (e: Exception) {
+                        log.error("알람 생성 실패 - eventId: {}, type: {}", event.id, alarmType, e)
                     }
                 }, instant)
             }

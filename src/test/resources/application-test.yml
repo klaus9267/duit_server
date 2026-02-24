@@ -55,4 +55,5 @@ scheduler:
   enabled: false
 
 firebase:
-  web-api-key: $test_api_key
+  web-api-key: test_api_key
+  project-id: test-project-id
