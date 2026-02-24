@@ -1,6 +1,5 @@
 package duit.server.domain.user.service
 
-import com.google.firebase.auth.FirebaseToken
 import duit.server.application.security.SecurityUtil
 import duit.server.domain.user.dto.UpdateNicknameRequest
 import duit.server.domain.user.dto.UpdateUserSettingsRequest
@@ -49,14 +48,11 @@ class UserServiceUnitTest {
         @Test
         @DisplayName("기본 닉네임이 고유하면 그대로 사용한다")
         fun usesBaseNameWhenUnique() {
-            val token = mockk<FirebaseToken>()
-            every { token.name } returns "홍길동"
-            every { token.email } returns "hong@example.com"
-            every { token.uid } returns "uid-123"
+            every { userRepository.existsByNickname("홍길동") } returns false
             every { userRepository.existsByNickname("홍길동") } returns false
             every { userRepository.save(any<User>()) } answers { firstArg() }
 
-            val result = userService.createUser(ProviderType.GOOGLE, token)
+            val result = userService.createUser(ProviderType.GOOGLE, "uid-123", "hong@example.com", "홍길동")
 
             assertEquals("홍길동", result.nickname)
         }
@@ -64,15 +60,12 @@ class UserServiceUnitTest {
         @Test
         @DisplayName("기본 닉네임이 중복이면 카운터를 붙여 생성한다")
         fun appendsCounterWhenDuplicate() {
-            val token = mockk<FirebaseToken>()
-            every { token.name } returns "홍길동"
-            every { token.email } returns "hong@example.com"
-            every { token.uid } returns "uid-123"
+            every { userRepository.existsByNickname("홍길동") } returns false
             every { userRepository.existsByNickname("홍길동") } returns true
             every { userRepository.existsByNickname("홍길동1") } returns false
             every { userRepository.save(any<User>()) } answers { firstArg() }
 
-            val result = userService.createUser(ProviderType.GOOGLE, token)
+            val result = userService.createUser(ProviderType.GOOGLE, "uid-123", "hong@example.com", "홍길동")
 
             assertEquals("홍길동1", result.nickname)
         }
@@ -80,48 +73,30 @@ class UserServiceUnitTest {
         @Test
         @DisplayName("여러 번 중복이면 카운터를 증가시킨다")
         fun incrementsCounterMultipleTimes() {
-            val token = mockk<FirebaseToken>()
-            every { token.name } returns "유저"
-            every { token.email } returns "user@example.com"
-            every { token.uid } returns "uid-456"
             every { userRepository.existsByNickname("유저") } returns true
             every { userRepository.existsByNickname("유저1") } returns true
             every { userRepository.existsByNickname("유저2") } returns true
             every { userRepository.existsByNickname("유저3") } returns false
             every { userRepository.save(any<User>()) } answers { firstArg() }
-
-            val result = userService.createUser(ProviderType.GOOGLE, token)
-
+            val result = userService.createUser(ProviderType.GOOGLE, "uid-456", "user@example.com", "유저")
             assertEquals("유저3", result.nickname)
         }
 
         @Test
         @DisplayName("name이 null이면 email 앞부분을 사용한다")
         fun usesEmailPrefixWhenNameNull() {
-            val token = mockk<FirebaseToken>()
-            every { token.name } returns null
-            every { token.email } returns "myemail@example.com"
-            every { token.uid } returns "uid-789"
             every { userRepository.existsByNickname("myemail") } returns false
             every { userRepository.save(any<User>()) } answers { firstArg() }
-
-            val result = userService.createUser(ProviderType.GOOGLE, token)
-
+            val result = userService.createUser(ProviderType.GOOGLE, "uid-789", "myemail@example.com", null)
             assertEquals("myemail", result.nickname)
         }
 
         @Test
         @DisplayName("name과 email 모두 null이면 '사용자'를 사용한다")
         fun usesDefaultWhenBothNull() {
-            val token = mockk<FirebaseToken>()
-            every { token.name } returns null
-            every { token.email } returns null
-            every { token.uid } returns "uid-000"
             every { userRepository.existsByNickname("사용자") } returns false
             every { userRepository.save(any<User>()) } answers { firstArg() }
-
-            val result = userService.createUser(ProviderType.GOOGLE, token)
-
+            val result = userService.createUser(ProviderType.GOOGLE, "uid-000", null, null)
             assertEquals("사용자", result.nickname)
             assertEquals("", result.email)
         }
