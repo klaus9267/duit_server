@@ -12,6 +12,7 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -20,6 +21,9 @@ import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.scheduling.TaskScheduler
 import java.time.Instant
 import java.time.LocalDateTime
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicInteger
 
 @DisplayName("EventAlarmScheduler 단위 테스트")
 class EventAlarmSchedulerUnitTest {
@@ -176,12 +180,11 @@ class EventAlarmSchedulerUnitTest {
         }
 
         @Test
-        @DisplayName("스케줄된 Runnable에서 DataIntegrityViolationException 외 예외는 전파된다")
-        fun `Runnable에서 다른 예외는 전파된다`() {
+        @DisplayName("스케줄된 Runnable에서 예상치 못한 예외 발생 시에도 예외가 전파되지 않는다 (catch-all)")
+        fun `Runnable에서 다른 예외도 catch-all로 처리된다`() {
             val now = LocalDateTime.now()
             val event = createEvent(id = 1L, startAt = now.plusDays(1).plusHours(10))
             every { eventRepository.findEventsByDateField("START_AT", any(), any()) } returns listOf(event)
-
             val capturedRunnables = mutableListOf<Runnable>()
             every { taskScheduler.schedule(capture(capturedRunnables), any<Instant>()) } returns mockk()
             every { alarmService.createAlarms(AlarmType.EVENT_START, 1L) } throws
@@ -189,9 +192,8 @@ class EventAlarmSchedulerUnitTest {
 
             scheduler.createDailyAlarms()
 
-            org.junit.jupiter.api.assertThrows<RuntimeException> {
-                capturedRunnables[0].run()
-            }
+            // catch-all이 있으므로 예외가 전파되지 않아야 한다
+            capturedRunnables[0].run()
         }
 
         @Test
@@ -267,6 +269,86 @@ class EventAlarmSchedulerUnitTest {
             capturedRunnables.forEach { it.run() }
 
             verify(exactly = 1) { alarmService.createAlarms(AlarmType.EVENT_START, 1L) }
+        }
+    }
+
+    @Nested
+    @DisplayName("동시성 안전성 (Thread Safety)")
+    inner class ThreadSafetyTests {
+
+        @Test
+        @DisplayName("여러 스레드가 동시에 createDailyAlarms를 호출해도 같은 이벤트에 Runnable이 1개만 등록된다")
+        fun `동시 호출 시 스케줄 중복 등록 방지`() {
+            val now = LocalDateTime.now()
+            val event = createEvent(id = 1L, startAt = now.plusDays(1).plusHours(10))
+            every { eventRepository.findEventsByDateField("START_AT", any(), any()) } returns listOf(event)
+
+            val threadCount = 10
+            val startLatch = CountDownLatch(1)
+            val doneLatch = CountDownLatch(threadCount)
+            val executor = Executors.newFixedThreadPool(threadCount)
+            val errorCount = AtomicInteger(0)
+
+            repeat(threadCount) {
+                executor.submit {
+                    try {
+                        startLatch.await()
+                        scheduler.createDailyAlarms()
+                    } catch (e: Exception) {
+                        errorCount.incrementAndGet()
+                    } finally {
+                        doneLatch.countDown()
+                    }
+                }
+            }
+
+            startLatch.countDown()
+            doneLatch.await()
+            executor.shutdown()
+
+            assertEquals(0, errorCount.get(), "에러 없이 완료되어야 한다")
+            verify(exactly = 1) { taskScheduler.schedule(any<Runnable>(), any<Instant>()) }
+        }
+
+        @Test
+        @DisplayName("여러 스레드가 동시 호출해도 scheduledKeys 상태가 손상되지 않는다")
+        fun `동시 호출 시 내부 상태 무결성 유지`() {
+            val now = LocalDateTime.now()
+            val events = (1L..5L).map { id ->
+                createEvent(id = id, startAt = now.plusDays(1).plusHours(10))
+            }
+            every { eventRepository.findEventsByDateField("START_AT", any(), any()) } returns events
+
+            val threadCount = 10
+            val startLatch = CountDownLatch(1)
+            val doneLatch = CountDownLatch(threadCount)
+            val executor = Executors.newFixedThreadPool(threadCount)
+            val scheduleCount = AtomicInteger(0)
+
+            every { taskScheduler.schedule(any<Runnable>(), any<Instant>()) } answers {
+                scheduleCount.incrementAndGet()
+                mockk()
+            }
+
+            repeat(threadCount) {
+                executor.submit {
+                    try {
+                        startLatch.await()
+                        scheduler.createDailyAlarms()
+                    } finally {
+                        doneLatch.countDown()
+                    }
+                }
+            }
+
+            startLatch.countDown()
+            doneLatch.await()
+            executor.shutdown()
+
+            assertEquals(
+                5, scheduleCount.get(),
+                "5개 이벤트에 대해 정확히 5개의 스케줄만 등록되어야 한다 (actual: ${scheduleCount.get()})"
+            )
         }
     }
 }

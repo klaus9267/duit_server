@@ -33,14 +33,16 @@ class EventAlarmScheduler(
     // 매일 자정에 알람 생성
     @Scheduled(cron = "0 0 4 * * *")
     fun createDailyAlarms() {
-        val today = LocalDate.now()
-        if (lastScheduledDate != today) {
-            scheduledKeys.clear()
-            lastScheduledDate = today
+        synchronized(this) {
+            val today = LocalDate.now()
+            if (lastScheduledDate != today) {
+                scheduledKeys.clear()
+                lastScheduledDate = today
+            }
+            createAlarmsByType(EventDate.RECRUITMENT_START_AT, AlarmType.RECRUITMENT_START)
+            createAlarmsByType(EventDate.RECRUITMENT_END_AT, AlarmType.RECRUITMENT_END)
+            createAlarmsByType(EventDate.START_AT, AlarmType.EVENT_START)
         }
-        createAlarmsByType(EventDate.RECRUITMENT_START_AT, AlarmType.RECRUITMENT_START)
-        createAlarmsByType(EventDate.RECRUITMENT_END_AT, AlarmType.RECRUITMENT_END)
-        createAlarmsByType(EventDate.START_AT, AlarmType.EVENT_START)
     }
 
     @EventListener(ApplicationReadyEvent::class)
@@ -70,7 +72,9 @@ class EventAlarmScheduler(
                     try {
                         alarmService.createAlarms(alarmType, event.id!!)
                     } catch (_: DataIntegrityViolationException) {
-                        log.debug("알람 중복 생성 무시 - eventId: {}, type: {} (동시 스케줄 실행)", event.id, alarmType)
+                        log.debug("\uc54c\ub78c \uc911\ubcf5 \uc0dd\uc131 \ubb34\uc2dc - eventId: {}, type: {} (\ub3d9\uc2dc \uc2a4\ucf00\uc904 \uc2e4\ud589)", event.id, alarmType)
+                    } catch (e: Exception) {
+                        log.error("\uc54c\ub78c \uc0dd\uc131 \uc2e4\ud328 - eventId: {}, type: {}", event.id, alarmType, e)
                     }
                 }, instant)
             }
