@@ -15,7 +15,8 @@ import org.springframework.stereotype.Component
 @Component
 class FirebaseTokenVerifier(
     @Value("\${firebase.project-id}")
-    private val projectId: String
+    private val projectId: String,
+    private val jwksUri: String = "https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com"
 ) {
     private var customDecoder: JwtDecoder? = null
 
@@ -25,13 +26,13 @@ class FirebaseTokenVerifier(
 
     private fun createDefaultDecoder(): JwtDecoder {
         val decoder = NimbusJwtDecoder
-            .withJwkSetUri("https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com")
+            .withJwkSetUri(jwksUri)
             .build()
 
         val validators = listOf(
             JwtTimestampValidator(),
             JwtIssuerValidator("https://securetoken.google.com/$projectId"),
-            JwtClaimValidator<String>("aud") { it == projectId }
+            JwtClaimValidator<List<String>>("aud") { it.contains(projectId) }
         )
         decoder.setJwtValidator(DelegatingOAuth2TokenValidator(validators))
         return decoder
