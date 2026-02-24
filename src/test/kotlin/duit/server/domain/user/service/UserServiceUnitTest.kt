@@ -49,24 +49,18 @@ class UserServiceUnitTest {
         @DisplayName("기본 닉네임이 고유하면 그대로 사용한다")
         fun usesBaseNameWhenUnique() {
             every { userRepository.existsByNickname("홍길동") } returns false
-            every { userRepository.existsByNickname("홍길동") } returns false
             every { userRepository.save(any<User>()) } answers { firstArg() }
-
             val result = userService.createUser(ProviderType.GOOGLE, "uid-123", "hong@example.com", "홍길동")
-
             assertEquals("홍길동", result.nickname)
         }
 
         @Test
         @DisplayName("기본 닉네임이 중복이면 카운터를 붙여 생성한다")
         fun appendsCounterWhenDuplicate() {
-            every { userRepository.existsByNickname("홍길동") } returns false
             every { userRepository.existsByNickname("홍길동") } returns true
             every { userRepository.existsByNickname("홍길동1") } returns false
             every { userRepository.save(any<User>()) } answers { firstArg() }
-
             val result = userService.createUser(ProviderType.GOOGLE, "uid-123", "hong@example.com", "홍길동")
-
             assertEquals("홍길동1", result.nickname)
         }
 
