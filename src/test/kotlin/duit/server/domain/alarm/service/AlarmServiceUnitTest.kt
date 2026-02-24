@@ -11,17 +11,21 @@ import duit.server.domain.event.repository.EventRepository
 import duit.server.domain.host.entity.Host
 import duit.server.domain.user.entity.User
 import duit.server.infrastructure.external.firebase.FCMService
-import io.mockk.*
-import org.junit.jupiter.api.Assertions.*
+import io.mockk.every
+import io.mockk.just
+import io.mockk.mockk
+import io.mockk.runs
+import io.mockk.verify
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.data.domain.PageImpl
-import org.springframework.data.domain.PageRequest
 import java.time.LocalDateTime
-import java.util.*
+import java.util.Optional
 
 @DisplayName("AlarmService 단위 테스트")
 class AlarmServiceUnitTest {
@@ -220,6 +224,89 @@ class AlarmServiceUnitTest {
 
             verify(exactly = 0) { alarmRepository.save(any()) }
             verify(exactly = 0) { fcmService.sendAlarms(any(), any(), any(), any()) }
+        }
+
+        @Test
+        @DisplayName("여러 사용자 중 일부만 알람이 존재하면 새 사용자에게만 알람 생성한다")
+        fun `여러 사용자 중 기존 알람이 있는 사용자는 건너뛴다`() {
+            val user2 = User(id = 2L, nickname = "유저2", providerId = "p2", deviceToken = "fcm-token-2")
+            val user3 = User(id = 3L, nickname = "유저3", providerId = "p3", deviceToken = "fcm-token-3")
+
+            every { eventRepository.findById(10L) } returns Optional.of(event)
+            every { bookmarkRepository.findEligibleUsersForAlarms(10L) } returns listOf(user, user2, user3)
+
+            every { alarmRepository.existsByUserIdAndEventIdAndType(1L, 10L, AlarmType.EVENT_START) } returns true
+            every { alarmRepository.existsByUserIdAndEventIdAndType(2L, 10L, AlarmType.EVENT_START) } returns false
+            every { alarmRepository.existsByUserIdAndEventIdAndType(3L, 10L, AlarmType.EVENT_START) } returns false
+            every { alarmRepository.save(any<Alarm>()) } answers { firstArg() }
+
+            alarmService.createAlarms(AlarmType.EVENT_START, 10L)
+
+            verify(exactly = 2) { alarmRepository.save(any()) }
+            verify(exactly = 1) { fcmService.sendAlarms(listOf("fcm-token-2", "fcm-token-3"), any(), any(), any()) }
+        }
+
+        @Test
+        @DisplayName("deviceToken이 없는 사용자에게는 알람만 생성하고 FCM은 전송하지 않는다")
+        fun `deviceToken 없으면 알람 생성하지만 FCM 미전송`() {
+            val userWithoutToken = User(id = 2L, nickname = "유저2", providerId = "p2", deviceToken = null)
+
+            every { eventRepository.findById(10L) } returns Optional.of(event)
+            every { bookmarkRepository.findEligibleUsersForAlarms(10L) } returns listOf(userWithoutToken)
+            every { alarmRepository.existsByUserIdAndEventIdAndType(2L, 10L, AlarmType.EVENT_START) } returns false
+            every { alarmRepository.save(any<Alarm>()) } answers { firstArg() }
+
+            alarmService.createAlarms(AlarmType.EVENT_START, 10L)
+
+            verify(exactly = 1) { alarmRepository.save(any()) }
+            verify(exactly = 0) { fcmService.sendAlarms(any(), any(), any(), any()) }
+        }
+
+        @Test
+        @DisplayName("한 유저의 알람이 이미 존재해도(UK 위반) 나머지 유저 알람은 정상 생성되어야 한다")
+        fun `한 유저 save 실패해도 나머지 유저 알람은 생성된다`() {
+            val user2 = User(id = 2L, nickname = "유저2", providerId = "p2", deviceToken = "fcm-token-2")
+            every { eventRepository.findById(10L) } returns Optional.of(event)
+            every { bookmarkRepository.findEligibleUsersForAlarms(10L) } returns listOf(user, user2)
+            every { alarmRepository.existsByUserIdAndEventIdAndType(any(), 10L, AlarmType.EVENT_START) } returns false
+            var saveCount = 0
+            every { alarmRepository.save(any<Alarm>()) } answers {
+                saveCount++
+                if (saveCount == 1) throw DataIntegrityViolationException("Duplicate entry")
+                firstArg()
+            }
+
+            alarmService.createAlarms(AlarmType.EVENT_START, 10L)
+
+            verify(exactly = 2) { alarmRepository.save(any()) }
+            verify(exactly = 1) { fcmService.sendAlarms(listOf("fcm-token-2"), any(), any(), any()) }
+        }
+
+        @Test
+        @DisplayName("동시 삽입으로 UK 위반이 발생해도 예외 없이 정상 완료되어야 한다")
+        fun `race condition으로 UK 위반 발생해도 예외 전파 없이 처리된다`() {
+            every { eventRepository.findById(10L) } returns Optional.of(event)
+            every { bookmarkRepository.findEligibleUsersForAlarms(10L) } returns listOf(user)
+            every { alarmRepository.existsByUserIdAndEventIdAndType(1L, 10L, AlarmType.EVENT_START) } returns false
+            every { alarmRepository.save(any<Alarm>()) } throws DataIntegrityViolationException("Duplicate entry for key 'uk_user_event_type'")
+            alarmService.createAlarms(AlarmType.EVENT_START, 10L)
+
+            verify(exactly = 0) { fcmService.sendAlarms(any(), any(), any(), any()) }
+        }
+
+        @Test
+        @DisplayName("모든 알람 타입에 대해 올바른 FCM 내용이 생성된다")
+        fun `각 알람 타입별 FCM 내용 검증`() {
+            every { eventRepository.findById(10L) } returns Optional.of(event)
+            every { bookmarkRepository.findEligibleUsersForAlarms(10L) } returns listOf(user)
+            every { alarmRepository.existsByUserIdAndEventIdAndType(any(), any(), any()) } returns false
+            every { alarmRepository.save(any<Alarm>()) } answers { firstArg() }
+
+            AlarmType.entries.forEach { alarmType ->
+                alarmService.createAlarms(alarmType, 10L)
+            }
+
+            verify(exactly = 3) { fcmService.sendAlarms(any(), any(), any(), any()) }
         }
     }
 }

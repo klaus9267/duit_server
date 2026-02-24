@@ -26,6 +26,7 @@ class EventAlarmScheduler(
     private val taskScheduler: TaskScheduler
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
+    private val scheduledKeys = mutableSetOf<String>()
 
     // 매일 자정에 알람 생성
     @Scheduled(cron = "0 0 4 * * *")
@@ -46,6 +47,9 @@ class EventAlarmScheduler(
         val events = eventRepository.findEventsByDateField(eventDate.name, tomorrow, nextDay)
 
         events.forEach { event ->
+            val scheduleKey = "${event.id}-${alarmType}"
+            if (!scheduledKeys.add(scheduleKey)) return@forEach
+
             val alarmTime = when (eventDate) {
                 EventDate.START_AT -> event.startAt
                 EventDate.RECRUITMENT_START_AT -> event.recruitmentStartAt!!

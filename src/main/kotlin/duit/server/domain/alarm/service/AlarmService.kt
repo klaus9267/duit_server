@@ -15,6 +15,7 @@ import duit.server.infrastructure.external.firebase.FCMService
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.transaction.annotation.Transactional
 
 @Service
@@ -109,13 +110,17 @@ class AlarmService(
 
         val newAlarmUsers = eligibleUsers.filter { user ->
             if (!alarmRepository.existsByUserIdAndEventIdAndType(user.id!!, event.id!!, alarmType)) {
-                val alarm = Alarm(
-                    user = user,
-                    event = event,
-                    type = alarmType,
-                )
-                alarmRepository.save(alarm)
-                true
+                try {
+                    val alarm = Alarm(
+                        user = user,
+                        event = event,
+                        type = alarmType,
+                    )
+                    alarmRepository.save(alarm)
+                    true
+                } catch (_: DataIntegrityViolationException) {
+                    false
+                }
             } else {
                 false
             }

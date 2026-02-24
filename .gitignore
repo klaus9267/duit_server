@@ -9,6 +9,7 @@ application-*.properties
 !application-*.properties.example
 .mcp.json
 CLAUDE.md
+ssh-script.sh
 
 ### STS ###
 .apt_generated
