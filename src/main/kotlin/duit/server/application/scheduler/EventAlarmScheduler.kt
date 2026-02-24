@@ -14,6 +14,7 @@ import org.springframework.scheduling.annotation.EnableScheduling
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import java.time.Instant
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
 
@@ -27,10 +28,16 @@ class EventAlarmScheduler(
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     private val scheduledKeys = mutableSetOf<String>()
+    private var lastScheduledDate: LocalDate? = null
 
     // 매일 자정에 알람 생성
     @Scheduled(cron = "0 0 4 * * *")
     fun createDailyAlarms() {
+        val today = LocalDate.now()
+        if (lastScheduledDate != today) {
+            scheduledKeys.clear()
+            lastScheduledDate = today
+        }
         createAlarmsByType(EventDate.RECRUITMENT_START_AT, AlarmType.RECRUITMENT_START)
         createAlarmsByType(EventDate.RECRUITMENT_END_AT, AlarmType.RECRUITMENT_END)
         createAlarmsByType(EventDate.START_AT, AlarmType.EVENT_START)
