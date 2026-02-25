@@ -160,15 +160,6 @@ jobs:
                 body,
               });
             }
-
-      - name: Publish test results
-        uses: EnricoMi/publish-unit-test-result-action@v2
-        if: always()
-        with:
-          files: '**/build/test-results/test/TEST-*.xml'
-          comment_title: 'Test Results'
-          check_name: 'Test Results'
-          report_individual_runs: true
           
       - name: Report test failures
         uses: mikepenz/action-junit-report@v4

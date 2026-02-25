@@ -3,19 +3,16 @@ package duit.server.domain.view.service
 import duit.server.domain.event.entity.Event
 import duit.server.domain.event.entity.EventType
 import duit.server.domain.host.entity.Host
-import duit.server.domain.view.entity.View
 import duit.server.domain.view.repository.ViewRepository
+import duit.server.support.TestRedisConfig
 import jakarta.persistence.EntityManager
 import jakarta.persistence.EntityNotFoundException
-import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.*
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
-import org.junit.jupiter.api.BeforeEach
-import org.junit.jupiter.api.DisplayName
-import org.junit.jupiter.api.Nested
-import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.context.annotation.Import
 import org.springframework.test.context.ActiveProfiles
 import org.springframework.transaction.support.TransactionTemplate
 import java.time.LocalDateTime
@@ -23,6 +20,7 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
 
+@Import(TestRedisConfig::class)
 @SpringBootTest
 @ActiveProfiles("test")
 @DisplayName("ViewService 동시성 통합 테스트")

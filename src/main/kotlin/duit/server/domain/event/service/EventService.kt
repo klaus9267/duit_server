@@ -25,7 +25,8 @@ class EventService(
     private val securityUtil: SecurityUtil,
     private val discordService: DiscordService,
     private val hostService: HostService,
-    private val fileStorageService: FileStorageService
+    private val fileStorageService: FileStorageService,
+    private val eventCacheService: EventCacheService
 ) {
     @Transactional
     fun createEvent(
@@ -64,6 +65,9 @@ class EventService(
         if (!autoApprove) {
             discordService.sendNewEventNotification(savedEvent)
         }
+
+        // 캐시 무효화
+        eventCacheService.incrementVersion()
 
         return EventResponseV2.from(savedEvent, false)
     }
@@ -106,27 +110,49 @@ class EventService(
 
     fun getEvents(param: EventCursorPaginationParam): CursorPageResponse<EventResponseV2> {
         val currentUserId = securityUtil.getCurrentUserIdOrNull()
+        val cacheable = eventCacheService.isCacheable(param)
 
+        // Cache-Aside: 캐시 히트 시 북마크만 오버레이
+        if (cacheable) {
+            eventCacheService.getFromCache(param)?.let {
+                return overlayBookmarks(it, currentUserId)
+            }
+        }
+
+        // 캐시 미스 또는 캐싱 불가 → DB 조회
+        val response = getEventsFromDb(param, currentUserId)
+
+        // 캐싱 가능하면 북마크 제외하고 캐시 저장
+        if (cacheable) {
+            val stripped = response.copy(
+                content = response.content.map { it.copy(isBookmarked = false) }
+            )
+            eventCacheService.putToCache(param, stripped)
+        }
+
+        return response
+    }
+
+    private fun getEventsFromDb(
+        param: EventCursorPaginationParam,
+        currentUserId: Long?
+    ): CursorPageResponse<EventResponseV2> {
         param.cursor?.let { EventCursor.decode(it, param.field) }
 
         val events = eventRepository.findEvents(param, currentUserId)
 
-        // hasNext 감지 및 실제 이벤트 분리
         val hasNext = events.size > param.size
         val actualEvents = if (hasNext) events.dropLast(1) else events
 
-        // nextCursor 생성 (hasNext가 true이고 actualEvents가 있을 때만)
         val nextCursor = if (hasNext && actualEvents.isNotEmpty()) {
             EventCursor.fromEvent(actualEvents.last(), param.field).encode()
         } else null
 
-        // 북마크 정보 로드 (로그인한 경우)
         val eventResponses = if (currentUserId != null && actualEvents.isNotEmpty()) {
             val eventIds = actualEvents.map { it.id!! }
             val bookmarkedEventIds = eventRepository.findBookmarkedEventIds(currentUserId, eventIds).toSet()
-
             actualEvents.map { event ->
-                EventResponseV2.from(event, bookmarkedEventIds.contains(event.id))
+                EventResponseV2.from(event, event.id in bookmarkedEventIds)
             }
         } else {
             actualEvents.map { EventResponseV2.from(it) }
@@ -139,6 +165,24 @@ class EventService(
                 nextCursor = nextCursor,
                 pageSize = actualEvents.size
             )
+        )
+    }
+
+    /**
+     * 캐시된 응답에 현재 사용자의 북마크 정보를 오버레이
+     */
+    private fun overlayBookmarks(
+        cached: CursorPageResponse<EventResponseV2>,
+        currentUserId: Long?
+    ): CursorPageResponse<EventResponseV2> {
+        if (currentUserId == null || cached.content.isEmpty()) return cached
+
+        val eventIds = cached.content.map { it.id }
+        val bookmarkedEventIds = eventRepository.findBookmarkedEventIds(currentUserId, eventIds).toSet()
+
+        return CursorPageResponse(
+            content = cached.content.map { it.copy(isBookmarked = it.id in bookmarkedEventIds) },
+            pageInfo = cached.pageInfo
         )
     }
 
@@ -214,7 +258,12 @@ class EventService(
         }
 
         event.update(updateRequest, eventThumbnailUrl, host)
-        EventResponse.from(eventRepository.save(event), false)
+        val saved = eventRepository.save(event)
+
+        // 캐시 무효화
+        eventCacheService.incrementVersion()
+
+        EventResponse.from(saved, false)
     }
 
     @Transactional
@@ -224,5 +273,8 @@ class EventService(
                 fileStorageService.deleteFile(it.thumbnail!!)
             }
         eventRepository.deleteAllById(eventIds)
+
+        // 캐시 무효화
+        eventCacheService.incrementVersion()
     }
 }

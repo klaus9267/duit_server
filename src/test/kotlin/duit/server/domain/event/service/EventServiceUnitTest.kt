@@ -55,7 +55,8 @@ class EventServiceUnitTest {
         discordService: DiscordService,
         hostService: HostService,
         fileStorageService: FileStorageService,
-    ) = EventService(eventRepository, securityUtil, discordService, hostService, fileStorageService)
+        eventCacheService: EventCacheService = mockk(relaxed = true),
+    ) = EventService(eventRepository, securityUtil, discordService, hostService, fileStorageService, eventCacheService)
 
     @Nested
     @DisplayName("createEvent")

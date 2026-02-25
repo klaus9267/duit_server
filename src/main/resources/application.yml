@@ -1,6 +1,6 @@
 spring:
   profiles:
-    active: prod
+    active: local
 
   jpa:
     open-in-view: false  # OSIV 비활성화 — 컨트롤러에서 Lazy Loading 방지, 커넥션 풀 점유 최소화
@@ -10,14 +10,6 @@ spring:
     multipart:
       max-file-size: 10MB      # 개별 파일 최대 크기
       max-request-size: 20MB   # 전체 요청 최대 크기
-
-  # Redis 설정
-  data:
-    redis:
-      host: ${REDIS_HOST}
-      port: ${REDIS_PORT}
-      password: ${REDIS_PASSWORD}
-      timeout: ${REDIS_TIMEOUT}
 
   output:
     ansi:
