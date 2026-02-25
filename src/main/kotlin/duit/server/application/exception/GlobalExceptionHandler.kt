@@ -9,6 +9,7 @@ import jakarta.servlet.http.HttpServletRequest
 import jakarta.validation.ConstraintViolationException
 import org.slf4j.LoggerFactory
 import org.springframework.beans.BeanInstantiationException
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.dao.DataAccessException
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.http.ResponseEntity
@@ -29,7 +30,9 @@ import java.time.LocalDateTime
 
 @RestControllerAdvice
 class GlobalExceptionHandler(
-    private val discordService: DiscordService
+    private val discordService: DiscordService,
+    @Value("\${spring.profiles.active:default}")
+    private val activeProfile: String
 ) {
 
     private val log = LoggerFactory.getLogger(GlobalExceptionHandler::class.java)
@@ -289,17 +292,19 @@ class GlobalExceptionHandler(
             in 500..599 -> {
                 log.error("Server error: {} - {}", request.requestURI, ex.message, ex)
 
-                // Discord 알림 전송
-                discordService.sendServerErrorNotification(
-                    errorCode = errorCode.name,
-                    message = errorResponse.message,
-                    path = request.requestURI,
-                    timestamp = errorResponse.timestamp,
-                    exception = ex
-                )
+                // Discord 알림 전송 (prod 프로필에서만)
+                if (activeProfile == "prod") {
+                    discordService.sendServerErrorNotification(
+                        errorCode = errorCode.name,
+                        message = errorResponse.message,
+                        path = request.requestURI,
+                        timestamp = errorResponse.timestamp,
+                        exception = ex
+                    )
+                }
             }
         }
-        
+
         return ResponseEntity.status(errorCode.httpStatus).body(errorResponse)
     }
 }
