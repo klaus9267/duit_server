@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.data.redis.core.RedisTemplate
 import org.springframework.stereotype.Service
 import java.time.Duration
+import java.util.concurrent.ConcurrentHashMap
 
 @Service
 class EventCacheService(
@@ -19,6 +20,18 @@ class EventCacheService(
     private val cacheObjectMapper: ObjectMapper = CacheConfig.createCacheObjectMapper()
     private val logger = LoggerFactory.getLogger(javaClass)
 
+    // 버전 로컬 캐싱 (Redis 라운드트립 감소)
+    @Volatile private var localVersion: Long = -1L
+    @Volatile private var localVersionTimestamp: Long = 0L
+    private val VERSION_LOCAL_TTL_MS = 2000L
+
+    // L1 로컬 메모리 캐시 (Redis GET + 역직렬화 제거)
+    private data class LocalCacheEntry(
+        val response: CursorPageResponse<EventResponseV2>,
+        val expiresAt: Long
+    )
+    private val localCache = ConcurrentHashMap<String, LocalCacheEntry>()
+    private val LOCAL_CACHE_TTL_MS = 2000L
     companion object {
         private const val VERSION_KEY = "duit:events:v2:version"
         private const val CACHE_KEY_PREFIX = "duit:events:v2"
@@ -47,8 +60,19 @@ class EventCacheService(
     fun getFromCache(param: EventCursorPaginationParam): CursorPageResponse<EventResponseV2>? {
         return try {
             val key = buildCacheKey(param)
+            val now = System.currentTimeMillis()
+
+            // L1: 로컬 메모리 캐시 (역직렬화 없음)
+            localCache[key]?.let { entry ->
+                if (now < entry.expiresAt) return entry.response
+                else localCache.remove(key)
+            }
+
+            // L2: Redis 캐시
             val json = redisTemplate.opsForValue().get(key) as? String ?: return null
-            cacheObjectMapper.readValue(json, object : TypeReference<CursorPageResponse<EventResponseV2>>() {})
+            val response = cacheObjectMapper.readValue(json, object : TypeReference<CursorPageResponse<EventResponseV2>>() {})
+            localCache[key] = LocalCacheEntry(response, now + LOCAL_CACHE_TTL_MS)
+            response
         } catch (e: Exception) {
             logger.warn("Cache read failed for param={}: {}", param.field, e.message)
             null
@@ -76,6 +100,9 @@ class EventCacheService(
     fun incrementVersion() {
         try {
             val newVersion = redisTemplate.opsForValue().increment(VERSION_KEY) ?: 1L
+            localVersion = newVersion
+            localVersionTimestamp = System.currentTimeMillis()
+            localCache.clear()
             logger.info("Event cache version incremented to {}", newVersion)
         } catch (e: Exception) {
             logger.warn("Version increment failed: {}", e.message)
@@ -83,11 +110,18 @@ class EventCacheService(
     }
 
     private fun getCurrentVersion(): Long {
+        val now = System.currentTimeMillis()
+        if (localVersion >= 0 && now - localVersionTimestamp < VERSION_LOCAL_TTL_MS) {
+            return localVersion
+        }
         return try {
-            redisTemplate.opsForValue().get(VERSION_KEY)?.toString()?.toLongOrNull() ?: 0L
+            val version = redisTemplate.opsForValue().get(VERSION_KEY)?.toString()?.toLongOrNull() ?: 0L
+            localVersion = version
+            localVersionTimestamp = now
+            version
         } catch (e: Exception) {
             logger.warn("Version read failed: {}", e.message)
-            0L
+            if (localVersion >= 0) localVersion else 0L
         }
     }
 
