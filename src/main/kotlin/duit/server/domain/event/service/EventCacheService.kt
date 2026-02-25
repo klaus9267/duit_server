@@ -65,7 +65,7 @@ class EventCacheService(
             // L1: 로컬 메모리 캐시 (역직렬화 없음)
             localCache[key]?.let { entry ->
                 if (now < entry.expiresAt) return entry.response
-                else localCache.remove(key)
+                else localCache.remove(key, entry)
             }
 
             // L2: Redis 캐시
@@ -88,6 +88,8 @@ class EventCacheService(
             val ttl = TTL_MAP[param.field] ?: Duration.ofMinutes(5)
             val json = cacheObjectMapper.writeValueAsString(response)
             redisTemplate.opsForValue().set(key, json, ttl)
+            // Redis 성공 후 L1에도 저장 → 캐시 미스 직후 첫 요청이 Redis 재조회 불필요
+            localCache[key] = LocalCacheEntry(response, System.currentTimeMillis() + LOCAL_CACHE_TTL_MS)
         } catch (e: Exception) {
             logger.warn("Cache write failed for param={}: {}", param.field, e.message)
         }

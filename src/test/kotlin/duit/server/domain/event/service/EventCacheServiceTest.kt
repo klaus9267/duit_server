@@ -572,6 +572,27 @@ class EventCacheServiceTest {
             assertEquals(fromRedis.pageInfo.hasNext, fromL1.pageInfo.hasNext)
             assertEquals(fromRedis.pageInfo.nextCursor, fromL1.pageInfo.nextCursor)
         }
+        @Test
+        @DisplayName("putToCache 후 getFromCache는 Redis data GET 없이 L1에서 서빙되어야 한다")
+        fun `putToCache 후 getFromCache는 L1에서 서빙된다`() {
+            val param = EventCursorPaginationParam(size = 10)
+            val response = createCacheResponse(1L, 2L)
+
+            every { valueOps.get(any<String>()) } returns "0" // version
+            every { valueOps.set(any(), any(), any<Duration>()) } returns Unit
+
+            eventCacheService.putToCache(param, response)
+
+            // getFromCache 호용 시 Redis data GET 없이 L1에서 서빙되어야 함
+            val result = eventCacheService.getFromCache(param)
+
+            assertNotNull(result)
+            assertEquals(2, result!!.content.size)
+            assertEquals(listOf(1L, 2L), result.content.map { it.id })
+            // putToCache 시 version GET 1회만, getFromCache는 버전 로컬 + L1 히트 → Redis 0회
+            verify(exactly = 1) { valueOps.get(any<String>()) }
+        }
+
     }
 
     @Nested

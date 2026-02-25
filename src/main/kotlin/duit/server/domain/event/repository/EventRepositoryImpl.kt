@@ -247,7 +247,7 @@ class EventRepositoryImpl(
         val statusCondition = when {
             param.status != null -> "e.status = :status"
             param.statusGroup != null -> "e.status_group = :statusGroup"
-            else -> Unit
+            else -> throw IllegalStateException("status 또는 statusGroup 중 하나는 반드시 설정되어야 합니다")
         }
 
         val typesCondition = if (param.types.isNullOrEmpty()) {
