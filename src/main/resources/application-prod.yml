@@ -6,13 +6,6 @@ spring:
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
 
-    hikari:
-      maximum-pool-size: 10
-      minimum-idle: 10
-      idle-timeout: 30000
-      max-lifetime: 300000
-      connection-timeout: 3000
-
   data:
     redis:
       host: redis
