@@ -343,8 +343,11 @@ class EventCacheServiceTest {
             every { valueOps.set(capture(capturedKeys), any(), any<Duration>()) } returns Unit
             eventCacheService.putToCache(param, response)
 
-            // 두 번째: version 6
-            every { valueOps.get(any<String>()) } returns "6"
+            // 버전 변경: incrementVersion()으로 로컬 버전 캐시 갱신
+            every { valueOps.increment("duit:events:v2:version") } returns 6L
+            eventCacheService.incrementVersion()
+
+            // 두 번째: version 6 (incrementVersion에서 localVersion이 6으로 갱신됨)
             eventCacheService.putToCache(param, response)
 
             assertEquals(2, capturedKeys.size)
@@ -352,7 +355,6 @@ class EventCacheServiceTest {
             assertTrue(capturedKeys[0].contains(":5:"), "첫 번째 키에 버전 5 포함")
             assertTrue(capturedKeys[1].contains(":6:"), "두 번째 키에 버전 6 포함")
         }
-
         @Test
         @DisplayName("types 필터 순서와 무관하게 같은 캐시 키")
         fun `types 정렬 순서가 달라도 같은 캐시 키`() {
@@ -440,6 +442,279 @@ class EventCacheServiceTest {
             eventCacheService.putToCache(param, response)
 
             assertTrue(capturedKeys[0].contains("s:recruiting"), "status 필터가 키에 반영되어야 함")
+        }
+    }
+
+    @Nested
+    @DisplayName("L1 로컬 메모리 캐시")
+    inner class L1LocalCacheTests {
+
+        private val VERSION_KEY = "duit:events:v2:version"
+
+        private fun createJson(vararg ids: Long): String =
+            duit.server.application.config.CacheConfig.createCacheObjectMapper()
+                .writeValueAsString(createCacheResponse(*ids))
+
+        private fun mockRedisForCache(versionValue: String, jsonValue: String) {
+            every { valueOps.get(any<String>()) } answers {
+                if (firstArg<String>() == VERSION_KEY) versionValue else jsonValue
+            }
+        }
+
+        @Test
+        @DisplayName("getFromCache 연속 호출 시 L1 캐시 히트 - Redis 조회 최소화")
+        fun `L1 캐시 히트하면 Redis를 다시 조회하지 않는다`() {
+            val param = EventCursorPaginationParam(size = 10)
+            mockRedisForCache("0", createJson(1L, 2L))
+
+            // 1회차: Redis에서 version GET + data GET → L1에 저장
+            val result1 = eventCacheService.getFromCache(param)
+            // 2회차: 버전 로컬 캐시 히트 + L1 캐시 히트 → Redis 호출 없음
+            val result2 = eventCacheService.getFromCache(param)
+
+            assertNotNull(result1)
+            assertNotNull(result2)
+            assertEquals(2, result1!!.content.size)
+            assertEquals(2, result2!!.content.size)
+            // Redis GET 총 2회만: 버전 1회 + 데이터 1회 (2회차는 전부 로컬에서 서빙)
+            verify(exactly = 2) { valueOps.get(any<String>()) }
+        }
+
+        @Test
+        @DisplayName("incrementVersion 호출 시 L1 캐시 전체 클리어 - Redis 재조회")
+        fun `버전 증가 시 L1 캐시가 클리어되어 Redis를 다시 조회한다`() {
+            val param = EventCursorPaginationParam(size = 10)
+            mockRedisForCache("0", createJson(1L))
+
+            // 1회차: Redis 조회 → L1에 저장
+            eventCacheService.getFromCache(param)
+
+            // 버전 증가 → L1 전체 클리어 + localVersion = 1
+            every { valueOps.increment(VERSION_KEY) } returns 1L
+            eventCacheService.incrementVersion()
+
+            // 2회차: L1 클리어됨 + 새 버전으로 키 변경 → Redis 재조회
+            val result = eventCacheService.getFromCache(param)
+            assertNotNull(result)
+
+            // 버전 GET 1회 (첫 조회만, incrementVersion에서 localVersion 직접 갱신)
+            // 데이터 GET 2회 (1회차 + 클리어 후 재조회)
+            // 총 3회
+            verify(exactly = 3) { valueOps.get(any<String>()) }
+        }
+
+        @Test
+        @DisplayName("서로 다른 파라미터는 L1 캐시에 독립 저장")
+        fun `다른 파라미터는 각각 독립적으로 L1 캐시된다`() {
+            val param1 = EventCursorPaginationParam(field = PaginationField.CREATED_AT, size = 10)
+            val param2 = EventCursorPaginationParam(field = PaginationField.START_DATE, size = 10)
+            mockRedisForCache("0", createJson(1L))
+
+            // param1, param2 각각 Redis에서 조회 → L1에 저장
+            assertNotNull(eventCacheService.getFromCache(param1))
+            assertNotNull(eventCacheService.getFromCache(param2))
+            // param1, param2 재조회 → 각각 L1 히트
+            assertNotNull(eventCacheService.getFromCache(param1))
+            assertNotNull(eventCacheService.getFromCache(param2))
+
+            // 버전 GET 1회 + 데이터 GET 2회 (param1, param2 각 1회) = 총 3회
+            verify(exactly = 3) { valueOps.get(any<String>()) }
+        }
+
+        @Test
+        @DisplayName("L1 캐시 만료 후 Redis 재조회")
+        fun `L1 캐시 TTL 만료 시 Redis에서 다시 조회한다`() {
+            val param = EventCursorPaginationParam(size = 10)
+            mockRedisForCache("0", createJson(1L))
+
+            // 1회차: Redis 조회 → L1에 저장
+            assertNotNull(eventCacheService.getFromCache(param))
+
+            // L1 캐시 엔트리의 만료 시간을 과거로 강제 설정
+            val localCacheField = EventCacheService::class.java.getDeclaredField("localCache")
+            localCacheField.isAccessible = true
+            @Suppress("UNCHECKED_CAST")
+            val localCache = localCacheField.get(eventCacheService) as java.util.concurrent.ConcurrentHashMap<String, Any>
+            assertFalse(localCache.isEmpty(), "L1 캐시에 엔트리가 있어야 함")
+
+            // 각 엔트리의 expiresAt을 과거 시간(0)으로 교체
+            for ((key, _) in localCache) {
+                val entryClass = Class.forName("duit.server.domain.event.service.EventCacheService\$LocalCacheEntry")
+                val responseField = entryClass.getDeclaredField("response")
+                responseField.isAccessible = true
+                val currentResponse = responseField.get(localCache[key])
+                val expiredEntry = entryClass.constructors[0].newInstance(currentResponse, 0L)
+                localCache[key] = expiredEntry
+            }
+
+            // 2회차: L1 만료 → Redis 재조회
+            assertNotNull(eventCacheService.getFromCache(param))
+
+            // 데이터 Redis GET 2회 (1회차 + 만료 후 재조회)
+            verify(exactly = 2) { valueOps.get(match<String> { it != VERSION_KEY }) }
+        }
+
+        @Test
+        @DisplayName("getFromCache가 L1에 저장한 데이터는 원본과 동일")
+        fun `L1 캐시에서 반환된 데이터는 Redis에서 가져온 원본과 동일하다`() {
+            val param = EventCursorPaginationParam(size = 10)
+            mockRedisForCache("0", createJson(1L, 2L, 3L))
+
+            // Redis에서 조회 (L1 저장)
+            val fromRedis = eventCacheService.getFromCache(param)
+            // L1에서 조회
+            val fromL1 = eventCacheService.getFromCache(param)
+
+            assertNotNull(fromRedis)
+            assertNotNull(fromL1)
+            assertEquals(fromRedis!!.content.size, fromL1!!.content.size)
+            assertEquals(fromRedis.content.map { it.id }, fromL1.content.map { it.id })
+            assertEquals(fromRedis.pageInfo.hasNext, fromL1.pageInfo.hasNext)
+            assertEquals(fromRedis.pageInfo.nextCursor, fromL1.pageInfo.nextCursor)
+        }
+        @Test
+        @DisplayName("putToCache 후 getFromCache는 Redis data GET 없이 L1에서 서빙되어야 한다")
+        fun `putToCache 후 getFromCache는 L1에서 서빙된다`() {
+            val param = EventCursorPaginationParam(size = 10)
+            val response = createCacheResponse(1L, 2L)
+
+            every { valueOps.get(any<String>()) } returns "0" // version
+            every { valueOps.set(any(), any(), any<Duration>()) } returns Unit
+
+            eventCacheService.putToCache(param, response)
+
+            // getFromCache 호용 시 Redis data GET 없이 L1에서 서빙되어야 함
+            val result = eventCacheService.getFromCache(param)
+
+            assertNotNull(result)
+            assertEquals(2, result!!.content.size)
+            assertEquals(listOf(1L, 2L), result.content.map { it.id })
+            // putToCache 시 version GET 1회만, getFromCache는 버전 로컬 + L1 히트 → Redis 0회
+            verify(exactly = 1) { valueOps.get(any<String>()) }
+        }
+
+    }
+
+    @Nested
+    @DisplayName("로컬 버전 캐싱")
+    inner class LocalVersionCacheTests {
+
+        private val VERSION_KEY = "duit:events:v2:version"
+
+        @Test
+        @DisplayName("연속 호출 시 Redis 버전 GET 1회만 발생")
+        fun `버전 조회를 로컬에 캐싱하여 Redis 호출을 줄인다`() {
+            val param = EventCursorPaginationParam(size = 10)
+            val response = createCacheResponse(1L)
+
+            var versionGetCount = 0
+            every { valueOps.get(any<String>()) } answers {
+                if (firstArg<String>() == VERSION_KEY) {
+                    versionGetCount++
+                    "0"
+                } else null
+            }
+            every { valueOps.set(any(), any(), any<Duration>()) } returns Unit
+
+            // putToCache 3회 연속 호출 → 매번 buildCacheKey → getCurrentVersion
+            eventCacheService.putToCache(param, response)
+            eventCacheService.putToCache(param, response)
+            eventCacheService.putToCache(param, response)
+
+            // Redis 버전 GET은 1회만 (로컬 버전 캐싱으로 나머지 2회 절약)
+            assertEquals(1, versionGetCount)
+        }
+
+        @Test
+        @DisplayName("incrementVersion 후 새 버전이 캐시 키에 즉시 반영")
+        fun `버전 증가 후 새 버전이 캐시 키에 즉시 반영된다`() {
+            val param = EventCursorPaginationParam(size = 10)
+            val response = createCacheResponse(1L)
+            val capturedKeys = mutableListOf<String>()
+
+            every { valueOps.get(any<String>()) } returns "5"
+            every { valueOps.set(capture(capturedKeys), any(), any<Duration>()) } returns Unit
+
+            // 버전 5로 저장
+            eventCacheService.putToCache(param, response)
+
+            // incrementVersion → localVersion = 10 (Redis 재조회 없이 즉시 반영)
+            every { valueOps.increment(VERSION_KEY) } returns 10L
+            eventCacheService.incrementVersion()
+
+            // 다시 저장 → 버전 10이 키에 반영되어야 함
+            eventCacheService.putToCache(param, response)
+
+            assertEquals(2, capturedKeys.size)
+            assertTrue(capturedKeys[0].contains(":5:"), "첫 키에 버전 5")
+            assertTrue(capturedKeys[1].contains(":10:"), "두 번째 키에 버전 10")
+        }
+
+        @Test
+        @DisplayName("Redis 버전 조회 실패 시 마지막 캐시된 버전으로 폴백")
+        fun `Redis 장애 시 마지막 캐시된 버전을 사용한다`() {
+            val param = EventCursorPaginationParam(size = 10)
+            val response = createCacheResponse(1L)
+            val capturedKeys = mutableListOf<String>()
+
+            // 1회차: 정상 → 버전 3 로컬 캐싱
+            every { valueOps.get(any<String>()) } returns "3"
+            every { valueOps.set(capture(capturedKeys), any(), any<Duration>()) } returns Unit
+            eventCacheService.putToCache(param, response)
+
+            // 로컬 버전 캐시를 만료시켜 Redis 재조회를 유도
+            val tsField = EventCacheService::class.java.getDeclaredField("localVersionTimestamp")
+            tsField.isAccessible = true
+            tsField.setLong(eventCacheService, 0L)
+
+            // 2회차: Redis 장애 → 마지막 캐시된 버전 3으로 폴백
+            every { valueOps.get(VERSION_KEY) } throws RuntimeException("Connection refused")
+            eventCacheService.putToCache(param, response)
+
+            assertEquals(2, capturedKeys.size)
+            assertTrue(capturedKeys[0].contains(":3:"), "정상 시 버전 3")
+            assertTrue(capturedKeys[1].contains(":3:"), "장애 시에도 캐시된 버전 3 사용")
+        }
+
+        @Test
+        @DisplayName("이전 캐시 없이 Redis 장애 시 기본 버전 0 사용")
+        fun `캐시된 버전 없이 Redis 장애 시 기본 버전 0을 사용한다`() {
+            val param = EventCursorPaginationParam(size = 10)
+            val response = createCacheResponse(1L)
+            val capturedKeys = mutableListOf<String>()
+
+            // 첫 호출부터 Redis 장애
+            every { valueOps.get(any<String>()) } throws RuntimeException("Connection refused")
+            every { valueOps.set(capture(capturedKeys), any(), any<Duration>()) } returns Unit
+            eventCacheService.putToCache(param, response)
+
+            assertEquals(1, capturedKeys.size)
+            assertTrue(capturedKeys[0].contains(":0:"), "캐시 이력 없으면 기본 버전 0")
+        }
+
+        @Test
+        @DisplayName("incrementVersion 실패 시 로컬 버전/L1 캐시 변경 없음")
+        fun `incrementVersion 실패 시 기존 상태가 유지된다`() {
+            val param = EventCursorPaginationParam(size = 10)
+            val json = duit.server.application.config.CacheConfig.createCacheObjectMapper()
+                .writeValueAsString(createCacheResponse(1L))
+
+            // 버전 5로 캐싱 + L1 저장
+            every { valueOps.get(any<String>()) } answers {
+                if (firstArg<String>() == VERSION_KEY) "5" else json
+            }
+            assertNotNull(eventCacheService.getFromCache(param))
+
+            // incrementVersion 실패
+            every { valueOps.increment(VERSION_KEY) } throws RuntimeException("Redis down")
+            eventCacheService.incrementVersion()
+
+            // L1 캐시 여전히 유효 → Redis 재조회 없음
+            assertNotNull(eventCacheService.getFromCache(param))
+
+            // 총 Redis GET 2회 (최초 버전 1회 + 데이터 1회)
+            // incrementVersion 실패 후에도 L1 캐시가 유지되므로 추가 조회 없음
+            verify(exactly = 2) { valueOps.get(any<String>()) }
         }
     }
 }

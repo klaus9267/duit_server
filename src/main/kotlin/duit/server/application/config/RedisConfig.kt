@@ -29,7 +29,7 @@ class RedisConfig(
         val clientOptions = ClientOptions.builder()
             .socketOptions(
                 SocketOptions.builder()
-                    .connectTimeout(Duration.ofSeconds(10))
+                    .connectTimeout(Duration.ofSeconds(3))
                     .keepAlive(true)
                     .build()
             )
@@ -39,7 +39,7 @@ class RedisConfig(
 
         val clientConfiguration = LettuceClientConfiguration.builder()
             .clientOptions(clientOptions)
-            .commandTimeout(Duration.ofSeconds(5))
+            .commandTimeout(Duration.ofSeconds(1))
             .shutdownTimeout(Duration.ofMillis(100))
             .build()
 

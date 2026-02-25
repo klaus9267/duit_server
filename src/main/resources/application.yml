@@ -1,6 +1,14 @@
 spring:
   profiles:
-    active: prod
+    active: ${PROFILE}
+
+  datasource:
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 10
+      idle-timeout: 30000
+      max-lifetime: 300000
+      connection-timeout: 3000
 
   jpa:
     open-in-view: false  # OSIV 비활성화 — 컨트롤러에서 Lazy Loading 방지, 커넥션 풀 점유 최소화
