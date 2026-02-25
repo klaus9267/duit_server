@@ -6,6 +6,7 @@ import duit.server.domain.event.entity.EventStatus
 import duit.server.domain.event.entity.EventType
 import duit.server.domain.event.repository.EventRepository
 import duit.server.domain.event.service.EventService
+import duit.server.domain.event.service.EventCacheService
 import duit.server.domain.host.entity.Host
 import io.mockk.every
 import io.mockk.mockk
@@ -24,15 +25,17 @@ class EventStatusSchedulerUnitTest {
     private lateinit var eventService: EventService
     private lateinit var taskScheduler: TaskScheduler
     private lateinit var scheduler: EventStatusScheduler
+    private lateinit var eventCacheService: EventCacheService
 
     private val host = Host(id = 1L, name = "테스트")
 
     @BeforeEach
     fun setUp() {
+        eventCacheService = mockk(relaxed = true)
         eventRepository = mockk()
         eventService = mockk(relaxed = true)
         taskScheduler = mockk(relaxed = true)
-        scheduler = EventStatusScheduler(eventRepository, eventService, taskScheduler)
+        scheduler = EventStatusScheduler(eventRepository, eventService, taskScheduler, eventCacheService)
     }
 
     private fun createEvent(
