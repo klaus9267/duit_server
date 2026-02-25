@@ -113,7 +113,7 @@ interface EventRepository : JpaRepository<Event, Long>, EventRepositoryCustom {
         JOIN FETCH e.view
         JOIN Bookmark b ON b.event = e
         WHERE b.user.id = :userId
-        AND e.status <> duit.server.domain.event.entity.EventStatus.PENDING
+        AND e.status != EventStatus.PENDING
         AND e.startAt BETWEEN :start AND :end
         AND (:eventType IS NULL OR e.eventType = :eventType)
         ORDER BY e.startAt ASC

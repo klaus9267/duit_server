@@ -3,6 +3,7 @@ package duit.server.application.scheduler
 import duit.server.domain.event.entity.Event
 import duit.server.domain.event.entity.EventStatus
 import duit.server.domain.event.repository.EventRepository
+import duit.server.domain.event.service.EventCacheService
 import duit.server.domain.event.service.EventService
 import org.slf4j.LoggerFactory
 import org.springframework.boot.context.event.ApplicationReadyEvent
@@ -22,7 +23,8 @@ import java.time.ZoneId
 class EventStatusScheduler(
     private val eventRepository: EventRepository,
     private val eventService: EventService,
-    private val taskScheduler: TaskScheduler
+    private val taskScheduler: TaskScheduler,
+    private val eventCacheService: EventCacheService
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -104,13 +106,21 @@ class EventStatusScheduler(
 
         logger.info("Found ${eventsNeedingUpdate.size} events with incorrect status")
 
-        eventsNeedingUpdate.forEach { event ->
+        val updatedCount = eventsNeedingUpdate.count { event ->
             val oldStatus = event.status
             event.updateStatus(now)
-            if (oldStatus != event.status) {
-                eventRepository.save(event)
-                logger.info("Updated event ${event.id}: $oldStatus -> ${event.status}")
+            (oldStatus != event.status).also { changed ->
+                if (changed) {
+                    eventRepository.save(event)
+                    logger.info("Updated event ${event.id}: $oldStatus -> ${event.status}")
+                }
             }
+        }
+
+        // 상태 변경이 있었으면 캐시 무효화 (1회만)
+        if (updatedCount > 0) {
+            eventCacheService.incrementVersion()
+            logger.info("Cache invalidated after $updatedCount status updates")
         }
     }
 }

@@ -11,14 +11,6 @@ spring:
       max-file-size: 10MB      # 개별 파일 최대 크기
       max-request-size: 20MB   # 전체 요청 최대 크기
 
-  # Redis 설정
-  data:
-    redis:
-      host: ${REDIS_HOST}
-      port: ${REDIS_PORT}
-      password: ${REDIS_PASSWORD}
-      timeout: ${REDIS_TIMEOUT}
-
   output:
     ansi:
       enabled: always
