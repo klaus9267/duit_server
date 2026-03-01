@@ -2,6 +2,7 @@ package duit.server.domain.event.service
 
 import duit.server.application.security.SecurityUtil
 import duit.server.domain.event.dto.*
+import duit.server.domain.common.dto.pagination.PaginationField
 import duit.server.domain.event.entity.Event
 import duit.server.domain.event.entity.EventStatus
 import duit.server.domain.event.entity.EventStatusGroup
@@ -55,8 +56,9 @@ class EventServiceUnitTest {
         discordService: DiscordService,
         hostService: HostService,
         fileStorageService: FileStorageService,
-        eventCacheService: EventCacheService = mockk(relaxed = true),
-    ) = EventService(eventRepository, securityUtil, discordService, hostService, fileStorageService, eventCacheService)
+        eventQueryService: EventQueryService = mockk(relaxed = true),
+        eventCacheEvictService: EventCacheEvictService = mockk(relaxed = true),
+    ) = EventService(eventRepository, securityUtil, discordService, hostService, fileStorageService, eventQueryService, eventCacheEvictService)
 
     @Nested
     @DisplayName("createEvent")
@@ -280,7 +282,7 @@ class EventServiceUnitTest {
         @Test
         @DisplayName("hasNext=true - events.size > param.size이면 nextCursor 존재")
         fun getEventsHasNextTrue() {
-            val param = EventCursorPaginationParam(size = 2, statusGroup = EventStatusGroup.ACTIVE)
+            val param = EventCursorPaginationParam(field = PaginationField.VIEW_COUNT, size = 2, statusGroup = EventStatusGroup.ACTIVE)
             val host = createHost()
             val events = (1L..3L).map { i -> createEvent(id = i, host = host, title = "행사$i") }
 
@@ -299,7 +301,7 @@ class EventServiceUnitTest {
         @Test
         @DisplayName("hasNext=false - events.size <= param.size이면 nextCursor null")
         fun getEventsHasNextFalse() {
-            val param = EventCursorPaginationParam(size = 5, statusGroup = EventStatusGroup.ACTIVE)
+            val param = EventCursorPaginationParam(field = PaginationField.VIEW_COUNT, size = 5, statusGroup = EventStatusGroup.ACTIVE)
             val host = createHost()
             val events = listOf(createEvent(id = 1L, host = host))
 
@@ -316,7 +318,7 @@ class EventServiceUnitTest {
         @Test
         @DisplayName("currentUserId != null && actualEvents.isNotEmpty() - 북마크 정보 포함")
         fun getEventsWithBookmark() {
-            val param = EventCursorPaginationParam(size = 10, statusGroup = EventStatusGroup.ACTIVE)
+            val param = EventCursorPaginationParam(field = PaginationField.VIEW_COUNT, size = 10, statusGroup = EventStatusGroup.ACTIVE)
             val host = createHost()
             val events = listOf(
                 createEvent(id = 1L, host = host, title = "행사1"),
@@ -337,7 +339,7 @@ class EventServiceUnitTest {
         @Test
         @DisplayName("currentUserId == null - 북마크 정보 없이 반환")
         fun getEventsWithoutBookmark() {
-            val param = EventCursorPaginationParam(size = 10, statusGroup = EventStatusGroup.ACTIVE)
+            val param = EventCursorPaginationParam(field = PaginationField.VIEW_COUNT, size = 10, statusGroup = EventStatusGroup.ACTIVE)
             val host = createHost()
             val events = listOf(createEvent(id = 1L, host = host))
 
@@ -354,7 +356,7 @@ class EventServiceUnitTest {
         @Test
         @DisplayName("currentUserId != null && actualEvents.isEmpty() - 북마크 조회 안 함")
         fun getEventsEmptyList() {
-            val param = EventCursorPaginationParam(size = 10, statusGroup = EventStatusGroup.ACTIVE)
+            val param = EventCursorPaginationParam(field = PaginationField.VIEW_COUNT, size = 10, statusGroup = EventStatusGroup.ACTIVE)
 
             every { securityUtil.getCurrentUserIdOrNull() } returns 100L
             every { eventRepository.findEvents(param, 100L) } returns emptyList()

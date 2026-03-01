@@ -3,7 +3,7 @@ package duit.server.application.scheduler
 import duit.server.domain.event.entity.Event
 import duit.server.domain.event.entity.EventStatus
 import duit.server.domain.event.repository.EventRepository
-import duit.server.domain.event.service.EventCacheService
+import duit.server.domain.event.service.EventCacheEvictService
 import duit.server.domain.event.service.EventService
 import org.slf4j.LoggerFactory
 import org.springframework.boot.context.event.ApplicationReadyEvent
@@ -24,7 +24,7 @@ class EventStatusScheduler(
     private val eventRepository: EventRepository,
     private val eventService: EventService,
     private val taskScheduler: TaskScheduler,
-    private val eventCacheService: EventCacheService
+    private val eventCacheEvictService: EventCacheEvictService
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -119,8 +119,8 @@ class EventStatusScheduler(
 
         // 상태 변경이 있었으면 캐시 무효화 (1회만)
         if (updatedCount > 0) {
-            eventCacheService.incrementVersion()
-            logger.info("Cache invalidated after $updatedCount status updates")
+            eventCacheEvictService.evictAll()
+            logger.info("Cache evicted after $updatedCount status updates")
         }
     }
 }
