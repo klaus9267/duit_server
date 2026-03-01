@@ -73,6 +73,14 @@ data class EventCursorPaginationParam(
             "status, statusGroup 하나만 입력 가능합니다"
         }
 
+        require(status != EventStatus.PENDING) {
+            "PENDING 상태는 조회할 수 없습니다"
+        }
+
+        require(statusGroup != EventStatusGroup.PENDING) {
+            "PENDING 상태 그룹은 조회할 수 없습니다"
+        }
+
         if (status == null && statusGroup == null) {
             statusGroup = EventStatusGroup.ACTIVE
         }
