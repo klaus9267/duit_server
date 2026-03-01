@@ -29,11 +29,15 @@ import java.time.Duration
 class FirebaseTokenVerifier(
     @Value("\${firebase.project-id}")
     private val projectId: String,
-    private val jwksUri: String = "https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com"
+    private val jwksUri: String = "https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com",
+    restTemplateBuilder: RestTemplateBuilder = RestTemplateBuilder()
 ) {
-    private val logger = LoggerFactory.getLogger(FirebaseTokenVerifier::class.java)
+    companion object {
+        private val logger = LoggerFactory.getLogger(FirebaseTokenVerifier::class.java)
+        private const val JWKS_REFRESH_INTERVAL_MS = 4L * 60L * 60L * 1000L
+    }
 
-    private val fetcher: RestTemplate = RestTemplateBuilder()
+    private val fetcher: RestTemplate = restTemplateBuilder
         .connectTimeout(Duration.ofSeconds(5))
         .readTimeout(Duration.ofSeconds(10))
         .build()
@@ -46,17 +50,16 @@ class FirebaseTokenVerifier(
 
     @PostConstruct
     fun init() {
-        if (cachedDecoder == null) {
-            cachedDecoder = buildDecoder(fetchJwks())
-            logger.info("JWKS pre-warmed at startup")
-        }
+        runCatching { buildDecoder(fetchJwks()) }
+            .onSuccess { cachedDecoder = it; logger.info("JWKS pre-warmed at startup") }
+            .onFailure { logger.warn("JWKS pre-warm failed at startup, will retry on schedule", it) }
     }
 
-    @Scheduled(fixedRate = 4 * 60 * 60 * 1000)
+    @Scheduled(fixedRate = JWKS_REFRESH_INTERVAL_MS)
     fun refreshJwks() {
         runCatching { buildDecoder(fetchJwks()) }
             .onSuccess { cachedDecoder = it; logger.info("JWKS cache refreshed successfully") }
-            .onFailure { logger.warn("JWKS refresh failed, using existing cache: ${it.message}") }
+            .onFailure { logger.warn("JWKS refresh failed, using existing cache", it) }
     }
 
     private fun fetchJwks(): JWKSet {
@@ -81,7 +84,7 @@ class FirebaseTokenVerifier(
         return decoder
     }
 
-    fun setDecoder(decoder: JwtDecoder) {
+    internal fun setDecoder(decoder: JwtDecoder) {
         cachedDecoder = decoder
     }
 
@@ -89,7 +92,7 @@ class FirebaseTokenVerifier(
         return try {
             val jwt = activeDecoder.decode(idToken)
             FirebaseTokenClaims(
-                uid = jwt.subject,
+                uid = jwt.subject ?: throw IllegalArgumentException("토큰에 uid(sub)가 없습니다."),
                 email = jwt.getClaimAsString("email"),
                 name = jwt.getClaimAsString("name"),
                 claims = jwt.claims
