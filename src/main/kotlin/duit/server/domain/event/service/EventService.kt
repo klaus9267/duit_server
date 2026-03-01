@@ -1,9 +1,21 @@
 package duit.server.domain.event.service
 
 import duit.server.application.security.SecurityUtil
-import duit.server.domain.common.dto.pagination.*
+import duit.server.domain.common.dto.pagination.CursorPageInfo
+import duit.server.domain.common.dto.pagination.CursorPageResponse
+import duit.server.domain.common.dto.pagination.PageInfo
+import duit.server.domain.common.dto.pagination.PageResponse
+import duit.server.domain.common.dto.pagination.PaginationField
 import duit.server.domain.common.extensions.findByIdOrThrow
-import duit.server.domain.event.dto.*
+import duit.server.domain.event.dto.Event4CalendarRequest
+import duit.server.domain.event.dto.EventCreateRequest
+import duit.server.domain.common.dto.pagination.EventCursor
+import duit.server.domain.common.dto.pagination.encode
+import duit.server.domain.event.dto.EventCursorPaginationParam
+import duit.server.domain.event.dto.EventPaginationParam
+import duit.server.domain.event.dto.EventResponse
+import duit.server.domain.event.dto.EventResponseV2
+import duit.server.domain.event.dto.EventUpdateRequest
 import duit.server.domain.event.entity.Event
 import duit.server.domain.event.entity.EventStatus
 import duit.server.domain.event.entity.EventStatusGroup
@@ -26,7 +38,8 @@ class EventService(
     private val discordService: DiscordService,
     private val hostService: HostService,
     private val fileStorageService: FileStorageService,
-    private val eventCacheService: EventCacheService
+    private val eventQueryService: EventQueryService,
+    private val eventCacheEvictService: EventCacheEvictService
 ) {
     @Transactional
     fun createEvent(
@@ -67,7 +80,7 @@ class EventService(
         }
 
         // 캐시 무효화
-        eventCacheService.incrementVersion()
+        eventCacheEvictService.evictAll()
 
         return EventResponseV2.from(savedEvent, false)
     }
@@ -110,28 +123,21 @@ class EventService(
 
     fun getEvents(param: EventCursorPaginationParam): CursorPageResponse<EventResponseV2> {
         val currentUserId = securityUtil.getCurrentUserIdOrNull()
-        val cacheable = eventCacheService.isCacheable(param)
 
-        // Cache-Aside: 캐시 히트 시 북마크만 오버레이
-        if (cacheable) {
-            eventCacheService.getFromCache(param)?.let {
-                return overlayBookmarks(it, currentUserId)
-            }
+        return if (isCacheable(param)) {
+            // Spring @Cacheable 경유: EventQueryService.findEvents → 북마크 오버레이
+            overlayBookmarks(eventQueryService.findEvents(param), currentUserId)
+        } else {
+            // 캐싱 불가 → DB 직접 조회
+            getEventsFromDb(param, currentUserId)
         }
-
-        // 캐시 미스 또는 캐싱 불가 → DB 조회
-        val response = getEventsFromDb(param, currentUserId)
-
-        // 캐싱 가능하면 북마크 제외하고 캐시 저장
-        if (cacheable) {
-            val stripped = response.copy(
-                content = response.content.map { it.copy(isBookmarked = false) }
-            )
-            eventCacheService.putToCache(param, stripped)
-        }
-
-        return response
     }
+
+    private fun isCacheable(param: EventCursorPaginationParam): Boolean =
+        !param.bookmarked
+            && param.searchKeyword == null
+            && param.hostId == null
+            && param.field != PaginationField.VIEW_COUNT
 
     private fun getEventsFromDb(
         param: EventCursorPaginationParam,
@@ -215,6 +221,9 @@ class EventService(
         val event = getEvent(eventId)
 
         event.updateStatus(LocalDateTime.now())
+
+        // 캐시 무효화
+        eventCacheEvictService.evictAll()
     }
 
     @Transactional
@@ -261,7 +270,7 @@ class EventService(
         val saved = eventRepository.save(event)
 
         // 캐시 무효화
-        eventCacheService.incrementVersion()
+        eventCacheEvictService.evictAll()
 
         EventResponse.from(saved, false)
     }
@@ -275,6 +284,6 @@ class EventService(
         eventRepository.deleteAllById(eventIds)
 
         // 캐시 무효화
-        eventCacheService.incrementVersion()
+        eventCacheEvictService.evictAll()
     }
 }

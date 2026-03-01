@@ -81,4 +81,20 @@ data class EventCursorPaginationParam(
             "size는 1 이상 100 이하여야 합니다 (현재: $size)"
         }
     }
+
+    /**
+     * Spring @Cacheable 캐시 키 생성
+     * 패턴: {field}:{statusFilter}:{types}:{size}:{cursor}
+     */
+    fun cacheKey(): String {
+        val fieldStr = field.name.lowercase()
+        val statusFilter = when {
+            status != null -> "s:${status.name.lowercase()}"
+            statusGroup != null -> "sg:${statusGroup!!.name.lowercase()}"
+            else -> "sg:active"
+        }
+        val typesStr = types?.sortedBy { it.name }?.joinToString(",") { it.name.lowercase() } ?: "all"
+        val cursorStr = cursor ?: "first"
+        return "$fieldStr:$statusFilter:$typesStr:$size:$cursorStr"
+    }
 }
