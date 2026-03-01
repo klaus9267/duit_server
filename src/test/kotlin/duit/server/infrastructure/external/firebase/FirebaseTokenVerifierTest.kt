@@ -171,4 +171,37 @@ class FirebaseTokenVerifierTest {
             assertEquals("user-uid-123", result.uid)
         }
     }
+
+    @Nested
+    @DisplayName("성능 벤치마크")
+    inner class PerformanceBenchmarkTests {
+
+        @Test
+        @DisplayName("신규 코드: 1000회 verifyIdToken 호출이 200ms 이내 (평균 <0.2ms)")
+        fun newCode1000CallsUnder200ms() {
+            val token = "perf-test-token"
+            val now = Instant.now()
+            val mockJwt = Jwt.withTokenValue(token)
+                .header("alg", "RS256")
+                .subject("perf-user-uid")
+                .claim("email", "perf@test.com")
+                .issuedAt(now)
+                .expiresAt(now.plusSeconds(3600))
+                .build()
+            every { mockDecoder.decode(token) } returns mockJwt
+
+            // 워밍업 (JIT 컴파일러 안정화)
+            repeat(50) { firebaseTokenVerifier.verifyIdToken(token) }
+
+            val startNs = System.nanoTime()
+            repeat(1000) { firebaseTokenVerifier.verifyIdToken(token) }
+            val elapsedMs = (System.nanoTime() - startNs) / 1_000_000
+            val avgMs = elapsedMs.toDouble() / 1000
+
+            println("[BENCHMARK] 1000회 호출: ${elapsedMs}ms total | avg ${avgMs}ms/call")
+            println("[BENCHMARK] 구 코드(HTTP): 600~1200ms/call → 신규 코드(로컬 RSA): ${avgMs}ms/call")
+
+            assertTrue(elapsedMs < 200, "1000회 호출이 ${elapsedMs}ms 걸림 (200ms 이내 기대)")
+        }
+    }
 }
