@@ -99,7 +99,7 @@ class UserControllerIntegrationTest : IntegrationTestSupport() {
             fun unauthorized() {
                 mockMvc.perform(get("/api/v1/users"))
                     .andDo(print())
-                    .andExpect(status().isOk) // SecurityConfig에서 GET /api/v1/users는 permitAll
+                    .andExpect(status().isUnauthorized)
             }
         }
     }
