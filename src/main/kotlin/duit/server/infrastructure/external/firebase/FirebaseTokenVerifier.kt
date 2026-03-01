@@ -46,7 +46,7 @@ class FirebaseTokenVerifier(
     private var cachedDecoder: JwtDecoder? = null
 
     private val activeDecoder: JwtDecoder
-        get() = cachedDecoder ?: error("JWKS decoder not initialized. Call setDecoder() or ensure @PostConstruct ran.")
+        get() = cachedDecoder ?: throw RuntimeException("Firebase JWKS 초기화 실패. 관리자에게 문의하세요.")
 
     @PostConstruct
     fun init() {
