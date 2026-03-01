@@ -13,11 +13,12 @@ services:
       JAVA_TOOL_OPTIONS: >-
         -Duser.timezone=Asia/Seoul
         -XX:+UnlockExperimentalVMOptions
-        -Xms4g
-        -Xmx8g
+        -Xms512m
+        -Xmx2g
         -XX:+UseG1GC
         -XX:MaxGCPauseMillis=200
-        -XX:G1HeapRegionSize=16m
+        -XX:ActiveProcessorCount=4
+        -XX:G1ReservePercent=10
     restart: unless-stopped
     networks:
       - duit-network-prod
@@ -42,11 +43,12 @@ services:
       JAVA_TOOL_OPTIONS: >-
         -Duser.timezone=Asia/Seoul
         -XX:+UnlockExperimentalVMOptions
-        -Xms4g
-        -Xmx8g
+        -Xms512m
+        -Xmx2g
         -XX:+UseG1GC
         -XX:MaxGCPauseMillis=200
-        -XX:G1HeapRegionSize=16m
+        -XX:ActiveProcessorCount=4
+        -XX:G1ReservePercent=10
     restart: unless-stopped
     networks:
       - duit-network-prod
@@ -60,7 +62,7 @@ services:
   db:
     image: mysql:8.0
     container_name: duit-mysql-prod
-#    command: --local-infile=1
+    command: --innodb-buffer-pool-size=2G --innodb-buffer-pool-instances=2 --max-connections=150 --innodb-log-file-size=256M
     profiles: ["infra", "full"]
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
@@ -102,7 +104,7 @@ services:
     restart: unless-stopped
     networks:
       - duit-network-prod
-    command: redis-server --requirepass ${REDIS_PASSWORD} --appendonly yes --appendfsync everysec
+    command: redis-server --requirepass ${REDIS_PASSWORD} --save "" --appendonly no --maxmemory 512mb --maxmemory-policy allkeys-lru --hz 20
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s

@@ -73,3 +73,6 @@ rules/
 
 ### Documentation (local only) ###
 docs/
+
+### Git Worktrees ###
+.worktrees/
