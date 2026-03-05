@@ -452,7 +452,7 @@ class EventControllerV2IntegrationTest : IntegrationTestSupport() {
             inner class EventStatusTests {
 
                 @Test
-                @DisplayName("PENDING 상태 필터링은 400을 반환한다")
+                @DisplayName("PENDING 상태 필터링")
                 fun filterByPendingStatusTest() {
                     mockMvc.perform(
                         get("/api/v2/events")
@@ -460,7 +460,9 @@ class EventControllerV2IntegrationTest : IntegrationTestSupport() {
                             .param("size", "10")
                     )
                         .andDo(print())
-                        .andExpect(status().isBadRequest)
+                        .andExpect(status().isOk)
+                        .andExpect(jsonPath("$.content").isArray)
+                        .andExpect(jsonPath("$.content[*].eventStatus").value(everyItem(equalTo("PENDING"))))
                 }
 
                 @Test
@@ -539,7 +541,7 @@ class EventControllerV2IntegrationTest : IntegrationTestSupport() {
             inner class EventStatusGroupTests {
 
                 @Test
-                @DisplayName("PENDING 그룹 필터링은 400을 반환한다")
+                @DisplayName("PENDING 그룹 필터링")
                 fun filterByPendingStatusGroupTest() {
                     mockMvc.perform(
                         get("/api/v2/events")
@@ -547,7 +549,9 @@ class EventControllerV2IntegrationTest : IntegrationTestSupport() {
                             .param("size", "10")
                     )
                         .andDo(print())
-                        .andExpect(status().isBadRequest)
+                        .andExpect(status().isOk)
+                        .andExpect(jsonPath("$.content").isArray)
+                        .andExpect(jsonPath("$.content[*].eventStatusGroup").value(everyItem(equalTo("PENDING"))))
                 }
 
                 @Test
