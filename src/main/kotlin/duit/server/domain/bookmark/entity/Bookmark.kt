@@ -3,7 +3,6 @@ package duit.server.domain.bookmark.entity
 import duit.server.domain.event.entity.Event
 import duit.server.domain.user.entity.User
 import jakarta.persistence.*
-import org.hibernate.annotations.UpdateTimestamp
 import org.springframework.data.annotation.CreatedDate
 import org.springframework.data.annotation.LastModifiedDate
 import org.springframework.data.jpa.domain.support.AuditingEntityListener
