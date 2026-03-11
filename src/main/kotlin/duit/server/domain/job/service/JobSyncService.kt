@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDateTime
+import java.util.concurrent.CompletableFuture
 
 @Service
 @Transactional(readOnly = true)
@@ -20,16 +21,30 @@ class JobSyncService(
 
     @Transactional
     fun syncAll() {
-        fetchers.forEach { fetcher ->
-            try {
-                val results = fetcher.fetchAll()
-                log.info("Fetched ${results.size} job postings from ${fetcher.sourceType}")
-                upsertAll(fetcher.sourceType, results)
-            } catch (e: Exception) {
-                log.error("Failed to sync job postings from ${fetcher.sourceType}", e)
+        val fetchResults = fetchAllAsync()
+
+        fetchResults.forEach { (sourceType, results) ->
+            upsertAll(sourceType, results)
+        }
+
+        deactivateExpiredPostings()
+    }
+
+    private fun fetchAllAsync(): List<Pair<SourceType, List<JobFetchResult>>> {
+        val futures = fetchers.map { fetcher ->
+            CompletableFuture.supplyAsync {
+                try {
+                    val results = fetcher.fetchAll()
+                    log.info("Fetched ${results.size} job postings from ${fetcher.sourceType}")
+                    fetcher.sourceType to results
+                } catch (e: Exception) {
+                    log.error("Failed to fetch job postings from ${fetcher.sourceType}", e)
+                    null
+                }
             }
         }
-        deactivateExpiredPostings()
+
+        return futures.mapNotNull { it.join() }
     }
 
     private fun upsertAll(sourceType: SourceType, results: List<JobFetchResult>) {
