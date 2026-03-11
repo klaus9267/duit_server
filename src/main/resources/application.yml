@@ -69,3 +69,9 @@ discord:
 firebase:
   web-api-key: ${FIREBASE_WEB_API_KEY}
   project-id: ${FIREBASE_PROJECT_ID}
+
+api:
+  saramin:
+    access-key: ${SARAMIN_ACCESS_KEY:}
+  work24:
+    auth-key: ${WORK24_KEY:}
