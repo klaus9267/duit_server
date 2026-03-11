@@ -5,7 +5,7 @@ import duit.server.domain.job.entity.SourceType
 import org.springframework.data.jpa.repository.JpaRepository
 import java.time.LocalDateTime
 
-interface JobPostingRepository : JpaRepository<JobPosting, Long> {
+interface JobPostingRepository : JpaRepository<JobPosting, Long>, JobPostingRepositoryCustom {
 
     fun findBySourceTypeAndExternalId(sourceType: SourceType, externalId: String): JobPosting?
 
