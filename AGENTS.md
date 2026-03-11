@@ -26,6 +26,20 @@ MySQL 8 (prod/local), H2 (test), QueryDSL 5, JWT auth, Firebase social login, FC
 
 No separate lint command — rely on the Kotlin compiler and IDE inspections.
 
+## 핵심 규칙
+
+### 커밋 메시지
+- **한글**로 작성. 예: `feat: 채용공고 수집 기능 구현`, `fix: 고용24 날짜 파싱 오류 수정`
+
+### 예외 처리
+- **전역 예외처리 활용** — `GlobalExceptionHandler`에서 처리. 개별 컨트롤러에 try-catch 금지.
+- `IllegalArgumentException` → 400, `EntityNotFoundException` → 404, `IllegalStateException` → 409
+
+### 코틀린 스타일
+- 코틀린스럽게 작성 — `?.let`, `when`, `require()`, expression body, `apply {}` 등 Kotlin idiom 적극 활용
+- `if-else` 체인 대신 `when`, null 체크 대신 `?.let`/`?:`, 불필요한 변수 대신 expression body
+- 불필요한 주석/docstring 최소화 — 코드가 스스로 설명하도록
+
 ## Package Structure
 
 ```
