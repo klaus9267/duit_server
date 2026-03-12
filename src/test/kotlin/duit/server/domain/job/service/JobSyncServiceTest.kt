@@ -126,6 +126,51 @@ class JobSyncServiceTest {
     )
 
     @Nested
+    @DisplayName("fetchAllAsync 비동기 동작")
+    inner class FetchAllAsyncTests {
+
+        @Test
+        fun `두 fetcher가 병렬로 모두 호출된다`() {
+            val fetcher2 = mockk<JobFetcher>()
+            every { fetcher2.sourceType } returns SourceType.WORK24
+
+            val syncServiceWith2Fetchers = JobSyncService(listOf(fetcher1, fetcher2), repository)
+
+            every { fetcher1.fetchAll() } returns listOf(createFetchResult(externalId = "saramin-1"))
+            every { fetcher2.fetchAll() } returns listOf(createFetchResult(externalId = "work24-1"))
+            every { repository.findBySourceTypeAndExternalId(SourceType.SARAMIN, "saramin-1") } returns null
+            every { repository.findBySourceTypeAndExternalId(SourceType.WORK24, "work24-1") } returns null
+            every { repository.findByIsActiveTrueAndExpiresAtBefore(any()) } returns emptyList()
+            every { repository.save(any()) } returns mockk()
+
+            syncServiceWith2Fetchers.syncAll()
+
+            verify(exactly = 1) { fetcher1.fetchAll() }
+            verify(exactly = 1) { fetcher2.fetchAll() }
+            verify(exactly = 2) { repository.save(any()) }
+        }
+
+        @Test
+        fun `한 fetcher가 실패해도 다른 fetcher 결과는 정상 처리된다`() {
+            val fetcher2 = mockk<JobFetcher>()
+            every { fetcher2.sourceType } returns SourceType.WORK24
+
+            val syncServiceWith2Fetchers = JobSyncService(listOf(fetcher1, fetcher2), repository)
+
+            every { fetcher1.fetchAll() } throws RuntimeException("fetcher1 오류")
+            every { fetcher2.fetchAll() } returns listOf(createFetchResult(externalId = "work24-ok"))
+            every { repository.findBySourceTypeAndExternalId(SourceType.WORK24, "work24-ok") } returns null
+            every { repository.findByIsActiveTrueAndExpiresAtBefore(any()) } returns emptyList()
+            every { repository.save(any()) } returns mockk()
+
+            syncServiceWith2Fetchers.syncAll()
+
+            verify(exactly = 0) { repository.findBySourceTypeAndExternalId(SourceType.SARAMIN, any()) }
+            verify(exactly = 1) { repository.save(any()) }
+        }
+    }
+
+    @Nested
     inner class SyncAllTests {
 
         @Test

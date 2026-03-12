@@ -10,6 +10,14 @@ import duit.server.domain.event.entity.EventStatus
 import duit.server.domain.event.entity.EventStatusGroup
 import duit.server.domain.event.entity.EventType
 import duit.server.domain.host.entity.Host
+import duit.server.domain.job.entity.CloseType
+import duit.server.domain.job.entity.EducationLevel
+import duit.server.domain.job.entity.EmploymentType
+import duit.server.domain.job.entity.JobBookmark
+import duit.server.domain.job.entity.JobPosting
+import duit.server.domain.job.entity.SalaryType
+import duit.server.domain.job.entity.SourceType
+import duit.server.domain.job.entity.WorkRegion
 import duit.server.domain.user.entity.AlarmSettings
 import duit.server.domain.user.entity.ProviderType
 import duit.server.domain.user.entity.User
@@ -116,5 +124,59 @@ object TestFixtures {
         ipAddress = ipAddress,
         failureCount = failureCount,
         isBanned = isBanned,
+    )
+
+    fun jobPosting(
+        sourceType: SourceType = SourceType.WORK24,
+        externalId: String = "test-${System.nanoTime()}",
+        title: String = "테스트 간호사 채용",
+        companyName: String = "테스트 병원",
+        jobCategory: String? = "간호사",
+        location: String? = "서울특별시 강남구",
+        workRegion: WorkRegion? = WorkRegion.SEOUL,
+        workDistrict: String? = "강남구",
+        employmentType: EmploymentType? = EmploymentType.FULL_TIME,
+        careerMin: Int? = null,
+        careerMax: Int? = null,
+        educationLevel: EducationLevel? = EducationLevel.ASSOCIATE,
+        salaryMin: Long? = 3500,
+        salaryMax: Long? = 4500,
+        salaryType: SalaryType? = SalaryType.ANNUAL,
+        postingUrl: String = "https://example.com/job",
+        postedAt: LocalDateTime? = LocalDateTime.now().minusDays(1),
+        expiresAt: LocalDateTime? = LocalDateTime.now().plusDays(30),
+        closeType: CloseType = CloseType.FIXED,
+        isActive: Boolean = true,
+        workHoursPerWeek: Int? = 40,
+    ): JobPosting = JobPosting(
+        sourceType = sourceType,
+        externalId = externalId,
+        title = title,
+        companyName = companyName,
+        jobCategory = jobCategory,
+        location = location,
+        workRegion = workRegion,
+        workDistrict = workDistrict,
+        employmentType = employmentType,
+        careerMin = careerMin,
+        careerMax = careerMax,
+        educationLevel = educationLevel,
+        salaryMin = salaryMin,
+        salaryMax = salaryMax,
+        salaryType = salaryType,
+        postingUrl = postingUrl,
+        postedAt = postedAt,
+        expiresAt = expiresAt,
+        closeType = closeType,
+        isActive = isActive,
+        workHoursPerWeek = workHoursPerWeek,
+    )
+
+    fun jobBookmark(
+        user: User,
+        jobPosting: JobPosting,
+    ): JobBookmark = JobBookmark(
+        user = user,
+        jobPosting = jobPosting,
     )
 }
