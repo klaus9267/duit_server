@@ -1,9 +1,13 @@
 package duit.server.domain.job.service
 
 import duit.server.domain.job.entity.JobPosting
+import duit.server.domain.job.entity.JobSyncState
 import duit.server.domain.job.entity.SourceType
 import duit.server.domain.job.repository.JobPostingRepository
+import duit.server.domain.job.repository.JobSyncStateRepository
+import duit.server.infrastructure.external.discord.DiscordService
 import duit.server.infrastructure.external.job.JobFetcher
+import duit.server.infrastructure.external.job.dto.IncrementalFetchResult
 import duit.server.infrastructure.external.job.dto.JobFetchResult
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
@@ -16,15 +20,46 @@ import java.util.concurrent.CompletableFuture
 class JobSyncService(
     private val fetchers: List<JobFetcher>,
     private val jobPostingRepository: JobPostingRepository,
+    private val jobSyncStateRepository: JobSyncStateRepository,
+    private val discordService: DiscordService,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
     @Transactional
     fun syncAll() {
+        val now = LocalDateTime.now()
         val fetchResults = fetchAllAsync()
 
         fetchResults.forEach { (sourceType, results) ->
             upsertAll(sourceType, results)
+
+            val syncState = jobSyncStateRepository.findById(sourceType).orElse(null)
+            if (syncState != null) {
+                syncState.lastSyncedAt = now
+                syncState.lastFullSyncAt = now
+            } else {
+                jobSyncStateRepository.save(JobSyncState(sourceType, lastSyncedAt = now, lastFullSyncAt = now))
+            }
+        }
+
+        deactivateExpiredPostings()
+    }
+
+    @Transactional
+    fun syncIncremental() {
+        val incrementalResults = fetchIncrementalAsync()
+
+        incrementalResults.forEach { (sourceType, result) ->
+            upsertAll(sourceType, result.items)
+
+            if (result.latestTimestamp != null) {
+                val syncState = jobSyncStateRepository.findById(sourceType).orElse(null)
+                if (syncState != null) {
+                    syncState.lastSyncedAt = result.latestTimestamp
+                } else {
+                    jobSyncStateRepository.save(JobSyncState(sourceType, lastSyncedAt = result.latestTimestamp))
+                }
+            }
         }
 
         deactivateExpiredPostings()
@@ -36,10 +71,53 @@ class JobSyncService(
                 try {
                     val results = fetcher.fetchAll()
                     log.info("Fetched ${results.size} job postings from ${fetcher.sourceType}")
+
+                    if (results.isEmpty()) {
+                        discordService.sendSyncErrorNotification(fetcher.sourceType, "fetchAll 결과가 0건", 0)
+                    }
+
                     fetcher.sourceType to results
                 } catch (e: Exception) {
                     log.error("Failed to fetch job postings from ${fetcher.sourceType}", e)
+                    discordService.sendSyncErrorNotification(fetcher.sourceType, e.message ?: "Unknown error", 0)
                     null
+                }
+            }
+        }
+
+        return futures.mapNotNull { it.join() }
+    }
+
+    private fun fetchIncrementalAsync(): List<Pair<SourceType, IncrementalFetchResult>> {
+        val syncStates = jobSyncStateRepository.findAll().associateBy { it.sourceType }
+
+        val futures = fetchers.map { fetcher ->
+            CompletableFuture.supplyAsync {
+                val syncState = syncStates[fetcher.sourceType]
+
+                if (syncState == null) {
+                    log.info("${fetcher.sourceType}: 워터마크 없음, fetchAll로 fallback")
+                    try {
+                        val results = fetcher.fetchAll()
+                        log.info("Fetched ${results.size} job postings from ${fetcher.sourceType} (full fallback)")
+                        val latestTimestamp = if (results.isNotEmpty()) LocalDateTime.now() else null
+                        fetcher.sourceType to IncrementalFetchResult(results, latestTimestamp)
+                    } catch (e: Exception) {
+                        log.error("Failed to fetch job postings from ${fetcher.sourceType} (full fallback)", e)
+                        discordService.sendSyncErrorNotification(fetcher.sourceType, "Full fallback 실패: ${e.message}", 0)
+                        null
+                    }
+                } else {
+                    val since = syncState.lastSyncedAt.minusMinutes(1)
+                    try {
+                        val result = fetcher.fetchIncremental(since)
+                        log.info("Incremental fetch: ${result.items.size} items from ${fetcher.sourceType} (since=$since)")
+                        fetcher.sourceType to result
+                    } catch (e: Exception) {
+                        log.error("Failed incremental fetch from ${fetcher.sourceType}", e)
+                        discordService.sendSyncErrorNotification(fetcher.sourceType, "Incremental fetch 실패: ${e.message}", 0)
+                        null
+                    }
                 }
             }
         }

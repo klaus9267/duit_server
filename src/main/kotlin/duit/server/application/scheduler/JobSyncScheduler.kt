@@ -19,17 +19,30 @@ class JobSyncScheduler(
 
     @EventListener(ApplicationReadyEvent::class)
     fun onApplicationReady() {
-        syncJobs()
+        syncAllJobs()
     }
 
+    /** 매 3시간마다 증분 수집 (경량) */
     @Scheduled(cron = "0 0 */3 * * *")
-    fun syncJobs() {
-        logger.info("=== Starting job sync batch job ===")
+    fun syncIncrementalJobs() {
+        logger.info("=== Starting incremental job sync ===")
+        try {
+            jobSyncService.syncIncremental()
+            logger.info("=== Incremental job sync completed successfully ===")
+        } catch (e: Exception) {
+            logger.error("Error during incremental job sync", e)
+        }
+    }
+
+    /** 매일 03:00 전체 동기화 (안전망) */
+    @Scheduled(cron = "0 0 3 * * *")
+    fun syncAllJobs() {
+        logger.info("=== Starting full job sync ===")
         try {
             jobSyncService.syncAll()
-            logger.info("=== Job sync completed successfully ===")
+            logger.info("=== Full job sync completed successfully ===")
         } catch (e: Exception) {
-            logger.error("Error during job sync", e)
+            logger.error("Error during full job sync", e)
         }
     }
 }
