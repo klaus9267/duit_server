@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RestController
 
 @RestController
 @RequestMapping("api/v1/job-bookmarks")
-@Tag(name = "Job Bookmark")
+@Tag(name = "Job Bookmark", description = "채용공고 북마크 관련 API")
 class JobBookmarkController(private val jobBookmarkService: JobBookmarkService) {
 
     @PostMapping("{jobPostingId}")
