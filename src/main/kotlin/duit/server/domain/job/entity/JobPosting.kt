@@ -195,15 +195,18 @@ class JobPosting(
             else -> "경력 ${careerMin}~${careerMax}년"
         }
 
-    /** 급여 표시 문자열. DTO 변환 시 활용. */
+    /** 급여 표시 문자열. DTO 변환 시 활용. DB에는 원 단위로 저장되며, 만원 단위로 변환하여 표시. */
     val salaryDescription: String
         get() {
             if (salaryMin == null) return "급여 미공개"
             val type = salaryType?.displayName ?: ""
-            return if (salaryMax != null && salaryMin != salaryMax) {
-                "$type ${salaryMin}~${salaryMax}만원"
+            val effectiveMax = salaryMax?.takeIf { it > 0 }
+            return if (effectiveMax != null && salaryMin != effectiveMax) {
+                "$type ${toManWon(salaryMin!!)}~${toManWon(effectiveMax)}만원"
             } else {
-                "$type ${salaryMin}만원"
+                "$type ${toManWon(salaryMin!!)}만원"
             }
         }
+
+    private fun toManWon(value: Long): Long = value / 10000
 }

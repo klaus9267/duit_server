@@ -439,9 +439,9 @@ class Work24CodeMapperTest {
         }
 
         @Test
-        fun `"0"은 0L로 파싱`() {
+        fun `"0"은 null로 반환`() {
             val result = Work24CodeMapper.parseSalary("0")
-            assertEquals(0L, result)
+            assertNull(result)
         }
 
         @Test
@@ -483,7 +483,7 @@ class Work24CodeMapperTest {
         @Test
         fun `음수는 null로 반환`() {
             val result = Work24CodeMapper.parseSalary("-1000")
-            assertEquals(-1000L, result)
+            assertNull(result)
         }
 
         @Test

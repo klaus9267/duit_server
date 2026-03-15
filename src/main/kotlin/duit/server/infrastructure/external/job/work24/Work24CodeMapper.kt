@@ -92,6 +92,7 @@ object Work24CodeMapper {
 
     fun parseSalary(sal: String?): Long? {
         if (sal.isNullOrBlank()) return null
-        return sal.trim().toLongOrNull()
+        val value = sal.trim().toLongOrNull() ?: return null
+        return if (value <= 0) null else value
     }
 }
