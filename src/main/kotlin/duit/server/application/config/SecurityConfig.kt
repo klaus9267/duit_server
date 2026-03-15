@@ -70,6 +70,8 @@ class SecurityConfig(
                         "/api/v2/events",
                         "/api/v2/events/{eventId}",
                         "/api/v1/hosts",
+                        "/api/v1/job-postings",
+                        "/api/v1/job-postings/{jobPostingId}",
                     ).permitAll()
 
                     // CORS preflight 요청 (OPTIONS) 허용
