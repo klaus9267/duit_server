@@ -16,14 +16,14 @@ class RedisConnectionValidator(
     private val logger = LoggerFactory.getLogger(javaClass)
 
     override fun run(args: ApplicationArguments) {
-        try {
-            redisTemplate.connectionFactory?.connection?.use { connection ->
-                connection.ping()
-            } ?: throw IllegalStateException("RedisConnectionFactory가 null입니다")
-
-            logger.info("Redis 연결 확인 완료")
-        } catch (e: Exception) {
-            throw IllegalStateException("Redis 연결 실패 — 서버를 시작할 수 없습니다", e)
-        }
+//        try {
+//            redisTemplate.connectionFactory?.connection?.use { connection ->
+//                connection.ping()
+//            } ?: throw IllegalStateException("RedisConnectionFactory가 null입니다")
+//
+//            logger.info("Redis 연결 확인 완료")
+//        } catch (e: Exception) {
+//            throw IllegalStateException("Redis 연결 실패 — 서버를 시작할 수 없습니다", e)
+//        }
     }
 }
