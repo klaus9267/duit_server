@@ -6,12 +6,14 @@ import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import duit.server.domain.job.entity.CloseType
 import duit.server.domain.job.entity.SourceType
 import duit.server.infrastructure.external.job.JobFetcher
+import duit.server.infrastructure.external.job.dto.IncrementalFetchResult
 import duit.server.infrastructure.external.job.dto.JobFetchResult
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
 import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 
 @Component
 class Work24JobFetcher(
@@ -31,6 +33,8 @@ class Work24JobFetcher(
         .baseUrl("https://www.work24.go.kr")
         .build()
 
+    private val modifyDtmFormatter = DateTimeFormatter.ofPattern("yyyyMMddHHmm")
+
     override fun fetchAll(): List<JobFetchResult> {
         if (authKey.isBlank()) {
             logger.warn("Work24 auth key is not configured. Skipping fetch.")
@@ -44,21 +48,7 @@ class Work24JobFetcher(
 
         try {
             while (startPage <= maxPages) {
-                val responseBody = restClient.get()
-                    .uri { builder ->
-                        builder.path("/cm/openApi/call/wk/callOpenApiSvcInfo210L01.do")
-                            .queryParam("authKey", authKey)
-                            .queryParam("callTp", "L")
-                            .queryParam("returnType", "XML")
-                            .queryParam("display", display)
-                            .queryParam("keyword", "간호")
-                            .queryParam("startPage", startPage)
-                            .build()
-                    }
-                    .retrieve()
-                    .body(String::class.java) ?: break
-
-                val apiResponse = xmlMapper.readValue(responseBody, Work24ApiResponse::class.java)
+                val apiResponse = fetchPageWithRetry(startPage, display) ?: break
                 val total = apiResponse.total?.toLongOrNull() ?: 0L
                 val items = apiResponse.wanted ?: emptyList()
 
@@ -72,11 +62,97 @@ class Work24JobFetcher(
                 startPage++
             }
         } catch (e: Exception) {
-            logger.error("Failed to fetch jobs from Work24", e)
-            return emptyList()
+            logger.error("Work24 fetchAll: page ${startPage}에서 에러 발생, ${results.size}건 부분 반환", e)
         }
 
         return results
+    }
+
+    override fun fetchIncremental(since: LocalDateTime): IncrementalFetchResult {
+        if (authKey.isBlank()) {
+            logger.warn("Work24 auth key is not configured. Skipping incremental fetch.")
+            return IncrementalFetchResult(emptyList(), null)
+        }
+
+        val results = mutableListOf<JobFetchResult>()
+        var latestTimestamp: LocalDateTime? = null
+        var startPage = 1
+        val display = 100
+        val maxPages = 100
+        var earlyTerminated = false
+
+        try {
+            while (startPage <= maxPages && !earlyTerminated) {
+                val apiResponse = fetchPageWithRetry(startPage, display) ?: break
+                val items = apiResponse.wanted ?: emptyList()
+
+                if (items.isEmpty()) break
+
+                for (item in items) {
+                    val modifyDtm = parseModifyDtm(item.smodifyDtm)
+
+                    if (modifyDtm != null && !modifyDtm.isAfter(since)) {
+                        earlyTerminated = true
+                        break
+                    }
+
+                    val fetchResult = item.toJobFetchResult() ?: continue
+                    results.add(fetchResult)
+
+                    if (modifyDtm != null && (latestTimestamp == null || modifyDtm.isAfter(latestTimestamp))) {
+                        latestTimestamp = modifyDtm
+                    }
+                }
+
+                startPage++
+            }
+        } catch (e: Exception) {
+            logger.error("Work24 fetchIncremental: page ${startPage}에서 에러 발생, ${results.size}건 부분 반환", e)
+        }
+
+        logger.info("Work24 incremental: ${results.size}건 수집, ${startPage - 1}페이지 스캔, earlyTerminated=$earlyTerminated")
+        return IncrementalFetchResult(results, latestTimestamp)
+    }
+
+    private fun fetchPage(startPage: Int, display: Int): Work24ApiResponse? {
+        val responseBody = restClient.get()
+            .uri { builder ->
+                builder.path("/cm/openApi/call/wk/callOpenApiSvcInfo210L01.do")
+                    .queryParam("authKey", authKey)
+                    .queryParam("callTp", "L")
+                    .queryParam("returnType", "XML")
+                    .queryParam("display", display)
+                    .queryParam("keyword", "간호")
+                    .queryParam("startPage", startPage)
+                    .build()
+            }
+            .retrieve()
+            .body(String::class.java) ?: return null
+
+        return xmlMapper.readValue(responseBody, Work24ApiResponse::class.java)
+    }
+
+    private fun fetchPageWithRetry(startPage: Int, display: Int, maxRetries: Int = 2): Work24ApiResponse? {
+        repeat(maxRetries + 1) { attempt ->
+            try {
+                return fetchPage(startPage, display)
+            } catch (e: Exception) {
+                if (attempt == maxRetries) throw e
+                logger.warn("Work24 page $startPage fetch 실패 (attempt ${attempt + 1}/$maxRetries), 재시도...", e)
+                Thread.sleep(1000L * (attempt + 1))
+            }
+        }
+        return null
+    }
+
+    private fun parseModifyDtm(smodifyDtm: String?): LocalDateTime? {
+        if (smodifyDtm.isNullOrBlank()) return null
+        return try {
+            LocalDateTime.parse(smodifyDtm, modifyDtmFormatter)
+        } catch (e: Exception) {
+            logger.debug("Work24 smodifyDtm 파싱 실패: $smodifyDtm", e)
+            null
+        }
     }
 
     private fun Work24ApiResponse.WantedItem.toJobFetchResult(): JobFetchResult? {
