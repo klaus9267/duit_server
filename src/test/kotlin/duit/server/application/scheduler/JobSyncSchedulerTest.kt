@@ -23,14 +23,14 @@ class JobSyncSchedulerTest {
     }
 
     @Nested
-    @DisplayName("syncJobs()")
-    inner class SyncJobsTests {
+    @DisplayName("syncAllJobs()")
+    inner class SyncAllJobsTests {
 
         @Test
-        fun `syncJobs 호출 시 jobSyncService syncAll이 실행된다`() {
+        fun `syncAllJobs 호출 시 jobSyncService syncAll이 실행된다`() {
             justRun { jobSyncService.syncAll() }
 
-            scheduler.syncJobs()
+            scheduler.syncAllJobs()
 
             verify(exactly = 1) { jobSyncService.syncAll() }
         }
@@ -39,9 +39,32 @@ class JobSyncSchedulerTest {
         fun `syncAll에서 예외 발생 시 예외를 다시 던지지 않는다`() {
             every { jobSyncService.syncAll() } throws RuntimeException("동기화 오류")
 
-            scheduler.syncJobs()
+            scheduler.syncAllJobs()
 
             verify(exactly = 1) { jobSyncService.syncAll() }
+        }
+    }
+
+    @Nested
+    @DisplayName("syncIncrementalJobs()")
+    inner class SyncIncrementalJobsTests {
+
+        @Test
+        fun `syncIncrementalJobs 호출 시 jobSyncService syncIncremental이 실행된다`() {
+            justRun { jobSyncService.syncIncremental() }
+
+            scheduler.syncIncrementalJobs()
+
+            verify(exactly = 1) { jobSyncService.syncIncremental() }
+        }
+
+        @Test
+        fun `syncIncremental에서 예외 발생 시 예외를 다시 던지지 않는다`() {
+            every { jobSyncService.syncIncremental() } throws RuntimeException("증분 동기화 오류")
+
+            scheduler.syncIncrementalJobs()
+
+            verify(exactly = 1) { jobSyncService.syncIncremental() }
         }
     }
 }

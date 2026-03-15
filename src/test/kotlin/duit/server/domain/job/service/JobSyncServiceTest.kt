@@ -2,8 +2,11 @@ package duit.server.domain.job.service
 
 import duit.server.domain.job.entity.CloseType
 import duit.server.domain.job.entity.JobPosting
+import duit.server.domain.job.entity.JobSyncState
 import duit.server.domain.job.entity.SourceType
 import duit.server.domain.job.repository.JobPostingRepository
+import duit.server.domain.job.repository.JobSyncStateRepository
+import duit.server.infrastructure.external.discord.DiscordService
 import duit.server.infrastructure.external.job.JobFetcher
 import duit.server.infrastructure.external.job.dto.JobFetchResult
 import io.mockk.every
@@ -12,6 +15,7 @@ import io.mockk.slot
 import io.mockk.verify
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import java.util.Optional
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -23,14 +27,20 @@ class JobSyncServiceTest {
 
     private lateinit var fetcher1: JobFetcher
     private lateinit var repository: JobPostingRepository
+    private lateinit var syncStateRepository: JobSyncStateRepository
+    private lateinit var discordService: DiscordService
     private lateinit var syncService: JobSyncService
 
     @BeforeEach
     fun setUp() {
         fetcher1 = mockk()
         repository = mockk(relaxed = true)
+        syncStateRepository = mockk(relaxed = true)
+        discordService = mockk(relaxed = true)
         every { fetcher1.sourceType } returns SourceType.SARAMIN
-        syncService = JobSyncService(listOf(fetcher1), repository)
+        every { syncStateRepository.findById(any<SourceType>()) } returns Optional.empty()
+        every { syncStateRepository.save(any<JobSyncState>()) } answers { firstArg() }
+        syncService = JobSyncService(listOf(fetcher1), repository, syncStateRepository, discordService)
     }
 
     private fun createFetchResult(
@@ -134,7 +144,7 @@ class JobSyncServiceTest {
             val fetcher2 = mockk<JobFetcher>()
             every { fetcher2.sourceType } returns SourceType.WORK24
 
-            val syncServiceWith2Fetchers = JobSyncService(listOf(fetcher1, fetcher2), repository)
+            val syncServiceWith2Fetchers = JobSyncService(listOf(fetcher1, fetcher2), repository, syncStateRepository, discordService)
 
             every { fetcher1.fetchAll() } returns listOf(createFetchResult(externalId = "saramin-1"))
             every { fetcher2.fetchAll() } returns listOf(createFetchResult(externalId = "work24-1"))
@@ -155,7 +165,7 @@ class JobSyncServiceTest {
             val fetcher2 = mockk<JobFetcher>()
             every { fetcher2.sourceType } returns SourceType.WORK24
 
-            val syncServiceWith2Fetchers = JobSyncService(listOf(fetcher1, fetcher2), repository)
+            val syncServiceWith2Fetchers = JobSyncService(listOf(fetcher1, fetcher2), repository, syncStateRepository, discordService)
 
             every { fetcher1.fetchAll() } throws RuntimeException("fetcher1 오류")
             every { fetcher2.fetchAll() } returns listOf(createFetchResult(externalId = "work24-ok"))
@@ -240,7 +250,7 @@ class JobSyncServiceTest {
             val fetcher2 = mockk<JobFetcher>()
             every { fetcher2.sourceType } returns SourceType.WORK24
 
-            val syncServiceWith2Fetchers = JobSyncService(listOf(fetcher1, fetcher2), repository)
+            val syncServiceWith2Fetchers = JobSyncService(listOf(fetcher1, fetcher2), repository, syncStateRepository, discordService)
 
             every { fetcher1.fetchAll() } throws RuntimeException("사람인 API 오류")
             val fetchResult = createFetchResult(
