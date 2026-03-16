@@ -65,6 +65,7 @@ jobs:
           BASE_URL=${{ secrets.BASE_URL }}
           FIREBASE_WEB_API_KEY=${{ secrets.FIREBASE_WEB_API_KEY }}
           FIREBASE_PROJECT_ID=${{ secrets.FIREBASE_PROJECT_ID }}
+          WORK24_KEY=${{ secrets.WORK24_KEY }}
           EOF
 
           cat > src/main/resources/firebase-key.json << EOF
