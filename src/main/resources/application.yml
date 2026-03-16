@@ -72,6 +72,6 @@ firebase:
 
 api:
   saramin:
-    access-key: ${SARAMIN_ACCESS_KEY:}
+    access-key: ${SARAMIN_ACCESS_KE:}
   work24:
-    auth-key: ${WORK24_KEY:}
+    auth-key: ${WORK24_KEY}

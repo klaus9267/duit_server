@@ -40,6 +40,7 @@ jobs:
 
       - name: Setup configuration
         run: |
+          # Docker 빌드용 설정 파일 생성
           cat > src/main/resources/application.properties << EOF
           PROFILE=${{ secrets.PROFILE }}
           JWT_SECRET=${{ secrets.JWT_SECRET }}
@@ -58,6 +59,8 @@ jobs:
           UPLOAD_DIR=${{ secrets.UPLOAD_DIR }}
           BASE_URL=${{ secrets.BASE_URL }}
           FIREBASE_WEB_API_KEY=${{ secrets.FIREBASE_WEB_API_KEY }}
+          FIREBASE_PROJECT_ID=${{ secrets.FIREBASE_PROJECT_ID }}
+          WORK24_KEY=${{ secrets.WORK24_KEY }}
           EOF
 
           cat > src/main/resources/firebase-key.json << EOF
