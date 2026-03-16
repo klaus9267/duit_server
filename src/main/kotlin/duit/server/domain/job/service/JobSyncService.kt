@@ -73,13 +73,19 @@ class JobSyncService(
                     log.info("Fetched ${results.size} job postings from ${fetcher.sourceType}")
 
                     if (results.isEmpty()) {
-                        discordService.sendSyncErrorNotification(fetcher.sourceType, "fetchAll 결과가 0건", 0)
+                        log.warn("${fetcher.sourceType}: fetchAll 결과가 0건")
                     }
 
                     fetcher.sourceType to results
                 } catch (e: Exception) {
                     log.error("Failed to fetch job postings from ${fetcher.sourceType}", e)
-                    discordService.sendSyncErrorNotification(fetcher.sourceType, e.message ?: "Unknown error", 0)
+                    discordService.sendServerErrorNotification(
+                        errorCode = "JOB_SYNC_ERROR",
+                        message = e.message ?: "Unknown error",
+                        path = "JobSync/${fetcher.sourceType}",
+                        timestamp = LocalDateTime.now(),
+                        exception = e,
+                    )
                     null
                 }
             }
@@ -104,7 +110,13 @@ class JobSyncService(
                         fetcher.sourceType to IncrementalFetchResult(results, latestTimestamp)
                     } catch (e: Exception) {
                         log.error("Failed to fetch job postings from ${fetcher.sourceType} (full fallback)", e)
-                        discordService.sendSyncErrorNotification(fetcher.sourceType, "Full fallback 실패: ${e.message}", 0)
+                        discordService.sendServerErrorNotification(
+                            errorCode = "JOB_SYNC_ERROR",
+                            message = "Full fallback 실패: ${e.message}",
+                            path = "JobSync/${fetcher.sourceType}",
+                            timestamp = LocalDateTime.now(),
+                            exception = e,
+                        )
                         null
                     }
                 } else {
@@ -115,7 +127,13 @@ class JobSyncService(
                         fetcher.sourceType to result
                     } catch (e: Exception) {
                         log.error("Failed incremental fetch from ${fetcher.sourceType}", e)
-                        discordService.sendSyncErrorNotification(fetcher.sourceType, "Incremental fetch 실패: ${e.message}", 0)
+                        discordService.sendServerErrorNotification(
+                            errorCode = "JOB_SYNC_ERROR",
+                            message = "Incremental fetch 실패: ${e.message}",
+                            path = "JobSync/${fetcher.sourceType}",
+                            timestamp = LocalDateTime.now(),
+                            exception = e,
+                        )
                         null
                     }
                 }

@@ -1,7 +1,6 @@
 package duit.server.infrastructure.external.discord
 
 import duit.server.domain.event.entity.Event
-import duit.server.domain.job.entity.SourceType
 import duit.server.infrastructure.external.discord.dto.DiscordEmbed
 import duit.server.infrastructure.external.discord.dto.DiscordField
 import duit.server.infrastructure.external.discord.dto.DiscordThumbnail
@@ -156,50 +155,4 @@ class DiscordService(
         }
     }
 
-    /**
-     * 채용공고 동기화 에러를 Discord로 알림
-     *
-     * @param sourceType 에러가 발생한 소스 (WORK24, SARAMIN)
-     * @param error 에러 메시지
-     * @param partialCount 에러 발생 전까지 수집된 건수
-     */
-    fun sendSyncErrorNotification(sourceType: SourceType, error: String, partialCount: Int) {
-        if (discordErrorWebhookUrl.isNullOrBlank()) {
-            logger.warn("Discord error webhook URL is not configured. Skipping sync error notification.")
-            return
-        }
-
-        CompletableFuture.runAsync {
-            try {
-                val now = LocalDateTime.now()
-                val discordMessage = DiscordWebhookMessage(
-                    username = "DU-IT Sync Monitor",
-                    embeds = listOf(
-                        DiscordEmbed(
-                            title = "⚠️ 채용공고 동기화 에러",
-                            description = """
-                                **소스**: `${sourceType.displayName}` (${sourceType.name})
-                                **에러**: $error
-                                **부분 수집**: ${partialCount}건
-                                **발생 시각**: ${now.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)}
-                            """.trimIndent(),
-                            color = 0xFFA500,
-                            timestamp = now.atZone(ZoneId.of("Asia/Seoul")).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-                        )
-                    )
-                )
-
-                restClient.post()
-                    .uri(discordErrorWebhookUrl)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(discordMessage)
-                    .retrieve()
-                    .toBodilessEntity()
-
-                logger.info("Sync error notification sent to Discord for ${sourceType.name}")
-            } catch (e: Exception) {
-                logger.error("Failed to send sync error notification to Discord", e)
-            }
-        }
-    }
 }
