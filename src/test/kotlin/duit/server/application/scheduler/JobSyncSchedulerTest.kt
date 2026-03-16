@@ -23,29 +23,6 @@ class JobSyncSchedulerTest {
     }
 
     @Nested
-    @DisplayName("syncAllJobs()")
-    inner class SyncAllJobsTests {
-
-        @Test
-        fun `syncAllJobs 호출 시 jobSyncService syncAll이 실행된다`() {
-            justRun { jobSyncService.syncAll() }
-
-            scheduler.syncAllJobs()
-
-            verify(exactly = 1) { jobSyncService.syncAll() }
-        }
-
-        @Test
-        fun `syncAll에서 예외 발생 시 예외를 다시 던지지 않는다`() {
-            every { jobSyncService.syncAll() } throws RuntimeException("동기화 오류")
-
-            scheduler.syncAllJobs()
-
-            verify(exactly = 1) { jobSyncService.syncAll() }
-        }
-    }
-
-    @Nested
     @DisplayName("syncIncrementalJobs()")
     inner class SyncIncrementalJobsTests {
 

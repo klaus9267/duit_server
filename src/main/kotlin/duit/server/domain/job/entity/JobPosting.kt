@@ -190,6 +190,7 @@ class JobPosting(
     val careerDescription: String
         get() = when {
             careerMin == null && careerMax == null -> "경력무관"
+            careerMin == null && careerMax != null -> "경력무관"
             careerMin == 0 && careerMax == null -> "신입"
             careerMin != null && careerMax == null -> "경력 ${careerMin}년 이상"
             else -> "경력 ${careerMin}~${careerMax}년"
@@ -199,13 +200,14 @@ class JobPosting(
     val salaryDescription: String
         get() {
             if (salaryMin == null) return "급여 미공개"
-            val type = salaryType?.displayName ?: ""
+            val type = salaryType?.displayName
             val effectiveMax = salaryMax?.takeIf { it > 0 }
-            return if (effectiveMax != null && salaryMin != effectiveMax) {
-                "$type ${toManWon(salaryMin!!)}~${toManWon(effectiveMax)}만원"
+            val amount = if (effectiveMax != null && salaryMin != effectiveMax) {
+                "${toManWon(salaryMin!!)}~${toManWon(effectiveMax)}만원"
             } else {
-                "$type ${toManWon(salaryMin!!)}만원"
+                "${toManWon(salaryMin!!)}만원"
             }
+            return if (type != null) "$type $amount" else amount
         }
 
     private fun toManWon(value: Long): Long = value / 10000

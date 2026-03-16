@@ -9,6 +9,7 @@ import duit.server.domain.job.repository.JobSyncStateRepository
 import duit.server.infrastructure.external.discord.DiscordService
 import duit.server.infrastructure.external.job.JobFetcher
 import duit.server.infrastructure.external.job.dto.JobFetchResult
+import duit.server.infrastructure.external.job.dto.IncrementalFetchResult
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
@@ -272,6 +273,195 @@ class JobSyncServiceTest {
             assertEquals("고용24병원", savedSlot.captured.companyName)
             assertEquals(SourceType.WORK24, savedSlot.captured.sourceType)
             assertEquals("ext-work24", savedSlot.captured.externalId)
+        }
+    }
+
+    @Nested
+    @DisplayName("syncIncremental 증분 동기화")
+    inner class SyncIncrementalTests {
+
+        @Test
+        fun `워터마크가 없으면 fetchAll로 fallback`() {
+            every { syncStateRepository.findAll() } returns emptyList()
+            every { fetcher1.fetchAll() } returns listOf(createFetchResult(externalId = "ext-fallback"))
+            every { repository.findBySourceTypeAndExternalId(SourceType.SARAMIN, "ext-fallback") } returns null
+            every { repository.findByIsActiveTrueAndExpiresAtBefore(any()) } returns emptyList()
+
+            val savedSlot = slot<JobPosting>()
+            every { repository.save(capture(savedSlot)) } returns mockk()
+
+            syncService.syncIncremental()
+
+            verify(exactly = 1) { fetcher1.fetchAll() }
+            verify(exactly = 0) { fetcher1.fetchIncremental(any()) }
+            assertEquals("ext-fallback", savedSlot.captured.externalId)
+        }
+
+        @Test
+        fun `워터마크가 있으면 fetchIncremental 호출`() {
+            val lastSynced = LocalDateTime.of(2025, 3, 15, 12, 0)
+            val syncState = JobSyncState(SourceType.SARAMIN, lastSyncedAt = lastSynced)
+
+            every { syncStateRepository.findAll() } returns listOf(syncState)
+            every { fetcher1.fetchIncremental(any()) } returns IncrementalFetchResult(
+                items = listOf(createFetchResult(externalId = "ext-incr")),
+                latestTimestamp = LocalDateTime.of(2025, 3, 15, 14, 0)
+            )
+            every { repository.findBySourceTypeAndExternalId(SourceType.SARAMIN, "ext-incr") } returns null
+            every { repository.findByIsActiveTrueAndExpiresAtBefore(any()) } returns emptyList()
+            every { repository.save(any()) } returns mockk()
+
+            syncService.syncIncremental()
+
+            verify(exactly = 1) { fetcher1.fetchIncremental(lastSynced.minusMinutes(1)) }
+            verify(exactly = 0) { fetcher1.fetchAll() }
+        }
+
+        @Test
+        fun `증분 수집 후 워터마크가 latestTimestamp로 업데이트된다`() {
+            val lastSynced = LocalDateTime.of(2025, 3, 15, 12, 0)
+            val newTimestamp = LocalDateTime.of(2025, 3, 15, 14, 0)
+            val syncState = JobSyncState(SourceType.SARAMIN, lastSyncedAt = lastSynced)
+
+            every { syncStateRepository.findAll() } returns listOf(syncState)
+            every { syncStateRepository.findById(SourceType.SARAMIN) } returns Optional.of(syncState)
+            every { fetcher1.fetchIncremental(any()) } returns IncrementalFetchResult(
+                items = listOf(createFetchResult(externalId = "ext-incr")),
+                latestTimestamp = newTimestamp
+            )
+            every { repository.findBySourceTypeAndExternalId(SourceType.SARAMIN, "ext-incr") } returns null
+            every { repository.findByIsActiveTrueAndExpiresAtBefore(any()) } returns emptyList()
+            every { repository.save(any()) } returns mockk()
+
+            syncService.syncIncremental()
+
+            assertEquals(newTimestamp, syncState.lastSyncedAt)
+        }
+
+        @Test
+        fun `latestTimestamp가 null이면 워터마크 업데이트 안 함`() {
+            val lastSynced = LocalDateTime.of(2025, 3, 15, 12, 0)
+            val syncState = JobSyncState(SourceType.SARAMIN, lastSyncedAt = lastSynced)
+
+            every { syncStateRepository.findAll() } returns listOf(syncState)
+            every { syncStateRepository.findById(SourceType.SARAMIN) } returns Optional.of(syncState)
+            every { fetcher1.fetchIncremental(any()) } returns IncrementalFetchResult(
+                items = emptyList(),
+                latestTimestamp = null
+            )
+            every { repository.findByIsActiveTrueAndExpiresAtBefore(any()) } returns emptyList()
+
+            syncService.syncIncremental()
+
+            assertEquals(lastSynced, syncState.lastSyncedAt)
+        }
+
+        @Test
+        fun `fetcher 예외 시 discord 알림 전송`() {
+            every { syncStateRepository.findAll() } returns emptyList()
+            every { fetcher1.fetchAll() } throws RuntimeException("API 장애")
+            every { repository.findByIsActiveTrueAndExpiresAtBefore(any()) } returns emptyList()
+
+            syncService.syncIncremental()
+
+            verify(exactly = 1) {
+                discordService.sendServerErrorNotification(
+                    errorCode = "JOB_SYNC_ERROR",
+                    message = any(),
+                    path = "JobSync/SARAMIN",
+                    timestamp = any(),
+                    exception = any(),
+                )
+            }
+        }
+
+        @Test
+        fun `두 fetcher 중 하나만 실패해도 다른 결과는 정상 처리`() {
+            val fetcher2 = mockk<JobFetcher>()
+            every { fetcher2.sourceType } returns SourceType.WORK24
+
+            val syncServiceWith2Fetchers = JobSyncService(
+                listOf(fetcher1, fetcher2), repository, syncStateRepository, discordService
+            )
+
+            every { syncStateRepository.findAll() } returns emptyList()
+            every { fetcher1.fetchAll() } throws RuntimeException("사람인 오류")
+            every { fetcher2.fetchAll() } returns listOf(createFetchResult(externalId = "work24-ok"))
+            every { repository.findBySourceTypeAndExternalId(SourceType.WORK24, "work24-ok") } returns null
+            every { repository.findByIsActiveTrueAndExpiresAtBefore(any()) } returns emptyList()
+            every { repository.save(any()) } returns mockk()
+
+            syncServiceWith2Fetchers.syncIncremental()
+
+            verify(exactly = 1) { repository.save(any()) }
+        }
+
+        @Test
+        fun `증분 수집에서도 만료 공고 비활성화 처리`() {
+            every { syncStateRepository.findAll() } returns emptyList()
+            every { fetcher1.fetchAll() } returns emptyList()
+
+            val expiredPosting = createJobPosting(
+                externalId = "ext-expired",
+                closeType = CloseType.FIXED,
+                expiresAt = LocalDateTime.now().minusDays(1),
+                isActive = true,
+            )
+            every { repository.findByIsActiveTrueAndExpiresAtBefore(any()) } returns listOf(expiredPosting)
+
+            syncService.syncIncremental()
+
+            assertFalse(expiredPosting.isActive)
+        }
+
+        @Test
+        fun `워터마크 없는 신규 소스의 fullback 결과로 워터마크 생성`() {
+            every { syncStateRepository.findAll() } returns emptyList()
+            every { fetcher1.fetchAll() } returns listOf(createFetchResult(externalId = "ext-new"))
+            every { repository.findBySourceTypeAndExternalId(SourceType.SARAMIN, "ext-new") } returns null
+            every { repository.findByIsActiveTrueAndExpiresAtBefore(any()) } returns emptyList()
+            every { repository.save(any()) } returns mockk()
+
+            val syncStateSlot = slot<JobSyncState>()
+            every { syncStateRepository.save(capture(syncStateSlot)) } answers { firstArg() }
+
+            syncService.syncIncremental()
+
+            assertEquals(SourceType.SARAMIN, syncStateSlot.captured.sourceType)
+        }
+    }
+
+    @Nested
+    @DisplayName("syncAll 워터마크 관리")
+    inner class SyncAllWatermarkTests {
+
+        @Test
+        fun `기존 워터마크가 있으면 업데이트`() {
+            val syncState = JobSyncState(SourceType.SARAMIN, lastSyncedAt = LocalDateTime.of(2025, 1, 1, 0, 0))
+
+            every { fetcher1.fetchAll() } returns emptyList()
+            every { syncStateRepository.findById(SourceType.SARAMIN) } returns Optional.of(syncState)
+            every { repository.findByIsActiveTrueAndExpiresAtBefore(any()) } returns emptyList()
+
+            syncService.syncAll()
+
+            assert(syncState.lastSyncedAt.isAfter(LocalDateTime.of(2025, 1, 1, 0, 0)))
+            assert(syncState.lastFullSyncAt != null)
+        }
+
+        @Test
+        fun `워터마크가 없으면 새로 생성`() {
+            every { fetcher1.fetchAll() } returns emptyList()
+            every { syncStateRepository.findById(SourceType.SARAMIN) } returns Optional.empty()
+            every { repository.findByIsActiveTrueAndExpiresAtBefore(any()) } returns emptyList()
+
+            val syncStateSlot = slot<JobSyncState>()
+            every { syncStateRepository.save(capture(syncStateSlot)) } answers { firstArg() }
+
+            syncService.syncAll()
+
+            assertEquals(SourceType.SARAMIN, syncStateSlot.captured.sourceType)
+            assert(syncStateSlot.captured.lastFullSyncAt != null)
         }
     }
 }
