@@ -35,6 +35,10 @@ class Work24JobFetcher(
 
     private val modifyDtmFormatter = DateTimeFormatter.ofPattern("yyyyMMddHHmm")
 
+    companion object {
+        private const val JOBS_CD_PREFIX_NURSE = "3040"
+    }
+
     override fun fetchAll(): List<JobFetchResult> {
         if (authKey.isBlank()) {
             logger.warn("Work24 auth key is not configured. Skipping fetch.")
@@ -57,6 +61,7 @@ class Work24JobFetcher(
                 results.addAll(items.mapNotNull { it.toJobFetchResult() })
 
                 val fetched = (startPage - 1) * display + items.size
+                logger.info("Work24 fetchAll: {}/{} 건 수집 (page {})", fetched, total, startPage)
                 if (fetched >= total) break
 
                 startPage++
@@ -65,7 +70,7 @@ class Work24JobFetcher(
             logger.error("Work24 fetchAll: page ${startPage}에서 에러 발생, ${results.size}건 부분 반환", e)
         }
 
-        return results
+        return enrichTruncatedTitles(results)
     }
 
     override fun fetchIncremental(since: LocalDateTime): IncrementalFetchResult {
@@ -111,7 +116,7 @@ class Work24JobFetcher(
         }
 
         logger.info("Work24 incremental: ${results.size}건 수집, ${startPage - 1}페이지 스캔, earlyTerminated=$earlyTerminated")
-        return IncrementalFetchResult(results, latestTimestamp)
+        return IncrementalFetchResult(enrichTruncatedTitles(results), latestTimestamp)
     }
 
     private fun fetchPage(startPage: Int, display: Int): Work24ApiResponse? {
@@ -129,20 +134,95 @@ class Work24JobFetcher(
             .retrieve()
             .body(String::class.java) ?: return null
 
-        return xmlMapper.readValue(responseBody, Work24ApiResponse::class.java)
+        val sanitized = stripNonXmlTags(responseBody)
+        return xmlMapper.readValue(sanitized, Work24ApiResponse::class.java)
     }
 
-    private fun fetchPageWithRetry(startPage: Int, display: Int, maxRetries: Int = 2): Work24ApiResponse? {
+    private val xmlElementWhitelist = setOf(
+        // 목록 API (callTp=L)
+        "wantedRoot", "total", "startPage", "display", "wanted",
+        "wantedAuthNo", "company", "title", "salTpNm", "sal", "minSal", "maxSal",
+        "region", "holidayTpNm", "minEdubg", "maxEdubg", "career",
+        "regDt", "closeDt", "wantedInfoUrl", "wantedMobileInfoUrl",
+        "empTpCd", "jobsCd", "smodifyDtm",
+        // 상세 API (callTp=D)
+        "wantedDtl", "wantedInfo", "wantedTitle",
+    )
+
+    private val tagPattern = Regex("</?([a-zA-Z][a-zA-Z0-9]*)[^>]*>")
+
+    private fun stripNonXmlTags(xml: String): String =
+        tagPattern.replace(xml) { match ->
+            if (match.groupValues[1] in xmlElementWhitelist) match.value else ""
+        }
+
+    private fun <T> fetchWithRetry(description: String, maxRetries: Int = 2, action: () -> T?): T? {
         repeat(maxRetries + 1) { attempt ->
             try {
-                return fetchPage(startPage, display)
+                return action()
             } catch (e: Exception) {
-                if (attempt == maxRetries) throw e
-                logger.warn("Work24 page $startPage fetch 실패 (attempt ${attempt + 1}/$maxRetries), 재시도...", e)
-                Thread.sleep(1000L * (attempt + 1))
+                if (attempt == maxRetries) {
+                    logger.warn("Work24 {} 실패", description, e)
+                    return null
+                }
+                Thread.sleep(500L * (attempt + 1))
             }
         }
         return null
+    }
+
+    private fun fetchPageWithRetry(startPage: Int, display: Int): Work24ApiResponse? =
+        fetchWithRetry("page $startPage fetch") { fetchPage(startPage, display) }
+
+    private fun fetchDetailTitle(wantedAuthNo: String): String? =
+        fetchWithRetry("상세 API (wantedAuthNo=$wantedAuthNo)") {
+            val responseBody = restClient.get()
+                .uri { builder ->
+                    builder.path("/cm/openApi/call/wk/callOpenApiSvcInfo210L01.do")
+                        .queryParam("authKey", authKey)
+                        .queryParam("callTp", "D")
+                        .queryParam("returnType", "XML")
+                        .queryParam("wantedAuthNo", wantedAuthNo)
+                        .queryParam("infoSvc", "VALIDATION")
+                        .build()
+                }
+                .retrieve()
+                .body(String::class.java) ?: return@fetchWithRetry null
+
+            val sanitized = stripNonXmlTags(responseBody)
+            val response = xmlMapper.readValue(sanitized, Work24DetailResponse::class.java)
+            response.wantedInfo?.wantedTitle
+        }
+
+    private fun enrichTruncatedTitles(results: List<JobFetchResult>): List<JobFetchResult> {
+        val truncated = results.filter { it.title.contains("...") }
+        if (truncated.isEmpty()) return results
+
+        logger.info("Work24: 잘린 제목 {}건 보정 시작", truncated.size)
+
+        return try {
+            val total = truncated.size
+            val enrichedTitles = truncated.mapIndexed { index, item ->
+                if ((index + 1) % 100 == 0) {
+                    logger.info("Work24: 제목 보정 진행 중 {}/{}", index + 1, total)
+                }
+                val fullTitle = fetchDetailTitle(item.externalId)
+                item.externalId to fullTitle
+            }.toMap()
+
+            val enrichedResults = results.map { item ->
+                val fullTitle = enrichedTitles[item.externalId]
+                if (fullTitle != null) item.copy(title = fullTitle) else item
+            }
+
+            val enrichedCount = enrichedTitles.values.count { it != null }
+            logger.info("Work24: 잘린 제목 보정 완료 (성공: {}건, 실패: {}건)", enrichedCount, truncated.size - enrichedCount)
+
+            enrichedResults
+        } catch (e: Exception) {
+            logger.error("Work24: 제목 보정 중 에러 발생, 원본 {}건 반환", results.size, e)
+            results
+        }
     }
 
     private fun parseModifyDtm(smodifyDtm: String?): LocalDateTime? {
@@ -156,6 +236,8 @@ class Work24JobFetcher(
     }
 
     private fun Work24ApiResponse.WantedItem.toJobFetchResult(): JobFetchResult? {
+        if (jobsCd == null || !jobsCd.startsWith(JOBS_CD_PREFIX_NURSE)) return null
+
         val externalId = wantedAuthNo ?: return null
         val jobTitle = title ?: return null
         val companyName = company ?: return null

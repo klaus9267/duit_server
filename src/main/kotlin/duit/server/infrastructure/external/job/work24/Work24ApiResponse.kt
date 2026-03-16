@@ -35,3 +35,13 @@ data class Work24ApiResponse(
         val smodifyDtm: String? = null
     )
 }
+
+/** 상세 API (callTp=D) 응답 — 루트가 wantedDtl, 제목은 wantedInfo.wantedTitle */
+@JacksonXmlRootElement(localName = "wantedDtl")
+data class Work24DetailResponse(
+    val wantedInfo: WantedInfo? = null
+) {
+    data class WantedInfo(
+        val wantedTitle: String? = null
+    )
+}
