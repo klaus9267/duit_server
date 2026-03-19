@@ -52,7 +52,7 @@ class EventControllerV2IntegrationTest : IntegrationTestSupport() {
         )
         entityManager.persist(user1)
 
-        // 모든 EventType에 대한 이벤트 생성 (10개)
+        // 모든 EventType에 대한 이벤트 생성 (11개)
         val eventTypes = listOf(
             EventType.CONFERENCE to "개발자 컨퍼런스",
             EventType.SEMINAR to "기술 세미나",
@@ -63,6 +63,7 @@ class EventControllerV2IntegrationTest : IntegrationTestSupport() {
             EventType.EDUCATION to "기초 교육",
             EventType.VOLUNTEER to "IT 봉사활동",
             EventType.TRAINING to "집중 연수",
+            EventType.SUPPORTERS to "서포터즈 활동",
             EventType.ETC to "기타 행사"
         )
 
@@ -279,7 +280,7 @@ class EventControllerV2IntegrationTest : IntegrationTestSupport() {
             }
 
             @Nested
-            @DisplayName("EventType 필터링 (10개)")
+            @DisplayName("EventType 필터링 (11개)")
             inner class EventTypeTests {
 
                 @Test
@@ -406,6 +407,20 @@ class EventControllerV2IntegrationTest : IntegrationTestSupport() {
                         .andExpect(status().isOk)
                         .andExpect(jsonPath("$.content").isArray)
                         .andExpect(jsonPath("$.content[*].eventType").value(everyItem(equalTo("TRAINING"))))
+                }
+
+                @Test
+                @DisplayName("SUPPORTERS 필터링")
+                fun filterBySupportersTest() {
+                    mockMvc.perform(
+                        get("/api/v2/events")
+                            .param("types", "SUPPORTERS")
+                            .param("size", "10")
+                    )
+                        .andDo(print())
+                        .andExpect(status().isOk)
+                        .andExpect(jsonPath("$.content").isArray)
+                        .andExpect(jsonPath("$.content[*].eventType").value(everyItem(equalTo("SUPPORTERS"))))
                 }
 
                 @Test
@@ -638,7 +653,7 @@ class EventControllerV2IntegrationTest : IntegrationTestSupport() {
                 @Test
                 @DisplayName("1, 2, 3번째 페이지 순차 조회")
                 fun cursorPaginationMultiplePagesTest() {
-                    // ACTIVE 그룹 11개: EventType별 7개 + EventStatus별 4개
+                    // ACTIVE 그룹 12개: EventType별 8개 + EventStatus별 4개
                     // Page 1 (5개)
                     val page1Result = mockMvc.perform(
                         get("/api/v2/events")
@@ -671,7 +686,7 @@ class EventControllerV2IntegrationTest : IntegrationTestSupport() {
                     val cursor2 = extractCursorFromResponse(page2Result)
                     val page2Ids = extractValuesFromResponse(page2Result, "id")
 
-                    // Page 3 (마지막 페이지, 1개)
+                    // Page 3 (마지막 페이지, 2개)
                     val page3Result = mockMvc.perform(
                         get("/api/v2/events")
                             .param("size", "5")
@@ -679,15 +694,15 @@ class EventControllerV2IntegrationTest : IntegrationTestSupport() {
                     )
                         .andDo(print())
                         .andExpect(status().isOk)
-                        .andExpect(jsonPath("$.content.length()").value(1))
+                        .andExpect(jsonPath("$.content.length()").value(2))
                         .andExpect(jsonPath("$.pageInfo.hasNext").value(false))
                         .andReturn()
 
                     val page3Ids = extractValuesFromResponse(page3Result, "id")
 
-                    // 검증: 총 11개 조회, 중복 없음
+                    // 검증: 총 12개 조회, 중복 없음
                     val allIds = page1Ids + page2Ids + page3Ids
-                    Assertions.assertEquals(11, allIds.size, "3페이지에서 총 11개의 이벤트를 조회해야 합니다")
+                    Assertions.assertEquals(12, allIds.size, "3페이지에서 총 12개의 이벤트를 조회해야 합니다")
 
                     val uniqueIds = allIds.toSet()
                     Assertions.assertEquals(
@@ -731,7 +746,7 @@ class EventControllerV2IntegrationTest : IntegrationTestSupport() {
                         uniqueIds.size,
                         "중복된 eventId가 발견되었습니다. 전체: ${allEventIds.size}, 고유: ${uniqueIds.size}"
                     )
-                    Assertions.assertEquals(11, allEventIds.size, "총 11개 이벤트 조회 (ACTIVE 그룹)")
+                    Assertions.assertEquals(12, allEventIds.size, "총 12개 이벤트 조회 (ACTIVE 그룹)")
                 }
 
                 @Test
@@ -740,7 +755,7 @@ class EventControllerV2IntegrationTest : IntegrationTestSupport() {
                     var currentCursor: String? = null
                     val allEventIds = mutableListOf<Any>()
 
-                    // ACTIVE 그룹 11개: 5 + 5 + 1
+                    // ACTIVE 그룹 12개: 5 + 5 + 2
                     // Page 1 (5개)
                     var result = mockMvc.perform(
                         get("/api/v2/events")
@@ -769,7 +784,7 @@ class EventControllerV2IntegrationTest : IntegrationTestSupport() {
                     allEventIds.addAll(extractValuesFromResponse(result, "id"))
                     currentCursor = extractCursorFromResponse(result)
 
-                    // Page 3 (마지막 페이지, 1개)
+                    // Page 3 (마지막 페이지, 2개)
                     result = mockMvc.perform(
                         get("/api/v2/events")
                             .param("size", "5")
@@ -777,15 +792,15 @@ class EventControllerV2IntegrationTest : IntegrationTestSupport() {
                     )
                         .andDo(print())
                         .andExpect(status().isOk)
-                        .andExpect(jsonPath("$.content.length()").value(1))
+                        .andExpect(jsonPath("$.content.length()").value(2))
                         .andExpect(jsonPath("$.pageInfo.hasNext").value(false))
                         .andReturn()
                     allEventIds.addAll(extractValuesFromResponse(result, "id"))
 
-                    // 전체 개수 검증: 11개 unique events (ACTIVE 그룹만, 중복 없음)
+                    // 전체 개수 검증: 12개 unique events (ACTIVE 그룹만, 중복 없음)
                     val uniqueIds = allEventIds.toSet()
-                    Assertions.assertEquals(11, allEventIds.size, "총 11개의 이벤트를 조회해야 합니다")
-                    Assertions.assertEquals(11, uniqueIds.size, "중복 없이 11개 unique 이벤트 조회")
+                    Assertions.assertEquals(12, allEventIds.size, "총 12개의 이벤트를 조회해야 합니다")
+                    Assertions.assertEquals(12, uniqueIds.size, "중복 없이 12개 unique 이벤트 조회")
                 }
 
                 @Test

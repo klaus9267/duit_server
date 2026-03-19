@@ -10,5 +10,6 @@ enum class EventType(val displayName: String) {
     EDUCATION("교육"),
     VOLUNTEER("봉사"),
     TRAINING("연수"),
+    SUPPORTERS("서포터즈"),
     ETC("기타");
 }
