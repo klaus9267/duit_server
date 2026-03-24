@@ -647,3 +647,30 @@ k6 `prod-gradual-test.js` (50→5000 VU breakpoint, `--out json`) + `analyze-sta
 3. **실패한 접근은 반드시 기록** — 같은 삽질 반복 방지
 4. **현재 상태 스냅샷 매번 갱신** — 새 세션 시작점
 5. **분류 태그 필수** — 작업 유형별 빠른 검색
+
+---
+
+## 2026-03-24 (배포 실패 로그 보존 및 Discord 첨부 추가)
+
+**분류**: infra
+
+### 작업 내용
+- `scripts/deploy.sh`에 실패 공통 처리 함수를 추가해 배포 실패 시 컨테이너 로그, inspect 결과, compose 상태를 파일로 저장하도록 변경
+- 저장된 컨테이너 로그의 최근 200줄을 표준 출력으로 내보내 GitHub Actions 로그에서 빠르게 원인을 확인할 수 있도록 변경
+- 저장한 로그 파일을 Discord 웹훅으로 첨부 전송한 뒤 타겟 환경 컨테이너를 내리도록 롤백 순서를 조정
+- CD 워크플로에 서버 배포 자산 동기화 단계를 추가해 `deploy.sh`, `switch-traffic.sh`, `docker-compose.yml`을 `/home/vagom/duit-server` 루트로 배포하도록 변경
+- CD 워크플로에서 원격 배포 스크립트로 Discord 웹훅과 tail 줄 수를 환경변수로 전달하도록 수정
+
+### 기술적 결정
+- 전체 로그는 서버 파일로 보존하고 Actions에는 `tail -n 200`만 출력하도록 분리 → Actions 로그 가독성과 로그 유실 방지를 동시에 만족
+- Discord 업로드는 배포 스크립트 안에서 수행 → 실패한 컨테이너가 내려가기 전에 로그 파일을 직접 첨부할 수 있음
+- `switch-traffic.sh`는 상대 경로 문자열 실행 대신 `bash "$SCRIPT_DIR/..."` 형태로 호출 → 실행 권한과 작업 디렉터리 의존성을 줄임
+
+### 영향 범위
+- 배포 스크립트: `scripts/deploy.sh`, `scripts/switch-traffic.sh`
+- CI/CD: `.github/workflows/cd.yml`
+- 작업 기록: `rules/work-log.md`
+
+### 발견한 제약 조건
+- 서버에서 실행되는 배포 스크립트는 GitHub Actions 러너가 아니라 원격 호스트 파일시스템의 스크립트를 사용하므로, 저장소 수정 후 서버 측 스크립트도 동일하게 반영되어야 실제 배포에 적용됨
+- 실제 서버는 `/home/vagom/duit-server` 루트의 `deploy.sh`, `switch-traffic.sh`, `docker-compose.yml`을 사용하고 애플리케이션 저장소는 하위 `duit_server/` 디렉터리에 별도로 존재함
