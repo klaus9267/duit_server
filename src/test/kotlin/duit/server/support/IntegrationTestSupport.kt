@@ -14,7 +14,7 @@ import org.springframework.test.web.servlet.MockMvc
 import org.springframework.transaction.annotation.Transactional
 
 @SpringBootTest
-@Import(TestRedisConfig::class)
+@Import(TestRedisConfig::class, TestFirebaseConfig::class)
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @Transactional

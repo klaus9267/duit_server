@@ -19,6 +19,25 @@ services:
         -XX:MaxGCPauseMillis=200
         -XX:ActiveProcessorCount=4
         -XX:G1ReservePercent=10
+      PROFILE: ${PROFILE}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_VALIDITY: ${JWT_VALIDITY}
+      DB_HOST: ${DB_HOST}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_PORT: ${DB_PORT}
+      DB_NAME: ${DB_NAME}
+      REDIS_PORT: ${REDIS_PORT}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      REDIS_TIMEOUT: ${REDIS_TIMEOUT}
+      DISCORD_ALARM_WEBHOOK_URL: ${DISCORD_ALARM_WEBHOOK_URL}
+      DISCORD_ERROR_WEBHOOK_URL: ${DISCORD_ERROR_WEBHOOK_URL}
+      UPLOAD_DIR: ${UPLOAD_DIR}
+      BASE_URL: ${BASE_URL}
+      FIREBASE_WEB_API_KEY: ${FIREBASE_WEB_API_KEY}
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID}
+      FIREBASE_KEY_JSON: ${FIREBASE_KEY_JSON}
+      WORK24_KEY: ${WORK24_KEY}
     restart: unless-stopped
     networks:
       - duit-network-prod
@@ -29,7 +48,7 @@ services:
       retries: 3
       start_period: 60s
 
-  # Green Environment - Standby  
+  # Green Environment - Standby
   app-green:
     image: ${IMAGE_REGISTRY}/${IMAGE_NAME}:${GREEN_VERSION:-latest}
     container_name: duit-server-green
@@ -49,6 +68,25 @@ services:
         -XX:MaxGCPauseMillis=200
         -XX:ActiveProcessorCount=4
         -XX:G1ReservePercent=10
+      PROFILE: ${PROFILE}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_VALIDITY: ${JWT_VALIDITY}
+      DB_HOST: ${DB_HOST}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_PORT: ${DB_PORT}
+      DB_NAME: ${DB_NAME}
+      REDIS_PORT: ${REDIS_PORT}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      REDIS_TIMEOUT: ${REDIS_TIMEOUT}
+      DISCORD_ALARM_WEBHOOK_URL: ${DISCORD_ALARM_WEBHOOK_URL}
+      DISCORD_ERROR_WEBHOOK_URL: ${DISCORD_ERROR_WEBHOOK_URL}
+      UPLOAD_DIR: ${UPLOAD_DIR}
+      BASE_URL: ${BASE_URL}
+      FIREBASE_WEB_API_KEY: ${FIREBASE_WEB_API_KEY}
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID}
+      FIREBASE_KEY_JSON: ${FIREBASE_KEY_JSON}
+      WORK24_KEY: ${WORK24_KEY}
     restart: unless-stopped
     networks:
       - duit-network-prod
