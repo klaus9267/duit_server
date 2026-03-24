@@ -4,6 +4,7 @@ import duit.server.domain.event.entity.Event
 import duit.server.domain.event.entity.EventType
 import duit.server.domain.host.entity.Host
 import duit.server.domain.view.repository.ViewRepository
+import duit.server.support.TestFirebaseConfig
 import duit.server.support.TestRedisConfig
 import jakarta.persistence.EntityManager
 import jakarta.persistence.EntityNotFoundException
@@ -20,7 +21,7 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
 
-@Import(TestRedisConfig::class)
+@Import(TestRedisConfig::class, TestFirebaseConfig::class)
 @SpringBootTest
 @ActiveProfiles("test")
 @DisplayName("ViewService 동시성 통합 테스트")

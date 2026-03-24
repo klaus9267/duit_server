@@ -40,3 +40,7 @@ docker-compose*.yml
 # Environment
 .env
 .env.*
+
+# Secrets - NEVER include in Docker image
+src/main/resources/application.properties
+src/main/resources/firebase-key.json

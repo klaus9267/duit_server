@@ -59,3 +59,8 @@ scheduler:
 firebase:
   web-api-key: test_api_key
   project-id: test-project-id
+  credentials-json: '{}'
+
+api:
+  work24:
+    auth-key: test-key
