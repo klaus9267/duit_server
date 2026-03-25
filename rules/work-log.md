@@ -674,3 +674,24 @@ k6 `prod-gradual-test.js` (50→5000 VU breakpoint, `--out json`) + `analyze-sta
 ### 발견한 제약 조건
 - 서버에서 실행되는 배포 스크립트는 GitHub Actions 러너가 아니라 원격 호스트 파일시스템의 스크립트를 사용하므로, 저장소 수정 후 서버 측 스크립트도 동일하게 반영되어야 실제 배포에 적용됨
 - 실제 서버는 `/home/vagom/duit-server` 루트의 `deploy.sh`, `switch-traffic.sh`, `docker-compose.yml`을 사용하고 애플리케이션 저장소는 하위 `duit_server/` 디렉터리에 별도로 존재함
+
+---
+
+## 2026-03-25 (야간 시간대 알람 시각 보정)
+
+**분류**: feature
+
+### 작업 내용
+- `EventAlarmScheduler`의 알람 시각 계산 규칙을 변경해 행사/모집 시각이 `20:00~07:00`이면 전날 20시에 발송하도록 보정
+- 주간 시간대(`07:01~19:59`)는 기존처럼 1일 전 동일 시각 규칙을 유지
+- `EventAlarmSchedulerUnitTest`에 야간 보정 경계값과 모집 종료 알람 케이스를 추가
+- `domain-glossary.md`의 알림 시점 설명을 실제 스케줄 규칙에 맞게 갱신
+
+### 기술적 결정
+- 조회 윈도우(`now+1day` ~ `now+2day`)는 유지하고 알람 시각 계산만 바꿈 → 현재 04시 일일 스케줄 구조를 유지하면서 야간 시간대만 정책적으로 조정 가능
+- 보정 기준은 "기존 알람 시각"이 아니라 실제 이벤트/모집 시각의 시분으로 판단 → `25일 04시~07시`, `25일 20시 이후` 이벤트 모두 `24일 20시` 발송 요구를 직접적으로 만족
+
+### 영향 범위
+- 스케줄러: `src/main/kotlin/duit/server/application/scheduler/EventAlarmScheduler.kt`
+- 테스트: `src/test/kotlin/duit/server/application/scheduler/EventAlarmSchedulerUnitTest.kt`
+- 문서: `rules/domain-glossary.md`, `rules/work-log.md`

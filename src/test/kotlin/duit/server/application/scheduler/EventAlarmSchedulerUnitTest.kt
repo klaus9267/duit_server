@@ -21,12 +21,14 @@ import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.scheduling.TaskScheduler
 import java.time.Instant
 import java.time.LocalDateTime
+import java.time.ZoneId
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
 
 @DisplayName("EventAlarmScheduler 단위 테스트")
 class EventAlarmSchedulerUnitTest {
+    private val zoneId = ZoneId.of("Asia/Seoul")
 
     private lateinit var eventRepository: EventRepository
     private lateinit var alarmService: AlarmService
@@ -138,6 +140,119 @@ class EventAlarmSchedulerUnitTest {
             scheduler.createDailyAlarms()
 
             verify(exactly = 2) { taskScheduler.schedule(any<Runnable>(), any<Instant>()) }
+        }
+    }
+
+    @Nested
+    @DisplayName("알람 시각 계산")
+    inner class AlarmTimeCalculationTests {
+
+        @Test
+        @DisplayName("행사 시간이 20시 이후면 전날 20시에 스케줄한다")
+        fun `20시 이후 이벤트는 전날 20시로 보정`() {
+            val event = createEvent(
+                id = 1L,
+                startAt = LocalDateTime.now().plusDays(1).withHour(21).withMinute(30).withSecond(0).withNano(0)
+            )
+            every { eventRepository.findEventsByDateField("START_AT", any(), any()) } returns listOf(event)
+
+            val capturedInstants = mutableListOf<Instant>()
+            every { taskScheduler.schedule(any<Runnable>(), capture(capturedInstants)) } returns mockk()
+
+            scheduler.createDailyAlarms()
+
+            assertEquals(1, capturedInstants.size)
+            assertEquals(
+                event.startAt.toLocalDate().minusDays(1).atTime(20, 0).atZone(zoneId).toInstant(),
+                capturedInstants.first()
+            )
+        }
+
+        @Test
+        @DisplayName("행사 시간이 07시 이하면 전날 20시에 스케줄한다")
+        fun `07시 이하 이벤트는 전날 20시로 보정`() {
+            val event = createEvent(
+                id = 2L,
+                startAt = LocalDateTime.now().plusDays(2).withHour(4).withMinute(0).withSecond(0).withNano(0)
+            )
+            every { eventRepository.findEventsByDateField("START_AT", any(), any()) } returns listOf(event)
+
+            val capturedInstants = mutableListOf<Instant>()
+            every { taskScheduler.schedule(any<Runnable>(), capture(capturedInstants)) } returns mockk()
+
+            scheduler.createDailyAlarms()
+
+            assertEquals(1, capturedInstants.size)
+            assertEquals(
+                event.startAt.toLocalDate().minusDays(1).atTime(20, 0).atZone(zoneId).toInstant(),
+                capturedInstants.first()
+            )
+        }
+
+        @Test
+        @DisplayName("행사 시간이 정확히 07시면 전날 20시에 스케줄한다")
+        fun `07시 경계값은 전날 20시`() {
+            val event = createEvent(
+                id = 3L,
+                startAt = LocalDateTime.now().plusDays(2).withHour(7).withMinute(0).withSecond(0).withNano(0)
+            )
+            every { eventRepository.findEventsByDateField("START_AT", any(), any()) } returns listOf(event)
+
+            val capturedInstants = mutableListOf<Instant>()
+            every { taskScheduler.schedule(any<Runnable>(), capture(capturedInstants)) } returns mockk()
+
+            scheduler.createDailyAlarms()
+
+            assertEquals(1, capturedInstants.size)
+            assertEquals(
+                event.startAt.toLocalDate().minusDays(1).atTime(20, 0).atZone(zoneId).toInstant(),
+                capturedInstants.first()
+            )
+        }
+
+        @Test
+        @DisplayName("행사 시간이 07시 1분이면 하루 전 같은 시각에 스케줄한다")
+        fun `07시 1분은 기존 24시간 전 규칙 유지`() {
+            val event = createEvent(
+                id = 4L,
+                startAt = LocalDateTime.now().plusDays(2).withHour(7).withMinute(1).withSecond(0).withNano(0)
+            )
+            every { eventRepository.findEventsByDateField("START_AT", any(), any()) } returns listOf(event)
+
+            val capturedInstants = mutableListOf<Instant>()
+            every { taskScheduler.schedule(any<Runnable>(), capture(capturedInstants)) } returns mockk()
+
+            scheduler.createDailyAlarms()
+
+            assertEquals(1, capturedInstants.size)
+            assertEquals(
+                event.startAt.minusDays(1).atZone(zoneId).toInstant(),
+                capturedInstants.first()
+            )
+        }
+
+        @Test
+        @DisplayName("모집 종료도 동일한 야간 보정 규칙을 따른다")
+        fun `RECRUITMENT_END도 동일 규칙 적용`() {
+            val recruitmentEndAt = LocalDateTime.now().plusDays(1).withHour(22).withMinute(0).withSecond(0).withNano(0)
+            val event = createEvent(
+                id = 5L,
+                startAt = LocalDateTime.now().plusDays(10),
+                recruitmentStartAt = LocalDateTime.now().plusDays(5),
+                recruitmentEndAt = recruitmentEndAt
+            )
+            every { eventRepository.findEventsByDateField("RECRUITMENT_END_AT", any(), any()) } returns listOf(event)
+
+            val capturedInstants = mutableListOf<Instant>()
+            every { taskScheduler.schedule(any<Runnable>(), capture(capturedInstants)) } returns mockk()
+
+            scheduler.createDailyAlarms()
+
+            assertEquals(1, capturedInstants.size)
+            assertEquals(
+                recruitmentEndAt.toLocalDate().minusDays(1).atTime(20, 0).atZone(zoneId).toInstant(),
+                capturedInstants.first()
+            )
         }
     }
 

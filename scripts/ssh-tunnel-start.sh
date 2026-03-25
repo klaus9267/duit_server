@@ -5,7 +5,7 @@
 # 스크립트가 script/ 폴더에 있으므로 프로젝트 루트 계산
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-ENV_FILE="${PROJECT_ROOT}/docker/.env"
+ENV_FILE="${PROJECT_ROOT}/docker/.env.local"
 
 # .env 파일 로드
 if [ -f "$ENV_FILE" ]; then

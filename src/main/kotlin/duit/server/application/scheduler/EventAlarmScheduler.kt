@@ -16,6 +16,7 @@ import org.springframework.stereotype.Component
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.LocalTime
 import java.time.ZoneId
 
 @Component
@@ -29,6 +30,7 @@ class EventAlarmScheduler(
     private val log = LoggerFactory.getLogger(javaClass)
     private val scheduledKeys = mutableSetOf<String>()
     private var lastScheduledDate: LocalDate? = null
+    private val zoneId = ZoneId.of("Asia/Seoul")
 
     // 매일 새벽 4시에 당일 알람 스케줄 등록
     @Scheduled(cron = "0 0 4 * * *")
@@ -59,14 +61,15 @@ class EventAlarmScheduler(
             val scheduleKey = "${event.id}-${alarmType}"
             if (!scheduledKeys.add(scheduleKey)) return@forEach
 
-            val alarmTime = when (eventDate) {
+            val targetDateTime = when (eventDate) {
                 EventDate.START_AT -> event.startAt
                 EventDate.RECRUITMENT_START_AT -> event.recruitmentStartAt!!
                 EventDate.RECRUITMENT_END_AT -> event.recruitmentEndAt!!
-            }.minusDays(1)
+            }
+            val alarmTime = calculateAlarmTime(targetDateTime)
 
             if (alarmTime.isAfter(LocalDateTime.now())) {
-                val instant: Instant = alarmTime.atZone(ZoneId.of("Asia/Seoul")).toInstant()
+                val instant: Instant = alarmTime.atZone(zoneId).toInstant()
 
                 taskScheduler.schedule({
                     try {
@@ -78,6 +81,17 @@ class EventAlarmScheduler(
                     }
                 }, instant)
             }
+        }
+    }
+
+    private fun calculateAlarmTime(targetDateTime: LocalDateTime): LocalDateTime {
+        val targetDate = targetDateTime.toLocalDate()
+        val targetTime = targetDateTime.toLocalTime()
+
+        return when {
+            targetTime >= LocalTime.of(20, 0) || targetTime <= LocalTime.of(7, 0) ->
+                targetDate.minusDays(1).atTime(20, 0)
+            else -> targetDateTime.minusDays(1)
         }
     }
 }
