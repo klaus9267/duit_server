@@ -49,6 +49,9 @@ class User(
     @OneToMany(mappedBy = "user", cascade = [CascadeType.ALL], orphanRemoval = true)
     var alarms: MutableList<Alarm> = mutableListOf()
 
+    @OneToMany(mappedBy = "user", cascade = [CascadeType.ALL], orphanRemoval = true)
+    var deviceTokens: MutableList<UserDeviceToken> = mutableListOf()
+
     /**
      * 닉네임 업데이트
      */
@@ -64,5 +67,15 @@ class User(
         this.alarmSettings = newAlarmSettings
         this.autoAddBookmarkToCalendar = autoAddBookmarkToCalendar
         this.updatedAt = LocalDateTime.now()
+    }
+
+    fun registerDeviceToken(token: String) {
+        if (deviceTokens.none { it.token == token }) {
+            deviceTokens.add(UserDeviceToken(user = this, token = token))
+        }
+    }
+
+    fun unregisterDeviceToken(token: String) {
+        deviceTokens.removeIf { it.token == token }
     }
 }

@@ -11,11 +11,15 @@ import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.validation.Valid
+import jakarta.validation.constraints.NotBlank
+import jakarta.validation.constraints.Pattern
 import org.springdoc.core.annotations.ParameterObject
 import org.springframework.http.HttpStatus
+import org.springframework.validation.annotation.Validated
 import org.springframework.web.bind.annotation.*
 
 @RestController
+@Validated
 @RequestMapping("api/v1/users")
 @Tag(name = "User", description = "사용자 관련 API")
 class UserController(
@@ -56,7 +60,29 @@ class UserController(
     @Operation(summary = "디바이스 토큰 등록", description = "푸시 알림을 위한 디바이스 토큰을 등록합니다")
     @RequireAuth
     @ResponseStatus(HttpStatus.OK)
-    fun updateDevice(@PathVariable token: String) = userService.updateDevice(token)
+    fun registerDeviceToken(
+        @PathVariable
+        @NotBlank(message = "유효한 디바이스 토큰이어야 합니다")
+        @Pattern(
+            regexp = "^(?!null$)\\S(?:.*\\S)?$",
+            message = "유효한 디바이스 토큰이어야 합니다"
+        )
+        token: String
+    ) = userService.registerDeviceToken(token)
+
+    @DeleteMapping("/device/{token}")
+    @Operation(summary = "디바이스 토큰 삭제", description = "로그아웃한 현재 기기의 디바이스 토큰을 삭제합니다")
+    @RequireAuth
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    fun deleteDeviceToken(
+        @PathVariable
+        @NotBlank(message = "유효한 디바이스 토큰이어야 합니다")
+        @Pattern(
+            regexp = "^(?!null$)\\S(?:.*\\S)?$",
+            message = "유효한 디바이스 토큰이어야 합니다"
+        )
+        token: String
+    ) = userService.deleteDeviceToken(token)
 
     @PatchMapping("/settings")
     @Operation(summary = "사용자 설정 수정", description = "알림 설정 및 캘린더 자동 추가 설정을 수정합니다")
