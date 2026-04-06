@@ -10,6 +10,8 @@ import duit.server.domain.user.dto.UserPaginationParam
 import duit.server.domain.user.dto.UserResponse
 import duit.server.domain.user.entity.ProviderType
 import duit.server.domain.user.entity.User
+import duit.server.domain.user.entity.UserDeviceToken
+import duit.server.domain.user.repository.UserDeviceTokenRepository
 import duit.server.domain.user.repository.UserRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -18,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional
 @Transactional(readOnly = true)
 class UserService(
     private val userRepository: UserRepository,
+    private val userDeviceTokenRepository: UserDeviceTokenRepository,
     private val securityUtil: SecurityUtil
 ) {
 
@@ -93,10 +96,31 @@ class UserService(
     }
 
     @Transactional
-    fun updateDevice(token: String) {
+    fun registerDeviceToken(token: String) {
         val currentUserId = securityUtil.getCurrentUserId()
         val user = findUserById(currentUserId)
+
+        userDeviceTokenRepository.findByToken(token)?.let {
+            if (it.user.id != currentUserId) {
+                throw IllegalStateException("이미 다른 사용자에 등록된 디바이스 토큰입니다")
+            }
+            user.deviceToken = token
+            user.registerDeviceToken(token)
+            return
+        }
+
         user.deviceToken = token
+        user.registerDeviceToken(token)
+    }
+
+    @Transactional
+    fun deleteDeviceToken(token: String) {
+        val user = findUserById(securityUtil.getCurrentUserId())
+        user.unregisterDeviceToken(token)
+
+        if (user.deviceToken == token) {
+            user.deviceToken = user.deviceTokens.lastOrNull()?.token
+        }
     }
 
     /**

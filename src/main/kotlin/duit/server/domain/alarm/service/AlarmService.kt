@@ -12,10 +12,10 @@ import duit.server.domain.common.dto.pagination.PageResponse
 import duit.server.domain.event.entity.Event
 import duit.server.domain.event.repository.EventRepository
 import duit.server.infrastructure.external.firebase.FCMService
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
-import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.transaction.annotation.Transactional
 
 @Service
@@ -103,32 +103,34 @@ class AlarmService(
     @Transactional
     fun createAlarms(alarmType: AlarmType, eventId: Long) {
         val event = eventRepository.findByIdOrNull(eventId) ?: return
-        val eligibleUsers = bookmarkRepository.findEligibleUsersForAlarms(event.id!!)
+        val eligibleUsers = bookmarkRepository.findEligibleUsersForAlarms(event.id!!).distinctBy { it.id }
         if (eligibleUsers.isEmpty()) {
             return
         }
 
-        val newAlarmUsers = eligibleUsers.filter { user ->
-            if (!alarmRepository.existsByUserIdAndEventIdAndType(user.id!!, event.id!!, alarmType)) {
-                try {
-                    val alarm = Alarm(
-                        user = user,
-                        event = event,
-                        type = alarmType,
-                    )
-                    alarmRepository.save(alarm)
-                    true
-                } catch (_: DataIntegrityViolationException) {
-                    false
-                }
-            } else {
-                false
+        val newAlarmUsers = eligibleUsers.mapNotNull { user ->
+            if (alarmRepository.existsByUserIdAndEventIdAndType(user.id!!, event.id!!, alarmType)) {
+                return@mapNotNull null
+            }
+
+            try {
+                val alarm = Alarm(
+                    user = user,
+                    event = event,
+                    type = alarmType,
+                )
+                alarmRepository.save(alarm)
+                user
+            } catch (_: DataIntegrityViolationException) {
+                null
             }
         }
 
         if (newAlarmUsers.isEmpty()) return
 
-        val deviceTokens = newAlarmUsers.mapNotNull { it.deviceToken }
+        val deviceTokens = newAlarmUsers.flatMap { user ->
+            user.deviceTokens.map { it.token }
+        }
         if (deviceTokens.isEmpty()) return
 
         val (title, body, data) = createAlarmContent(alarmType, event)

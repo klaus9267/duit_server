@@ -5,6 +5,8 @@ import duit.server.domain.user.dto.UpdateNicknameRequest
 import duit.server.domain.user.dto.UpdateUserSettingsRequest
 import duit.server.domain.user.entity.ProviderType
 import duit.server.domain.user.entity.User
+import duit.server.domain.user.entity.UserDeviceToken
+import duit.server.domain.user.repository.UserDeviceTokenRepository
 import duit.server.domain.user.repository.UserRepository
 import io.mockk.*
 import jakarta.persistence.EntityNotFoundException
@@ -16,14 +18,16 @@ import java.util.*
 class UserServiceUnitTest {
 
     private lateinit var userRepository: UserRepository
+    private lateinit var userDeviceTokenRepository: UserDeviceTokenRepository
     private lateinit var securityUtil: SecurityUtil
     private lateinit var userService: UserService
 
     @BeforeEach
     fun setUp() {
         userRepository = mockk()
+        userDeviceTokenRepository = mockk()
         securityUtil = mockk()
-        userService = UserService(userRepository, securityUtil)
+        userService = UserService(userRepository, userDeviceTokenRepository, securityUtil)
     }
 
     private fun createUser(
@@ -194,19 +198,78 @@ class UserServiceUnitTest {
     }
 
     @Nested
-    @DisplayName("updateDevice")
-    inner class UpdateDeviceTests {
+    @DisplayName("registerDeviceToken")
+    inner class RegisterDeviceTokenTests {
 
         @Test
-        @DisplayName("디바이스 토큰을 정상적으로 업데이트한다")
-        fun updatesDeviceToken() {
+        @DisplayName("새 디바이스 토큰을 등록한다")
+        fun registerNewToken() {
             val user = createUser()
+            every { securityUtil.getCurrentUserId() } returns 1L
+            every { userDeviceTokenRepository.findByToken("new-fcm-token") } returns null
+            every { userRepository.findById(1L) } returns Optional.of(user)
+
+            userService.registerDeviceToken("new-fcm-token")
+
+            assertEquals("new-fcm-token", user.deviceToken)
+            assertTrue(user.deviceTokens.any { it.token == "new-fcm-token" })
+        }
+
+        @Test
+        @DisplayName("같은 사용자가 이미 등록한 토큰이면 대표 토큰만 갱신하고 중복 저장하지 않는다")
+        fun ignoreDuplicateTokenOfSameUser() {
+            val user = createUser().apply {
+                registerDeviceToken("existing-token")
+                deviceToken = "old-token"
+            }
+            every { securityUtil.getCurrentUserId() } returns 1L
+            every { userRepository.findById(1L) } returns Optional.of(user)
+            every { userDeviceTokenRepository.findByToken("existing-token") } returns
+                UserDeviceToken(id = 1L, user = user, token = "existing-token")
+
+            userService.registerDeviceToken("existing-token")
+
+            assertEquals("existing-token", user.deviceToken)
+            assertEquals(1, user.deviceTokens.count { it.token == "existing-token" })
+            verify(exactly = 1) { userRepository.findById(1L) }
+        }
+
+        @Test
+        @DisplayName("다른 사용자가 이미 등록한 토큰이면 IllegalStateException이 발생한다")
+        fun throwWhenTokenAlreadyOwnedByAnotherUser() {
+            val user = createUser()
+            val otherUser = createUser(id = 2L, providerId = "provider-2")
+            every { securityUtil.getCurrentUserId() } returns 1L
+            every { userRepository.findById(1L) } returns Optional.of(user)
+            every { userDeviceTokenRepository.findByToken("shared-token") } returns
+                UserDeviceToken(id = 10L, user = otherUser, token = "shared-token")
+
+            assertThrows<IllegalStateException> {
+                userService.registerDeviceToken("shared-token")
+            }
+        }
+
+    }
+
+    @Nested
+    @DisplayName("deleteDeviceToken")
+    inner class DeleteDeviceTokenTests {
+
+        @Test
+        @DisplayName("현재 사용자에게 연결된 디바이스 토큰만 삭제하고 대표 토큰을 재설정한다")
+        fun deleteCurrentUserToken() {
+            val user = createUser().apply {
+                registerDeviceToken("keep-token")
+                registerDeviceToken("delete-me")
+                deviceToken = "delete-me"
+            }
             every { securityUtil.getCurrentUserId() } returns 1L
             every { userRepository.findById(1L) } returns Optional.of(user)
 
-            userService.updateDevice("new-fcm-token")
+            userService.deleteDeviceToken("delete-me")
 
-            assertEquals("new-fcm-token", user.deviceToken)
+            assertEquals("keep-token", user.deviceToken)
+            assertEquals(listOf("keep-token"), user.deviceTokens.map { it.token })
         }
     }
 

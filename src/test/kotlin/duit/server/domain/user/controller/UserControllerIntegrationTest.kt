@@ -3,6 +3,8 @@ package duit.server.domain.user.controller
 import duit.server.domain.user.entity.User
 import duit.server.support.IntegrationTestSupport
 import duit.server.support.fixture.TestFixtures
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -243,7 +245,7 @@ class UserControllerIntegrationTest : IntegrationTestSupport() {
 
     @Nested
     @DisplayName("PATCH /api/v1/users/device/{token} - 디바이스 토큰 등록")
-    inner class UpdateDeviceTests {
+    inner class RegisterDeviceTokenTests {
 
         @Nested
         @DisplayName("성공")
@@ -258,6 +260,82 @@ class UserControllerIntegrationTest : IntegrationTestSupport() {
                 )
                     .andDo(print())
                     .andExpect(status().isOk)
+
+                entityManager.flush()
+                entityManager.clear()
+                val updatedUser = entityManager.find(User::class.java, user.id!!)
+                assertTrue(updatedUser.deviceTokens.any { it.token == "fcm-token-12345" })
+            }
+        }
+
+        @Nested
+        @DisplayName("실패")
+        inner class Failure {
+
+            @Test
+            @DisplayName("다른 사용자가 이미 등록한 토큰이면 409를 반환한다")
+            fun tokenAlreadyOwnedByAnotherUser() {
+                val managedOtherUser = entityManager.find(User::class.java, otherUser.id!!)
+                managedOtherUser.registerDeviceToken("shared-token")
+                entityManager.flush()
+                entityManager.clear()
+
+                mockMvc.perform(
+                    patch("/api/v1/users/device/{token}", "shared-token")
+                        .header("Authorization", authHeader(user.id!!))
+                )
+                    .andDo(print())
+                    .andExpect(status().isConflict)
+            }
+
+            @Test
+            @DisplayName("유효하지 않은 토큰이면 400을 반환한다")
+            fun invalidToken() {
+                mockMvc.perform(
+                    patch("/api/v1/users/device/{token}", "null")
+                        .header("Authorization", authHeader(user.id!!))
+                )
+                    .andDo(print())
+                    .andExpect(status().isBadRequest)
+            }
+
+            @Test
+            @DisplayName("인증 없이 접근하면 401을 반환한다")
+            fun unauthorized() {
+                mockMvc.perform(patch("/api/v1/users/device/{token}", "fcm-token"))
+                    .andDo(print())
+                    .andExpect(status().isUnauthorized)
+            }
+        }
+    }
+
+    @Nested
+    @DisplayName("DELETE /api/v1/users/device/{token} - 디바이스 토큰 삭제")
+    inner class DeleteDeviceTokenTests {
+
+        @Nested
+        @DisplayName("성공")
+        inner class Success {
+
+            @Test
+            @DisplayName("현재 사용자의 디바이스 토큰을 삭제한다")
+            fun deleteDeviceToken() {
+                val managedUser = entityManager.find(User::class.java, user.id!!)
+                managedUser.registerDeviceToken("delete-target")
+                entityManager.flush()
+                entityManager.clear()
+
+                mockMvc.perform(
+                    delete("/api/v1/users/device/{token}", "delete-target")
+                        .header("Authorization", authHeader(user.id!!))
+                )
+                    .andDo(print())
+                    .andExpect(status().isNoContent)
+
+                entityManager.flush()
+                entityManager.clear()
+                val updatedUser = entityManager.find(User::class.java, user.id!!)
+                assertEquals(emptyList<String>(), updatedUser.deviceTokens.map { it.token })
             }
         }
 
@@ -268,9 +346,20 @@ class UserControllerIntegrationTest : IntegrationTestSupport() {
             @Test
             @DisplayName("인증 없이 접근하면 401을 반환한다")
             fun unauthorized() {
-                mockMvc.perform(patch("/api/v1/users/device/{token}", "fcm-token"))
+                mockMvc.perform(delete("/api/v1/users/device/{token}", "delete-token"))
                     .andDo(print())
                     .andExpect(status().isUnauthorized)
+            }
+
+            @Test
+            @DisplayName("유효하지 않은 토큰이면 400을 반환한다")
+            fun invalidToken() {
+                mockMvc.perform(
+                    delete("/api/v1/users/device/{token}", "null")
+                        .header("Authorization", authHeader(user.id!!))
+                )
+                    .andDo(print())
+                    .andExpect(status().isBadRequest)
             }
         }
     }
