@@ -261,6 +261,8 @@ class UserControllerIntegrationTest : IntegrationTestSupport() {
                     .andDo(print())
                     .andExpect(status().isOk)
 
+                entityManager.flush()
+                entityManager.clear()
                 val updatedUser = entityManager.find(User::class.java, user.id!!)
                 assertTrue(updatedUser.deviceTokens.any { it.token == "fcm-token-12345" })
             }
@@ -330,6 +332,8 @@ class UserControllerIntegrationTest : IntegrationTestSupport() {
                     .andDo(print())
                     .andExpect(status().isNoContent)
 
+                entityManager.flush()
+                entityManager.clear()
                 val updatedUser = entityManager.find(User::class.java, user.id!!)
                 assertEquals(emptyList<String>(), updatedUser.deviceTokens.map { it.token })
             }

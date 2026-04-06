@@ -53,7 +53,9 @@ class AlarmServiceUnitTest {
         alarmService = AlarmService(fcmService, eventRepository, alarmRepository, bookmarkRepository, securityUtil)
 
         host = Host(id = 1L, name = "테스트 주최")
-        user = User(id = 1L, nickname = "테스트유저", providerId = "p1", deviceToken = "fcm-token-1")
+        user = User(id = 1L, nickname = "테스트유저", providerId = "p1", deviceToken = "fcm-token-1").apply {
+            registerDeviceToken("fcm-token-1")
+        }
         event = Event(
             id = 10L, title = "테스트 행사",
             startAt = LocalDateTime.now().plusDays(1), endAt = null,
@@ -208,11 +210,12 @@ class AlarmServiceUnitTest {
             every { bookmarkRepository.findEligibleUsersForAlarms(10L) } returns listOf(user)
             every { alarmRepository.existsByUserIdAndEventIdAndType(1L, 10L, AlarmType.EVENT_START) } returns false
             every { alarmRepository.save(any<Alarm>()) } answers { firstArg() }
+            user.registerDeviceToken("fcm-token-1-sub")
 
             alarmService.createAlarms(AlarmType.EVENT_START, 10L)
 
             verify(exactly = 1) { alarmRepository.save(any()) }
-            verify(exactly = 1) { fcmService.sendAlarms(listOf("fcm-token-1"), any(), any(), any()) }
+            verify(exactly = 1) { fcmService.sendAlarms(listOf("fcm-token-1", "fcm-token-1-sub"), any(), any(), any()) }
         }
 
         @Test
@@ -231,8 +234,13 @@ class AlarmServiceUnitTest {
         @Test
         @DisplayName("여러 사용자 중 일부만 알람이 존재하면 새 사용자에게만 알람 생성한다")
         fun `여러 사용자 중 기존 알람이 있는 사용자는 건너뛴다`() {
-            val user2 = User(id = 2L, nickname = "유저2", providerId = "p2", deviceToken = "fcm-token-2")
-            val user3 = User(id = 3L, nickname = "유저3", providerId = "p3", deviceToken = "fcm-token-3")
+            val user2 = User(id = 2L, nickname = "유저2", providerId = "p2", deviceToken = "fcm-token-2").apply {
+                registerDeviceToken("fcm-token-2")
+                registerDeviceToken("fcm-token-2-sub")
+            }
+            val user3 = User(id = 3L, nickname = "유저3", providerId = "p3", deviceToken = "fcm-token-3").apply {
+                registerDeviceToken("fcm-token-3")
+            }
 
             every { eventRepository.findById(10L) } returns Optional.of(event)
             every { bookmarkRepository.findEligibleUsersForAlarms(10L) } returns listOf(user, user2, user3)
@@ -245,29 +253,17 @@ class AlarmServiceUnitTest {
             alarmService.createAlarms(AlarmType.EVENT_START, 10L)
 
             verify(exactly = 2) { alarmRepository.save(any()) }
-            verify(exactly = 1) { fcmService.sendAlarms(listOf("fcm-token-2", "fcm-token-3"), any(), any(), any()) }
-        }
-
-        @Test
-        @DisplayName("deviceToken이 없는 사용자에게는 알람만 생성하고 FCM은 전송하지 않는다")
-        fun `deviceToken 없으면 알람 생성하지만 FCM 미전송`() {
-            val userWithoutToken = User(id = 2L, nickname = "유저2", providerId = "p2", deviceToken = null)
-
-            every { eventRepository.findById(10L) } returns Optional.of(event)
-            every { bookmarkRepository.findEligibleUsersForAlarms(10L) } returns listOf(userWithoutToken)
-            every { alarmRepository.existsByUserIdAndEventIdAndType(2L, 10L, AlarmType.EVENT_START) } returns false
-            every { alarmRepository.save(any<Alarm>()) } answers { firstArg() }
-
-            alarmService.createAlarms(AlarmType.EVENT_START, 10L)
-
-            verify(exactly = 1) { alarmRepository.save(any()) }
-            verify(exactly = 0) { fcmService.sendAlarms(any(), any(), any(), any()) }
+            verify(exactly = 1) {
+                fcmService.sendAlarms(listOf("fcm-token-2", "fcm-token-2-sub", "fcm-token-3"), any(), any(), any())
+            }
         }
 
         @Test
         @DisplayName("한 유저의 알람이 이미 존재해도(UK 위반) 나머지 유저 알람은 정상 생성되어야 한다")
         fun `한 유저 save 실패해도 나머지 유저 알람은 생성된다`() {
-            val user2 = User(id = 2L, nickname = "유저2", providerId = "p2", deviceToken = "fcm-token-2")
+            val user2 = User(id = 2L, nickname = "유저2", providerId = "p2", deviceToken = "fcm-token-2").apply {
+                registerDeviceToken("fcm-token-2")
+            }
             every { eventRepository.findById(10L) } returns Optional.of(event)
             every { bookmarkRepository.findEligibleUsersForAlarms(10L) } returns listOf(user, user2)
             every { alarmRepository.existsByUserIdAndEventIdAndType(any(), 10L, AlarmType.EVENT_START) } returns false

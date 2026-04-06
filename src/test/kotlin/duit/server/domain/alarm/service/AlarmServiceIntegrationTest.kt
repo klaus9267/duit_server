@@ -2,6 +2,7 @@ package duit.server.domain.alarm.service
 
 import duit.server.domain.alarm.entity.AlarmType
 import duit.server.domain.alarm.repository.AlarmRepository
+import duit.server.domain.event.entity.Event
 import duit.server.domain.event.entity.EventStatus
 import duit.server.domain.event.entity.EventStatusGroup
 import duit.server.domain.user.entity.AlarmSettings
@@ -137,6 +138,35 @@ class AlarmServiceIntegrationTest : IntegrationTestSupport() {
             val recruitmentEndCount = alarms.count { it.type == AlarmType.RECRUITMENT_END }
             assertEquals(3, eventStartCount)
             assertEquals(3, recruitmentEndCount)
+        }
+
+        @Test
+        @DisplayName("디바이스 토큰이 없는 사용자는 알람 대상에서 제외된다")
+        fun `디바이스 토큰 없으면 알람 생성 대상 제외`() {
+            val tokenlessUser = TestFixtures.user(
+                nickname = "토큰없는유저",
+                email = "tokenless@example.com",
+                providerId = "p4",
+                alarmSettings = AlarmSettings(push = true, bookmark = true, calendar = false, marketing = false),
+            )
+            entityManager.persist(tokenlessUser)
+            entityManager.persist(
+                TestFixtures.bookmark(
+                    user = tokenlessUser,
+                    event = entityManager.getReference(Event::class.java, eventId)
+                )
+            )
+            entityManager.flush()
+            entityManager.clear()
+
+            alarmService.createAlarms(AlarmType.EVENT_START, eventId)
+
+            entityManager.flush()
+            entityManager.clear()
+
+            val alarms = alarmRepository.findAll()
+            assertEquals(3, alarms.size)
+            assertTrue(alarms.none { it.user.nickname == "토큰없는유저" })
         }
     }
 
