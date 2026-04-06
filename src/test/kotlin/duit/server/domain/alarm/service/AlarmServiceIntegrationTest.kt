@@ -240,6 +240,16 @@ class AlarmServiceIntegrationTest : IntegrationTestSupport() {
                 em.createNativeQuery("DELETE FROM events WHERE id = :eventId")
                     .setParameter("eventId", committedEventId)
                     .executeUpdate()
+                em.createNativeQuery(
+                    """
+                    DELETE FROM user_device_tokens
+                    WHERE user_id IN (
+                        SELECT id FROM users WHERE nickname LIKE :prefix
+                    )
+                    """.trimIndent()
+                )
+                    .setParameter("prefix", "동시성유저%")
+                    .executeUpdate()
                 em.createNativeQuery("DELETE FROM users WHERE nickname LIKE :prefix")
                     .setParameter("prefix", "동시성유저%")
                     .executeUpdate()

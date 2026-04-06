@@ -41,14 +41,19 @@ object TestFixtures {
         providerId: String? = "test-provider-id",
         alarmSettings: AlarmSettings = AlarmSettings(),
         deviceToken: String? = null,
-    ): User = User(
-        email = email,
-        nickname = nickname,
-        providerType = providerType,
-        providerId = providerId,
-        alarmSettings = alarmSettings,
-        deviceToken = deviceToken,
-    )
+        deviceTokens: List<String> = emptyList(),
+    ): User {
+        val user = User(
+            email = email,
+            nickname = nickname,
+            providerType = providerType,
+            providerId = providerId,
+            alarmSettings = alarmSettings,
+            deviceToken = deviceToken ?: deviceTokens.firstOrNull(),
+        )
+        (listOfNotNull(deviceToken) + deviceTokens).distinct().forEach(user::registerDeviceToken)
+        return user
+    }
 
     fun event(
         title: String = "테스트 행사",
