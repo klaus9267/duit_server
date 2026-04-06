@@ -13,18 +13,17 @@ interface BookmarkRepository : JpaRepository<Bookmark, Long> {
 
     @EntityGraph(attributePaths = ["event", "event.host"])
     fun findByUserId(userId: Long, pageable: Pageable): Page<Bookmark>
-    
+
     @Query(
         """
         SELECT DISTINCT u
         FROM User u
         JOIN Bookmark b ON b.user.id = u.id
+        JOIN FETCH u.deviceTokens udt
         WHERE b.event.id = :eventId
-          AND u.deviceToken IS NOT NULL 
-          AND u.deviceToken != ''
           AND u.alarmSettings.push = true
           AND (
-            u.alarmSettings.bookmark = true 
+            u.alarmSettings.bookmark = true
             OR (u.alarmSettings.calendar = true AND b.isAddedToCalendar = true)
           )
         """
