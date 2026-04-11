@@ -7,7 +7,15 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener
 import java.time.LocalDateTime
 
 @Entity
-@Table(name = "user_device_tokens")
+@Table(
+    name = "user_device_tokens",
+    uniqueConstraints = [
+        UniqueConstraint(name = "uk_user_device_tokens_token", columnNames = ["token"])
+    ],
+    indexes = [
+        Index(name = "idx_user_device_tokens_user_id", columnList = "user_id")
+    ]
+)
 @EntityListeners(AuditingEntityListener::class)
 class UserDeviceToken(
     @Id
@@ -15,9 +23,10 @@ class UserDeviceToken(
     val id: Long? = null,
 
     @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
     val user: User,
 
-    @Column(nullable = false)
+    @Column(nullable = false, length = 512)
     val token: String,
 
     @CreatedDate
