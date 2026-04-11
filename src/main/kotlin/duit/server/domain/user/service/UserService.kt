@@ -100,13 +100,9 @@ class UserService(
         val currentUserId = securityUtil.getCurrentUserId()
         val user = findUserById(currentUserId)
 
-        userDeviceTokenRepository.findByToken(token)?.let {
-            if (it.user.id != currentUserId) {
-                throw IllegalStateException("이미 다른 사용자에 등록된 디바이스 토큰입니다")
-            }
-            user.deviceToken = token
-            user.registerDeviceToken(token)
-            return
+        val existingTokens = userDeviceTokenRepository.findAllByToken(token)
+        if (existingTokens.any { it.user.id != currentUserId }) {
+            throw IllegalStateException("이미 다른 사용자에 등록된 디바이스 토큰입니다")
         }
 
         user.deviceToken = token
