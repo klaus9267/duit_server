@@ -8,14 +8,113 @@
 
 > 매 작업 후 갱신. 새 세션 시작 시 이 섹션만 읽으면 전체 파악 가능.
 
- **마지막 작업일**: 2026-03-12
- **진행 중인 작업**: 채용공고 큐레이션 — 전체 파이프라인 완료 (수집 → 스케줄러 → 클라이언트 API → E2E 검증)
- **블로커**: 사람인 API 키 미발급 (고용24만 E2E 검증 완료)
- **미수정 CRITICAL**: 1건 (User.providerType `@Enumerated` 누락)
- **미수정 HIGH**: 7건 (CORS, 외부 API 타임아웃/재시도, FCM 에러 핸들링, JWT Refresh Token, Discord fire-and-forget)
- **브랜치**: dev (origin/dev보다 15커밋 앞)
- **신규 의존성**: `jackson-dataformat-xml` (고용24 XML 파싱)
- **신규 env**: `WORK24_KEY` (application.properties에 설정됨), `SARAMIN_ACCESS_KEY` (미발급)
+ **마지막 작업일**: 2026-04-11
+ **진행 중인 작업**: `user_device_tokens` 중복 데이터 정리 및 유니크 제약 복구 대응
+ **블로커**: 운영 DB에서 `scripts/sql/deduplicate_user_device_tokens.sql` 실행 후 `scripts/sql/add_user_device_tokens_unique_constraint.sql` 적용 필요
+ **미수정 CRITICAL**: 1건 (배포된 비밀 노출 사고 후 실제 비밀 rotation / GHCR 정리 필요)
+ **미수정 HIGH**: 6건 (CORS, 외부 API 타임아웃/재시도, FCM invalid token 정리, JWT Refresh Token, Discord fire-and-forget)
+ **브랜치**: dev
+ **신규 의존성**: 없음
+ **신규 env**: 없음
+
+## 2026-04-11 (디바이스 토큰 중복 데이터 복구 대응)
+
+**분류**: fix | ops | test | docs
+
+### 작업 내용
+- 운영에서 바로 실행할 수 있도록 `scripts/sql/deduplicate_user_device_tokens.sql` 추가
+- `user_device_tokens.token` 유니크 제약을 안전하게 재적용하는 `scripts/sql/add_user_device_tokens_unique_constraint.sql` 추가
+- `UserDeviceToken` 엔티티에 `uk_user_device_tokens_token` 유니크 제약과 `idx_user_device_tokens_user_id` 인덱스를 다시 선언해 코드/운영 스키마 정합성 복구
+- `UserService.registerDeviceToken()`를 단건 조회(`findByToken`)에서 리스트 조회(`findAllByToken`)로 변경해, 중복 dirty data가 있어도 500 대신 정책적으로 처리되게 보강
+- 같은 사용자의 중복 row는 허용적으로 통과시키고, 다른 사용자 소유 토큰이 섞인 경우만 `IllegalStateException`으로 충돌 처리
+- `UserServiceUnitTest`에 dirty data 방어 케이스 추가
+
+### 테스트 결과
+- `./gradlew test --tests "duit.server.domain.user.service.UserServiceUnitTest" --tests "duit.server.domain.user.controller.UserControllerIntegrationTest"` 통과
+
+### 기술적 결정
+- **운영 정리 우선**: dirty data는 SQL로 정리하고, 앱은 그 정리 작업이 끝나기 전까지도 500 없이 버티도록 보강
+- **유니크 정책 유지**: 토큰 자동 이전은 하지 않고, 다른 사용자 토큰이면 계속 충돌로 거부
+- **방어 로직 최소화**: 서비스에서 다건 조회 후 소유자만 판별해 현재 정책을 유지하면서 런타임 예외만 제거
+
+### 운영 적용 순서
+1. `scripts/sql/deduplicate_user_device_tokens.sql` 실행
+2. 중복 재조회 결과가 0건인지 확인
+3. `scripts/sql/add_user_device_tokens_unique_constraint.sql` 실행
+4. 새 앱 배포
+
+---
+
+## 2026-04-06 (디바이스 토큰 선검증 + 범위 정리)
+
+**분류**: refactor | test | docs
+
+### 작업 내용
+- `PATCH/DELETE /api/v1/users/device/{token}` 입력을 컨트롤러에서 표준 Bean Validation(`@NotBlank`, `@Pattern`)으로 선검증
+- `UserService`의 `trim + require` 정규화/검증 로직 제거
+- 구 호출부 하위 호환을 위해 `UserService.updateDevice()`를 `registerDeviceToken()` 위임 메서드로 유지
+- 디바이스 토큰 등록/삭제는 `user_device_tokens`를 계속 사용하되, `User.deviceToken` 대표 토큰도 함께 관리하도록 조정
+- 알림 경로는 기존 대표 토큰(`users.device_token`) 기준을 유지하고, 멀티 디바이스 푸시 발송 변경은 적용하지 않음
+- 사용자 테스트를 현재 정책에 맞게 재정렬
+
+### 테스트 결과
+- `./gradlew test --tests "duit.server.domain.user.service.UserServiceUnitTest" --tests "duit.server.domain.user.controller.UserControllerIntegrationTest" --tests "duit.server.domain.alarm.service.AlarmServiceUnitTest" --tests "duit.server.domain.alarm.service.AlarmServiceIntegrationTest"` 통과
+
+### 기술적 결정
+- **입력 검증 계층 이동**: 디바이스 토큰 형식 검증은 서비스가 아니라 컨트롤러의 표준 Bean Validation에서 처리
+- **범위 분리 유지**: 멀티 디바이스 저장과 멀티 디바이스 푸시 발송은 분리해서 단계적으로 적용
+- **대표 토큰 유지**: 알림 기능이 아직 단일 토큰 전제이므로 `users.device_token`을 당분간 유지
+
+---
+
+## 2026-04-06 (알람 멀티 디바이스 토큰 전환)
+
+**분류**: refactor | test | docs
+
+### 작업 내용
+- `AlarmService`가 새 알림이 생성된 사용자들의 `user_device_tokens`를 조회해 멀티 디바이스로 FCM 발송하도록 전환
+- `BookmarkRepository.findEligibleUsersForAlarms()`가 `u.deviceTokens`를 조인해 디바이스 토큰 보유 사용자만 선별하도록 조정
+- 조회된 사용자의 `deviceTokens` 컬렉션을 그대로 사용해 FCM 발송 토큰을 구성
+- 알람 단위/통합 테스트를 멀티 토큰 기준으로 갱신
+
+### 테스트 결과
+- `./gradlew test --tests "duit.server.domain.alarm.service.AlarmServiceUnitTest" --tests "duit.server.domain.alarm.service.AlarmServiceIntegrationTest"` 통과
+
+### 기술적 결정
+- **기존 역할 유지**: `findEligibleUsersForAlarms()`는 여전히 "실제로 푸시를 보낼 수 있는 사용자"를 선별하는 역할을 유지
+- **멀티 디바이스 우선**: 실제 푸시 발송은 `User.deviceToken` 대표 토큰이 아니라 `user_device_tokens` 전체를 기준으로 처리
+- **대표 토큰 잔존**: `User.deviceToken`은 레거시 앱 호환용으로만 유지하고, 알림 경로에서는 더 이상 의존하지 않음
+
+---
+
+## 2026-04-05 (멀티 디바이스 FCM 토큰 전환 구현 적용)
+
+**분류**: feature | refactor | test
+
+### 작업 내용
+- 실제 코드에 `UserDeviceToken` 엔티티 / `UserDeviceTokenRepository` 추가
+- `user_device_tokens` 기반으로 등록/삭제/조회 로직 전환
+- `UserController`
+  - `PATCH /api/v1/users/device/{token}`를 "교체"가 아닌 "추가 등록"으로 전환
+  - `DELETE /api/v1/users/device/{token}` 추가로 현재 기기 로그아웃 지원
+- `UserService`
+  - 같은 사용자의 중복 등록은 no-op 처리
+  - 다른 사용자가 이미 가진 토큰은 `IllegalStateException`으로 409 충돌 처리
+- `AlarmService` 멀티 디바이스 푸시 전환은 후속 범위로 분리
+- `BookmarkRepository` 알람 대상 조회 조건은 기존 대표 토큰 기준 유지
+- `TestFixtures`, `DummyDataGenerator`, 사용자/알람 테스트를 멀티 디바이스 모델로 갱신
+
+### 테스트 결과
+- `./gradlew test --tests "duit.server.domain.user.service.UserServiceUnitTest" --tests "duit.server.domain.user.controller.UserControllerIntegrationTest" --tests "duit.server.domain.alarm.service.AlarmServiceUnitTest" --tests "duit.server.domain.alarm.service.AlarmServiceIntegrationTest"` 통과
+
+### 기술적 결정
+- **전역 유니크 토큰 유지**: 같은 FCM 토큰이 여러 사용자에게 매달리지 않도록 유지해 계정 전환 시 알림 혼선을 방지
+- **등록 idempotent**: 같은 사용자의 동일 토큰 재등록은 성공 처리하고 중복 row는 만들지 않음
+- **삭제 idempotent**: 로그아웃 시 현재 사용자 + 현재 토큰만 삭제하고, 이미 없어도 실패시키지 않음
+
+### 영향 범위
+- `domain/user/` — 디바이스 토큰 엔티티/리포지토리, 서비스/컨트롤러 전환
+- `support/fixture/`, `util/DummyDataGenerator.kt` — 멀티 디바이스 모델 반영
 
 ---
 

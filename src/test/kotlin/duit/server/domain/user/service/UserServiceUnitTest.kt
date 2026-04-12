@@ -206,7 +206,7 @@ class UserServiceUnitTest {
         fun registerNewToken() {
             val user = createUser()
             every { securityUtil.getCurrentUserId() } returns 1L
-            every { userDeviceTokenRepository.findByToken("new-fcm-token") } returns null
+            every { userDeviceTokenRepository.findAllByToken("new-fcm-token") } returns emptyList()
             every { userRepository.findById(1L) } returns Optional.of(user)
 
             userService.registerDeviceToken("new-fcm-token")
@@ -224,8 +224,9 @@ class UserServiceUnitTest {
             }
             every { securityUtil.getCurrentUserId() } returns 1L
             every { userRepository.findById(1L) } returns Optional.of(user)
-            every { userDeviceTokenRepository.findByToken("existing-token") } returns
+            every { userDeviceTokenRepository.findAllByToken("existing-token") } returns listOf(
                 UserDeviceToken(id = 1L, user = user, token = "existing-token")
+            )
 
             userService.registerDeviceToken("existing-token")
 
@@ -241,11 +242,49 @@ class UserServiceUnitTest {
             val otherUser = createUser(id = 2L, providerId = "provider-2")
             every { securityUtil.getCurrentUserId() } returns 1L
             every { userRepository.findById(1L) } returns Optional.of(user)
-            every { userDeviceTokenRepository.findByToken("shared-token") } returns
+            every { userDeviceTokenRepository.findAllByToken("shared-token") } returns listOf(
                 UserDeviceToken(id = 10L, user = otherUser, token = "shared-token")
+            )
 
             assertThrows<IllegalStateException> {
                 userService.registerDeviceToken("shared-token")
+            }
+        }
+
+        @Test
+        @DisplayName("같은 사용자의 중복 row가 있어도 예외 없이 등록을 이어간다")
+        fun ignoreDuplicateRowsOfSameUser() {
+            val user = createUser().apply {
+                registerDeviceToken("duplicated-token")
+                deviceToken = "old-token"
+            }
+            every { securityUtil.getCurrentUserId() } returns 1L
+            every { userRepository.findById(1L) } returns Optional.of(user)
+            every { userDeviceTokenRepository.findAllByToken("duplicated-token") } returns listOf(
+                UserDeviceToken(id = 1L, user = user, token = "duplicated-token"),
+                UserDeviceToken(id = 2L, user = user, token = "duplicated-token")
+            )
+
+            assertDoesNotThrow {
+                userService.registerDeviceToken("duplicated-token")
+            }
+            assertEquals("duplicated-token", user.deviceToken)
+        }
+
+        @Test
+        @DisplayName("중복 row 안에 다른 사용자 소유 토큰이 섞여 있으면 충돌을 반환한다")
+        fun throwWhenDuplicateRowsContainOtherUser() {
+            val user = createUser()
+            val otherUser = createUser(id = 2L, providerId = "provider-2")
+            every { securityUtil.getCurrentUserId() } returns 1L
+            every { userRepository.findById(1L) } returns Optional.of(user)
+            every { userDeviceTokenRepository.findAllByToken("duplicated-token") } returns listOf(
+                UserDeviceToken(id = 1L, user = user, token = "duplicated-token"),
+                UserDeviceToken(id = 2L, user = otherUser, token = "duplicated-token")
+            )
+
+            assertThrows<IllegalStateException> {
+                userService.registerDeviceToken("duplicated-token")
             }
         }
 

@@ -15,9 +15,10 @@ class UserDeviceToken(
     val id: Long? = null,
 
     @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
     val user: User,
 
-    @Column(nullable = false)
+    @Column(nullable = false, length = 512,unique = true)
     val token: String,
 
     @CreatedDate
