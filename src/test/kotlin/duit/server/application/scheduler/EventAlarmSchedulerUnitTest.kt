@@ -152,7 +152,7 @@ class EventAlarmSchedulerUnitTest {
         fun `20시 이후 이벤트는 전날 20시로 보정`() {
             val event = createEvent(
                 id = 1L,
-                startAt = LocalDateTime.now().plusDays(1).withHour(21).withMinute(30).withSecond(0).withNano(0)
+                startAt = LocalDateTime.now().plusDays(2).withHour(21).withMinute(30).withSecond(0).withNano(0)
             )
             every { eventRepository.findEventsByDateField("START_AT", any(), any()) } returns listOf(event)
 
@@ -234,7 +234,7 @@ class EventAlarmSchedulerUnitTest {
         @Test
         @DisplayName("모집 종료도 동일한 야간 보정 규칙을 따른다")
         fun `RECRUITMENT_END도 동일 규칙 적용`() {
-            val recruitmentEndAt = LocalDateTime.now().plusDays(1).withHour(22).withMinute(0).withSecond(0).withNano(0)
+            val recruitmentEndAt = LocalDateTime.now().plusDays(2).withHour(22).withMinute(0).withSecond(0).withNano(0)
             val event = createEvent(
                 id = 5L,
                 startAt = LocalDateTime.now().plusDays(10),
