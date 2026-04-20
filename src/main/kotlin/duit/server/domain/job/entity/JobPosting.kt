@@ -1,6 +1,7 @@
 package duit.server.domain.job.entity
 
 import jakarta.persistence.*
+import org.hibernate.annotations.Comment
 import org.springframework.data.annotation.CreatedDate
 import org.springframework.data.annotation.LastModifiedDate
 import org.springframework.data.jpa.domain.support.AuditingEntityListener
@@ -8,207 +9,351 @@ import java.time.LocalDateTime
 
 @Entity
 @EntityListeners(AuditingEntityListener::class)
+@Comment("채용공고")
 @Table(name = "job_postings")
 class JobPosting(
+    @Comment("채용공고 ID")
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long? = null,
 
-    // ── 출처 ───────────────────────────────────────────────────────────────────────────
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, updatable = false)
-    val sourceType: SourceType,
+    @Comment("고용24 구인인증번호")
+    @Column(name = "wanted_auth_no", nullable = false, updatable = false, unique = true)
+    val wantedAuthNo: String,
 
-    /** 원본 API의 공고 ID. sourceType과 복합 unique. */
-    @Column(nullable = false, updatable = false)
-    val externalId: String,
-
-    // ── 공고 기본 정보 ───────────────────────────────────────────────────────────────────
-    var title: String,
-    var companyName: String,
-
-    /** 직종명. 예: "간호사", "간호조무사" */
-    var jobCategory: String?,
-
-    // ── 근무지 ───────────────────────────────────────────────────────────────────────────
-    /** 원문 주소. UI 표시 전용. 예: "서웸특별시 강남구 역삼동" */
-    var location: String?,
-
-    /**
-     * 필터링용 광역자치단체 단위 지역.
-     * location 원문을 파싱하여 저장. null = 파싱 실패 또는 미제공.
-     */
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = true)
-    var workRegion: WorkRegion?,
-
-    /**
-     * 필터링용 시/군/구 단위 지역. 예: "강남구", "분당구".
-     * 사람인 loc_bcd 코드, 고용24 region 5자리 코드에서 파싱하여 저장.
-     */
-    var workDistrict: String?,
-
-    // ── 근무 조건 ───────────────────────────────────────────────────────────────────────────
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = true)
-    var employmentType: EmploymentType?,
-
-    /** 경력 최소 년수. null = 경력무관 또는 신입 포함. */
-    var careerMin: Int?,
-
-    /** 경력 최대 년수. null = 상한 없음. */
-    var careerMax: Int?,
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = true)
-    var educationLevel: EducationLevel?,
-
-    // ── 급여 ───────────────────────────────────────────────────────────────────────────
-    /**
-     * 급여 하한 (만원 단위).
-     * null = 미공개 / "회사 내규" / "면접 후 결정".
-     * 사람인 salary code → 만원 단위 변환, 고용24 sal 필드 직접 사용.
-     */
-    @Column(name = "salary_min")
-    var salaryMin: Long?,
-
-    /**
-     * 급여 상한 (만원 단위).
-     * 사람인체럼 범위 제공 시 상한값, 고용24체럼 단일값이면 salaryMin과 동일.
-     * null = 상한 없음 또는 미공개.
-     */
-    @Column(name = "salary_max")
-    var salaryMax: Long?,
-
-    /**
-     * 급여 유형.
-     * 사람인은 항상 ANNUAL, 고용24는 ANNUAL/MONTHLY/HOURLY 혼재.
-     * null = 미공개.
-     */
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = true)
-    var salaryType: SalaryType?,
-
-    @Column(columnDefinition = "TEXT", nullable = false)
-    var postingUrl: String,
-
-    // ── 일정 ───────────────────────────────────────────────────────────────────────────
-    var postedAt: LocalDateTime?,
-
-    /**
-     * 마감일. closeType 이 ON_HIRE 또는 ONGOING 이면 null.
-     * 스케줄러가 FIXED 공고의 만료 여부를 이 값으로 판단.
-     */
-    var expiresAt: LocalDateTime?,
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    var closeType: CloseType,
-
-    /**
-     * 공고 활성 여부.
-     * - FIXED: 스케줄러가 expiresAt 기준으로 주기적으로 갱신
-     * - ON_HIRE / ONGOING: 소스 API 응답값으로 갱신
-     */
+    @Comment("서비스 노출용 활성 여부")
     @Column(name = "is_active", nullable = false)
     var isActive: Boolean = true,
 
-    // ── 고용24 전용 ──────────────────────────────────────────────────────────────────────────
-    /** 주 소정근로시간 (시간). */
-    var workHoursPerWeek: Int?,
-
-    // ── 감사 필드 ──────────────────────────────────────────────────────────────────────────
+    @Comment("생성 시각")
     @CreatedDate
     @Column(nullable = false, updatable = false)
     val createdAt: LocalDateTime = LocalDateTime.now(),
 
+    @Comment("수정 시각")
     @LastModifiedDate
     var updatedAt: LocalDateTime = LocalDateTime.now(),
 ) {
     @OneToMany(mappedBy = "jobPosting", cascade = [CascadeType.ALL], orphanRemoval = true)
     val bookmarks: List<JobBookmark> = emptyList()
 
-    // ── 도메인 로직 ──────────────────────────────────────────────────────────────────────────
+    @Comment("연결된 기업 정보 ID")
+    @ManyToOne(fetch = FetchType.LAZY, cascade = [CascadeType.PERSIST, CascadeType.MERGE])
+    @JoinColumn(name = "company_id")
+    var company: JobCompany? = null
+        protected set
 
-    /**
-     * 스케줄러 sync 시 변경 가능한 모든 필드를 한 번에 업데이트.
-     * 불변 필드(sourceType, externalId)는 제외.
-     */
-    fun updateFromSource(
-        title: String,
-        companyName: String,
-        jobCategory: String?,
-        location: String?,
-        workRegion: WorkRegion?,
-        workDistrict: String?,
-        employmentType: EmploymentType?,
-        careerMin: Int?,
-        careerMax: Int?,
-        educationLevel: EducationLevel?,
-        salaryMin: Long?,
-        salaryMax: Long?,
-        salaryType: SalaryType?,
-        postingUrl: String,
-        postedAt: LocalDateTime?,
-        expiresAt: LocalDateTime?,
-        closeType: CloseType,
-        isActive: Boolean,
-        workHoursPerWeek: Int?,
+    @Comment("모집직종명")
+    @Column(name = "jobs_nm")
+    var jobsNm: String? = null
+
+    @Comment("구인제목")
+    @Column(name = "wanted_title", columnDefinition = "TEXT")
+    var wantedTitle: String? = null
+
+    @Comment("관련직종명")
+    @Column(name = "rel_jobs_nm", columnDefinition = "TEXT")
+    var relJobsNm: String? = null
+
+    @Comment("직무내용")
+    @Column(name = "job_cont", columnDefinition = "TEXT")
+    var jobCont: String? = null
+
+    @Comment("접수마감일 원문")
+    @Column(name = "receipt_close_dt")
+    var receiptCloseDt: String? = null
+
+    @Comment("고용형태명")
+    @Column(name = "emp_tp_nm")
+    var empTpNm: String? = null
+
+    @Comment("모집인원")
+    @Column(name = "collect_psncnt")
+    var collectPsncnt: String? = null
+
+    @Comment("임금조건명")
+    @Column(name = "sal_tp_nm")
+    var salTpNm: String? = null
+
+    @Comment("경력조건명")
+    @Column(name = "enter_tp_nm")
+    var enterTpNm: String? = null
+
+    @Comment("학력")
+    @Column(name = "edu_nm")
+    var eduNm: String? = null
+
+    @Comment("외국어 요건")
+    @Column(name = "for_lang", columnDefinition = "TEXT")
+    var forLang: String? = null
+
+    @Comment("전공 요건")
+    @Column(columnDefinition = "TEXT")
+    var major: String? = null
+
+    @Comment("자격면허")
+    @Column(columnDefinition = "TEXT")
+    var certificate: String? = null
+
+    @Comment("병역특례채용희망")
+    @Column(name = "mltsvc_exc_hope", columnDefinition = "TEXT")
+    var mltsvcExcHope: String? = null
+
+    @Comment("컴퓨터활용능력")
+    @Column(name = "comp_abl", columnDefinition = "TEXT")
+    var compAbl: String? = null
+
+    @Comment("우대조건")
+    @Column(name = "pf_cond", columnDefinition = "TEXT")
+    var pfCond: String? = null
+
+    @Comment("기타 우대조건")
+    @Column(name = "etc_pf_cond", columnDefinition = "TEXT")
+    var etcPfCond: String? = null
+
+    @Comment("전형방법")
+    @Column(name = "sel_mthd", columnDefinition = "TEXT")
+    var selMthd: String? = null
+
+    @Comment("접수방법")
+    @Column(name = "rcpt_mthd", columnDefinition = "TEXT")
+    var rcptMthd: String? = null
+
+    @Comment("제출서류 준비물")
+    @Column(name = "submit_doc", columnDefinition = "TEXT")
+    var submitDoc: String? = null
+
+    @Comment("기타안내")
+    @Column(name = "etc_hope_cont", columnDefinition = "TEXT")
+    var etcHopeCont: String? = null
+
+    @Comment("근무예정지 원문")
+    @Column(name = "work_region", columnDefinition = "TEXT")
+    var workRegion: String? = null
+
+    @Comment("인근 전철역")
+    @Column(name = "near_line", columnDefinition = "TEXT")
+    var nearLine: String? = null
+
+    @Comment("근무시간/형태")
+    @Column(name = "workday_workhr_cont", columnDefinition = "TEXT")
+    var workdayWorkhrCont: String? = null
+
+    @Comment("연금 및 4대보험")
+    @Column(name = "four_ins", columnDefinition = "TEXT")
+    var fourIns: String? = null
+
+    @Comment("퇴직금")
+    @Column(columnDefinition = "TEXT")
+    var retirepay: String? = null
+
+    @Comment("기타복리후생")
+    @Column(name = "etc_welfare", columnDefinition = "TEXT")
+    var etcWelfare: String? = null
+
+    @Comment("장애인 편의시설")
+    @Column(name = "disable_cvntl", columnDefinition = "TEXT")
+    var disableCvntl: String? = null
+
+    @Comment("회사소개 첨부파일 URL")
+    @Column(name = "attach_file_url", length = 1000)
+    var attachFileUrl: String? = null
+
+    @Comment("상세모집내용 URL")
+    @Column(name = "dtl_recr_cont_url", length = 1000)
+    var dtlRecrContUrl: String? = null
+
+    @Comment("직종코드")
+    @Column(name = "jobs_cd")
+    var jobsCd: String? = null
+
+    @Comment("최소학력코드")
+    @Column(name = "min_edubg_icd")
+    var minEdubgIcd: String? = null
+
+    @Comment("최대학력코드")
+    @Column(name = "max_edubg_icd")
+    var maxEdubgIcd: String? = null
+
+    @Comment("근무지역코드")
+    @Column(name = "region_cd")
+    var regionCd: String? = null
+
+    @Comment("고용형태코드")
+    @Column(name = "emp_tp_cd")
+    var empTpCd: String? = null
+
+    @Comment("경력조건코드")
+    @Column(name = "enter_tp_cd")
+    var enterTpCd: String? = null
+
+    @Comment("임금형태코드")
+    @Column(name = "sal_tp_cd")
+    var salTpCd: String? = null
+
+    @Comment("근무지 지하철 지역코드")
+    @Column(name = "sta_area_region_cd")
+    var staAreaRegionCd: String? = null
+
+    @Comment("근무지 지하철 호선코드")
+    @Column(name = "line_cd")
+    var lineCd: String? = null
+
+    @Comment("근무지 지하철역코드")
+    @Column(name = "sta_nm_cd")
+    var staNmCd: String? = null
+
+    @Comment("근무지 지하철역 출구번호")
+    @Column(name = "exit_no_cd")
+    var exitNoCd: String? = null
+
+    @Comment("근무지 지하철역 출구거리코드")
+    @Column(name = "walk_dist_cd")
+    var walkDistCd: String? = null
+
+    @Comment("채용부서")
+    @Column(name = "emp_charger_dpt", columnDefinition = "TEXT")
+    var empChargerDpt: String? = null
+
+    @Comment("전화번호")
+    @Column(name = "contact_telno")
+    var contactTelno: String? = null
+
+    @Comment("팩스번호")
+    @Column(name = "charger_fax_no")
+    var chargerFaxNo: String? = null
+
+    @Comment("제출서류 양식 첨부파일 URL")
+    @ElementCollection(fetch = FetchType.LAZY)
+    @CollectionTable(
+        name = "job_posting_corp_attach_list",
+        joinColumns = [JoinColumn(name = "job_posting_id")],
+    )
+    @Column(name = "attach_file_url", length = 1000)
+    val corpAttachList: MutableList<String> = mutableListOf()
+
+    @Comment("검색 키워드")
+    @ElementCollection(fetch = FetchType.LAZY)
+    @CollectionTable(
+        name = "job_posting_keyword_list",
+        joinColumns = [JoinColumn(name = "job_posting_id")],
+    )
+    @Column(name = "srch_keyword_nm")
+    val keywordList: MutableList<String> = mutableListOf()
+
+    fun updateWork24Detail(
+        detail: JobPostingWork24Detail,
+        company: JobCompany? = this.company,
     ) {
-        this.title = title
-        this.companyName = companyName
-        this.jobCategory = jobCategory
-        this.location = location
-        this.workRegion = workRegion
-        this.workDistrict = workDistrict
-        this.employmentType = employmentType
-        this.careerMin = careerMin
-        this.careerMax = careerMax
-        this.educationLevel = educationLevel
-        this.salaryMin = salaryMin
-        this.salaryMax = salaryMax
-        this.salaryType = salaryType
-        this.postingUrl = postingUrl
-        this.postedAt = postedAt
-        this.expiresAt = expiresAt
-        this.closeType = closeType
-        this.isActive = isActive
-        this.workHoursPerWeek = workHoursPerWeek
+        jobsNm = detail.jobsNm
+        wantedTitle = detail.wantedTitle
+        relJobsNm = detail.relJobsNm
+        jobCont = detail.jobCont
+        receiptCloseDt = detail.receiptCloseDt
+        empTpNm = detail.empTpNm
+        collectPsncnt = detail.collectPsncnt
+        salTpNm = detail.salTpNm
+        enterTpNm = detail.enterTpNm
+        eduNm = detail.eduNm
+        forLang = detail.forLang
+        major = detail.major
+        certificate = detail.certificate
+        mltsvcExcHope = detail.mltsvcExcHope
+        compAbl = detail.compAbl
+        pfCond = detail.pfCond
+        etcPfCond = detail.etcPfCond
+        selMthd = detail.selMthd
+        rcptMthd = detail.rcptMthd
+        submitDoc = detail.submitDoc
+        etcHopeCont = detail.etcHopeCont
+        workRegion = detail.workRegion
+        nearLine = detail.nearLine
+        workdayWorkhrCont = detail.workdayWorkhrCont
+        fourIns = detail.fourIns
+        retirepay = detail.retirepay
+        etcWelfare = detail.etcWelfare
+        disableCvntl = detail.disableCvntl
+        attachFileUrl = detail.attachFileUrl
+        dtlRecrContUrl = detail.dtlRecrContUrl
+        jobsCd = detail.jobsCd
+        minEdubgIcd = detail.minEdubgIcd
+        maxEdubgIcd = detail.maxEdubgIcd
+        regionCd = detail.regionCd
+        empTpCd = detail.empTpCd
+        enterTpCd = detail.enterTpCd
+        salTpCd = detail.salTpCd
+        staAreaRegionCd = detail.staAreaRegionCd
+        lineCd = detail.lineCd
+        staNmCd = detail.staNmCd
+        exitNoCd = detail.exitNoCd
+        walkDistCd = detail.walkDistCd
+        empChargerDpt = detail.empChargerDpt
+        contactTelno = detail.contactTelno
+        chargerFaxNo = detail.chargerFaxNo
+
+        corpAttachList.apply {
+            clear()
+            addAll(detail.corpAttachList.distinct())
+        }
+        keywordList.apply {
+            clear()
+            addAll(detail.keywordList.distinct())
+        }
+
+        this.company = company
     }
 
-    /**
-     * FIXED 타입 공고의 만료 여부를 현재 시각 기준으로 갱신.
-     * ON_HIRE / ONGOING 은 소스 API 응답값을 updateFromSource 에서 직접 반영하므로 여기서 처리하지 않음.
-     */
-    fun syncActiveStatus(now: LocalDateTime) {
-        if (closeType == CloseType.FIXED) {
-            isActive = expiresAt?.isAfter(now) ?: true
-        }
+    fun changeCompany(company: JobCompany?) {
+        this.company = company
     }
-
-    /** 경력 조건 표시 문자열. DTO 변환 시 활용. */
-    val careerDescription: String
-        get() = when {
-            careerMin == null && careerMax == null -> "경력무관"
-            careerMin == null && careerMax != null -> "경력무관"
-            careerMin == 0 && careerMax == null -> "신입"
-            careerMin != null && careerMax == null -> "경력 ${careerMin}년 이상"
-            else -> "경력 ${careerMin}~${careerMax}년"
-        }
-
-    /** 급여 표시 문자열. DTO 변환 시 활용. DB에는 원 단위로 저장되며, 만원 단위로 변환하여 표시. */
-    val salaryDescription: String
-        get() {
-            if (salaryMin == null) return "급여 미공개"
-            val type = salaryType?.displayName
-            val effectiveMax = salaryMax?.takeIf { it > 0 }
-            val amount = if (effectiveMax != null && salaryMin != effectiveMax) {
-                "${toManWon(salaryMin!!)}~${toManWon(effectiveMax)}만원"
-            } else {
-                "${toManWon(salaryMin!!)}만원"
-            }
-            return if (type != null) "$type $amount" else amount
-        }
-
-    private fun toManWon(value: Long): Long = value / 10000
 }
+
+data class JobPostingWork24Detail(
+    val jobsNm: String? = null,
+    val wantedTitle: String? = null,
+    val relJobsNm: String? = null,
+    val jobCont: String? = null,
+    val receiptCloseDt: String? = null,
+    val empTpNm: String? = null,
+    val collectPsncnt: String? = null,
+    val salTpNm: String? = null,
+    val enterTpNm: String? = null,
+    val eduNm: String? = null,
+    val forLang: String? = null,
+    val major: String? = null,
+    val certificate: String? = null,
+    val mltsvcExcHope: String? = null,
+    val compAbl: String? = null,
+    val pfCond: String? = null,
+    val etcPfCond: String? = null,
+    val selMthd: String? = null,
+    val rcptMthd: String? = null,
+    val submitDoc: String? = null,
+    val etcHopeCont: String? = null,
+    val workRegion: String? = null,
+    val nearLine: String? = null,
+    val workdayWorkhrCont: String? = null,
+    val fourIns: String? = null,
+    val retirepay: String? = null,
+    val etcWelfare: String? = null,
+    val disableCvntl: String? = null,
+    val attachFileUrl: String? = null,
+    val corpAttachList: List<String> = emptyList(),
+    val keywordList: List<String> = emptyList(),
+    val dtlRecrContUrl: String? = null,
+    val jobsCd: String? = null,
+    val minEdubgIcd: String? = null,
+    val maxEdubgIcd: String? = null,
+    val regionCd: String? = null,
+    val empTpCd: String? = null,
+    val enterTpCd: String? = null,
+    val salTpCd: String? = null,
+    val staAreaRegionCd: String? = null,
+    val lineCd: String? = null,
+    val staNmCd: String? = null,
+    val exitNoCd: String? = null,
+    val walkDistCd: String? = null,
+    val empChargerDpt: String? = null,
+    val contactTelno: String? = null,
+    val chargerFaxNo: String? = null,
+)
