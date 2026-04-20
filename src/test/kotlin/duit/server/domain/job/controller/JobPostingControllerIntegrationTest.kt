@@ -192,7 +192,7 @@ class JobPostingControllerIntegrationTest : IntegrationTestSupport() {
                     .andExpect(status().isOk)
                     .andExpect(jsonPath("$.content").isArray)
                     .andExpect(jsonPath("$.pageInfo.pageSize").isNumber)
-                    .andExpect(jsonPath("$.content[0].title").exists())
+                    .andExpect(jsonPath("$.content[0].wantedTitle").exists())
             }
 
             @Test
@@ -281,7 +281,7 @@ class JobPostingControllerIntegrationTest : IntegrationTestSupport() {
                     .andExpect(status().isOk)
                     .andExpect(jsonPath("$.content").isArray)
                     .andExpect(jsonPath("$.content.length()").value(1))
-                    .andExpect(jsonPath("$.content[0].companyName").value("광주의원"))
+                    .andExpect(jsonPath("$.content[0].company.corpNm").value("광주의원"))
             }
 
             @Test
@@ -318,33 +318,18 @@ class JobPostingControllerIntegrationTest : IntegrationTestSupport() {
                     .andExpect(status().isOk)
                     .andExpect(jsonPath("$.content").isArray)
                     .andExpect(jsonPath("$.content.length()").value(1))
-                    .andExpect(jsonPath("$.content[0].companyName").value("대구병원"))
+                    .andExpect(jsonPath("$.content[0].company.corpNm").value("대구병원"))
             }
 
             @Test
-            fun `정렬 - 마감임박순`() {
+            fun `기본 정렬은 id 역순이다`() {
                 mockMvc.perform(
                     get("/api/v1/job-postings")
-                        .param("field", "EXPIRES_AT")
-                        .param("closeTypes", "FIXED")
                 )
                     .andDo(print())
                     .andExpect(status().isOk)
                     .andExpect(jsonPath("$.content").isArray)
-                    .andExpect(jsonPath("$.content[0].companyName").value("대전병원"))
-            }
-
-            @Test
-            fun `정렬 - 급여순`() {
-                mockMvc.perform(
-                    get("/api/v1/job-postings")
-                        .param("field", "SALARY")
-                        .param("salaryType", "ANNUAL")
-                )
-                    .andDo(print())
-                    .andExpect(status().isOk)
-                    .andExpect(jsonPath("$.content").isArray)
-                    .andExpect(jsonPath("$.content[0].companyName").value("울산병원"))
+                    .andExpect(jsonPath("$.content[0].company.corpNm").value("울산병원"))
             }
 
             @Test
@@ -379,8 +364,8 @@ class JobPostingControllerIntegrationTest : IntegrationTestSupport() {
                 .andDo(print())
                 .andExpect(status().isOk)
                 .andExpect(jsonPath("$.id").value(posting.id!!.toInt()))
-                .andExpect(jsonPath("$.title").value("상세조회 테스트 공고"))
-                .andExpect(jsonPath("$.companyName").value("상세조회병원"))
+                .andExpect(jsonPath("$.wantedTitle").value("상세조회 테스트 공고"))
+                .andExpect(jsonPath("$.company.corpNm").value("상세조회병원"))
                 .andExpect(jsonPath("$.isBookmarked").value(false))
         }
 

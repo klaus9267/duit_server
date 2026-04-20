@@ -60,6 +60,7 @@ class Work24JobFetcherTest {
     private fun createWantedItem(
         wantedAuthNo: String? = "K123456",
         company: String? = "테스트병원",
+        busino: String? = "123-45-67890",
         title: String? = "간호사 모집",
         salTpNm: String? = "연봉",
         sal: String? = null,
@@ -72,14 +73,20 @@ class Work24JobFetcherTest {
         career: String? = null,
         regDt: String? = "2025-01-01",
         closeDt: String? = "2025-12-31",
+        infoSvc: String? = "VALIDATION",
         wantedInfoUrl: String? = "https://example.com/job/1",
         wantedMobileInfoUrl: String? = null,
+        zipCd: String? = "06123",
+        strtnmCd: String? = "서울특별시 강남구 테헤란로 1",
+        basicAddr: String? = "서울특별시 강남구",
+        detailAddr: String? = "101동 202호",
         empTpCd: String? = "10",
-        jobsCd: String? = "3040",
+        jobsCd: String? = "304000",
         smodifyDtm: String? = null,
     ) = Work24ApiResponse.WantedItem(
         wantedAuthNo = wantedAuthNo,
         company = company,
+        busino = busino,
         title = title,
         salTpNm = salTpNm,
         sal = sal,
@@ -92,8 +99,13 @@ class Work24JobFetcherTest {
         career = career,
         regDt = regDt,
         closeDt = closeDt,
+        infoSvc = infoSvc,
         wantedInfoUrl = wantedInfoUrl,
         wantedMobileInfoUrl = wantedMobileInfoUrl,
+        zipCd = zipCd,
+        strtnmCd = strtnmCd,
+        basicAddr = basicAddr,
+        detailAddr = detailAddr,
         empTpCd = empTpCd,
         jobsCd = jobsCd,
         smodifyDtm = smodifyDtm,
@@ -103,12 +115,19 @@ class Work24JobFetcherTest {
         externalId: String = "K123456",
         title: String = "간호사 모집",
         companyName: String = "테스트병원",
+        businessNumber: String? = "123-45-67890",
     ) = JobFetchResult(
         externalId = externalId,
         title = title,
         companyName = companyName,
-        jobCategory = "3040",
+        businessNumber = businessNumber,
+        jobCategory = "304000",
         location = "서울특별시 강남구",
+        zipCode = "06123",
+        roadNameAddress = "서울특별시 강남구 테헤란로 1",
+        basicAddress = "서울특별시 강남구",
+        detailAddress = "101동 202호",
+        infoService = "VALIDATION",
         workRegion = WorkRegion.SEOUL,
         workDistrict = "강남구",
         employmentType = EmploymentType.FULL_TIME,
@@ -168,7 +187,7 @@ class Work24JobFetcherTest {
 
         @Test
         fun `화이트리스트에 있는 태그는 유지`() {
-            val xml = "<wantedRoot><total>10</total><wanted><title>간호사</title></wanted></wantedRoot>"
+            val xml = "<wantedRoot><total>10</total><wanted><title>간호사</title><busino>123-45-67890</busino><infoSvc>VALIDATION</infoSvc></wanted></wantedRoot>"
             val result = callStripNonXmlTags(xml)
             assertEquals(xml, result)
         }
@@ -294,8 +313,14 @@ class Work24JobFetcherTest {
             assertEquals("K123456", result!!.externalId)
             assertEquals("간호사 모집", result.title)
             assertEquals("테스트병원", result.companyName)
-            assertEquals("3040", result.jobCategory)
+            assertEquals("123-45-67890", result.businessNumber)
+            assertEquals("304000", result.jobCategory)
             assertEquals("서울특별시 강남구", result.location)
+            assertEquals("06123", result.zipCode)
+            assertEquals("서울특별시 강남구 테헤란로 1", result.roadNameAddress)
+            assertEquals("서울특별시 강남구", result.basicAddress)
+            assertEquals("101동 202호", result.detailAddress)
+            assertEquals("VALIDATION", result.infoService)
             assertEquals(WorkRegion.SEOUL, result.workRegion)
             assertEquals("강남구", result.workDistrict)
             assertEquals(EmploymentType.FULL_TIME, result.employmentType)
@@ -305,7 +330,7 @@ class Work24JobFetcherTest {
         }
 
         @Test
-        fun `jobsCd가 3040으로 시작하지 않으면 null 반환`() {
+        fun `허용된 간호 직종코드가 아니면 null 반환`() {
             val item = createWantedItem(jobsCd = "2010")
             val result = callToJobFetchResult(item)
             assertNull(result)
@@ -319,10 +344,17 @@ class Work24JobFetcherTest {
         }
 
         @Test
-        fun `jobsCd가 3040001 등 접두사로 시작하면 변환 성공`() {
-            val item = createWantedItem(jobsCd = "3040001")
+        fun `307500 간호조무사는 변환 성공`() {
+            val item = createWantedItem(jobsCd = "307500")
             val result = callToJobFetchResult(item)
             assertNotNull(result)
+        }
+
+        @Test
+        fun `307501 간호조무사는 변환하지 않는다`() {
+            val item = createWantedItem(jobsCd = "307501")
+            val result = callToJobFetchResult(item)
+            assertNull(result)
         }
 
         @Test
@@ -550,9 +582,9 @@ class Work24JobFetcherTest {
             val apiResponse = Work24ApiResponse(
                 total = "3",
                 wanted = listOf(
-                    createWantedItem(wantedAuthNo = "K1", jobsCd = "3040"),
+                    createWantedItem(wantedAuthNo = "K1", jobsCd = "304000"),
                     createWantedItem(wantedAuthNo = "K2", jobsCd = "2010"),
-                    createWantedItem(wantedAuthNo = "K3", jobsCd = "3040001"),
+                    createWantedItem(wantedAuthNo = "K3", jobsCd = "307500"),
                 )
             )
             every { spyFetcher["fetchPage"](1, 100) } returns apiResponse
@@ -782,7 +814,7 @@ class Work24JobFetcherTest {
                 total = "2",
                 wanted = listOf(
                     createWantedItem(wantedAuthNo = "K1", jobsCd = "2010", smodifyDtm = "202503151430"),
-                    createWantedItem(wantedAuthNo = "K2", jobsCd = "3040", smodifyDtm = "202503151400"),
+                    createWantedItem(wantedAuthNo = "K2", jobsCd = "304000", smodifyDtm = "202503151400"),
                 )
             )
             every { spyFetcher["fetchPage"](1, 100) } returns apiResponse

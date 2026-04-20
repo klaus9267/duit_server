@@ -32,6 +32,8 @@ class Work24ApiResponseTest {
                     <wanted>
                         <wantedAuthNo>K123456</wantedAuthNo>
                         <company>테스트병원</company>
+                        <busino>123-45-67890</busino>
+                        <indTpNm>보건업</indTpNm>
                         <title>간호사 모집</title>
                         <salTpNm>연봉</salTpNm>
                         <minSal>30000000</minSal>
@@ -39,7 +41,12 @@ class Work24ApiResponseTest {
                         <region>서울특별시 강남구</region>
                         <minEdubg>05</minEdubg>
                         <closeDt>2025-12-31</closeDt>
+                        <infoSvc>VALIDATION</infoSvc>
                         <wantedInfoUrl>https://example.com/1</wantedInfoUrl>
+                        <zipCd>06123</zipCd>
+                        <strtnmCd>서울특별시 강남구 테헤란로 1</strtnmCd>
+                        <basicAddr>서울특별시 강남구</basicAddr>
+                        <detailAddr>101동 202호</detailAddr>
                         <empTpCd>10</empTpCd>
                         <jobsCd>3040</jobsCd>
                         <smodifyDtm>202503151430</smodifyDtm>
@@ -64,6 +71,8 @@ class Work24ApiResponseTest {
             val first = response.wanted!![0]
             assertEquals("K123456", first.wantedAuthNo)
             assertEquals("테스트병원", first.company)
+            assertEquals("123-45-67890", first.busino)
+            assertEquals("보건업", first.indTpNm)
             assertEquals("간호사 모집", first.title)
             assertEquals("연봉", first.salTpNm)
             assertEquals("30000000", first.minSal)
@@ -71,7 +80,12 @@ class Work24ApiResponseTest {
             assertEquals("서울특별시 강남구", first.region)
             assertEquals("05", first.minEdubg)
             assertEquals("2025-12-31", first.closeDt)
+            assertEquals("VALIDATION", first.infoSvc)
             assertEquals("https://example.com/1", first.wantedInfoUrl)
+            assertEquals("06123", first.zipCd)
+            assertEquals("서울특별시 강남구 테헤란로 1", first.strtnmCd)
+            assertEquals("서울특별시 강남구", first.basicAddr)
+            assertEquals("101동 202호", first.detailAddr)
             assertEquals("10", first.empTpCd)
             assertEquals("3040", first.jobsCd)
             assertEquals("202503151430", first.smodifyDtm)
@@ -160,6 +174,8 @@ class Work24ApiResponseTest {
             val item = response.wanted!![0]
             assertEquals("K111111", item.wantedAuthNo)
             assertNull(item.company)
+            assertNull(item.busino)
+            assertNull(item.indTpNm)
             assertNull(item.title)
             assertNull(item.salTpNm)
             assertNull(item.minSal)
@@ -167,7 +183,12 @@ class Work24ApiResponseTest {
             assertNull(item.region)
             assertNull(item.minEdubg)
             assertNull(item.closeDt)
+            assertNull(item.infoSvc)
             assertNull(item.wantedInfoUrl)
+            assertNull(item.zipCd)
+            assertNull(item.strtnmCd)
+            assertNull(item.basicAddr)
+            assertNull(item.detailAddr)
             assertNull(item.empTpCd)
             assertNull(item.jobsCd)
             assertNull(item.smodifyDtm)

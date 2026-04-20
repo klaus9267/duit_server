@@ -14,9 +14,10 @@ import duit.server.domain.job.entity.CloseType
 import duit.server.domain.job.entity.EducationLevel
 import duit.server.domain.job.entity.EmploymentType
 import duit.server.domain.job.entity.JobBookmark
+import duit.server.domain.job.entity.JobCompany
 import duit.server.domain.job.entity.JobPosting
+import duit.server.domain.job.entity.JobPostingWork24Detail
 import duit.server.domain.job.entity.SalaryType
-import duit.server.domain.job.entity.SourceType
 import duit.server.domain.job.entity.WorkRegion
 import duit.server.domain.user.entity.AlarmSettings
 import duit.server.domain.user.entity.ProviderType
@@ -132,8 +133,7 @@ object TestFixtures {
     )
 
     fun jobPosting(
-        sourceType: SourceType = SourceType.WORK24,
-        externalId: String = "test-${System.nanoTime()}",
+        wantedAuthNo: String = "test-${System.nanoTime()}",
         title: String = "테스트 간호사 채용",
         companyName: String = "테스트 병원",
         jobCategory: String? = "간호사",
@@ -154,28 +154,38 @@ object TestFixtures {
         isActive: Boolean = true,
         workHoursPerWeek: Int? = 40,
     ): JobPosting = JobPosting(
-        sourceType = sourceType,
-        externalId = externalId,
-        title = title,
-        companyName = companyName,
-        jobCategory = jobCategory,
-        location = location,
-        workRegion = workRegion,
-        workDistrict = workDistrict,
-        employmentType = employmentType,
-        careerMin = careerMin,
-        careerMax = careerMax,
-        educationLevel = educationLevel,
-        salaryMin = salaryMin,
-        salaryMax = salaryMax,
-        salaryType = salaryType,
-        postingUrl = postingUrl,
-        postedAt = postedAt,
-        expiresAt = expiresAt,
-        closeType = closeType,
+        wantedAuthNo = wantedAuthNo,
         isActive = isActive,
-        workHoursPerWeek = workHoursPerWeek,
-    )
+    ).apply {
+        updateWork24Detail(
+            detail = JobPostingWork24Detail(
+                jobsNm = jobCategory,
+                wantedTitle = title,
+                receiptCloseDt = when (closeType) {
+                    CloseType.ON_HIRE -> "채용시까지"
+                    CloseType.ONGOING -> "상시"
+                    CloseType.FIXED -> expiresAt?.toString()
+                },
+                empTpNm = employmentType?.displayName,
+                salTpNm = salaryType?.displayName,
+                enterTpNm = when {
+                    careerMin == null && careerMax == null -> null
+                    careerMin == 0 && careerMax == null -> "신입"
+                    careerMin != null && careerMax == null -> "경력 ${careerMin}년 이상"
+                    careerMin != null && careerMax != null -> "경력 ${careerMin}~${careerMax}년"
+                    else -> "경력무관"
+                },
+                eduNm = educationLevel?.displayName,
+                workRegion = workRegion?.displayName ?: location,
+                dtlRecrContUrl = postingUrl,
+                jobsCd = jobCategory,
+                empTpCd = employmentType?.name,
+                salTpCd = salaryType?.name,
+                workdayWorkhrCont = workHoursPerWeek?.let { "주 ${it}시간" },
+            ),
+            company = JobCompany(corpNm = companyName)
+        )
+    }
 
     fun jobBookmark(
         user: User,
