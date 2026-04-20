@@ -124,7 +124,7 @@ class JobBookmarkControllerIntegrationTest : IntegrationTestSupport() {
                 .andExpect(status().isOk)
                 .andExpect(jsonPath("$.content").isArray)
                 .andExpect(jsonPath("$.content.length()").value(1))
-                .andExpect(jsonPath("$.content[0].companyName").value("북마크병원"))
+                .andExpect(jsonPath("$.content[0].company.corpNm").value("북마크병원"))
         }
 
         @Test

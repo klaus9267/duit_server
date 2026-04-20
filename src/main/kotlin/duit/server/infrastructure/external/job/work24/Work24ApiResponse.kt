@@ -16,6 +16,8 @@ data class Work24ApiResponse(
     data class WantedItem(
         val wantedAuthNo: String? = null,
         val company: String? = null,
+        val busino: String? = null,
+        val indTpNm: String? = null,
         val title: String? = null,
         val salTpNm: String? = null,
         val sal: String? = null,
@@ -28,8 +30,13 @@ data class Work24ApiResponse(
         val career: String? = null,
         val regDt: String? = null,
         val closeDt: String? = null,
+        val infoSvc: String? = null,
         val wantedInfoUrl: String? = null,
         val wantedMobileInfoUrl: String? = null,
+        val zipCd: String? = null,
+        val strtnmCd: String? = null,
+        val basicAddr: String? = null,
+        val detailAddr: String? = null,
         val empTpCd: String? = null,
         val jobsCd: String? = null,
         val smodifyDtm: String? = null

@@ -36,7 +36,12 @@ class Work24JobFetcher(
     private val modifyDtmFormatter = DateTimeFormatter.ofPattern("yyyyMMddHHmm")
 
     companion object {
-        private const val JOBS_CD_PREFIX_NURSE = "3040"
+        private val ALLOWED_NURSE_JOB_CODES = setOf(
+            "304000",
+            "304001",
+            "304002",
+            "307500",
+        )
     }
 
     override fun fetchAll(): List<JobFetchResult> {
@@ -141,9 +146,10 @@ class Work24JobFetcher(
     private val xmlElementWhitelist = setOf(
         // 목록 API (callTp=L)
         "wantedRoot", "total", "startPage", "display", "wanted",
-        "wantedAuthNo", "company", "title", "salTpNm", "sal", "minSal", "maxSal",
+        "wantedAuthNo", "company", "busino", "indTpNm", "title", "salTpNm", "sal", "minSal", "maxSal",
         "region", "holidayTpNm", "minEdubg", "maxEdubg", "career",
-        "regDt", "closeDt", "wantedInfoUrl", "wantedMobileInfoUrl",
+        "regDt", "closeDt", "infoSvc", "wantedInfoUrl", "wantedMobileInfoUrl",
+        "zipCd", "strtnmCd", "basicAddr", "detailAddr",
         "empTpCd", "jobsCd", "smodifyDtm",
         // 상세 API (callTp=D)
         "wantedDtl", "wantedInfo", "wantedTitle",
@@ -236,7 +242,7 @@ class Work24JobFetcher(
     }
 
     private fun Work24ApiResponse.WantedItem.toJobFetchResult(): JobFetchResult? {
-        if (jobsCd == null || !jobsCd.startsWith(JOBS_CD_PREFIX_NURSE)) return null
+        if (jobsCd !in ALLOWED_NURSE_JOB_CODES) return null
 
         val externalId = wantedAuthNo ?: return null
         val jobTitle = title ?: return null
@@ -258,8 +264,14 @@ class Work24JobFetcher(
             externalId = externalId,
             title = jobTitle,
             companyName = companyName,
+            businessNumber = busino,
             jobCategory = jobsCd,
             location = region,
+            zipCode = zipCd,
+            roadNameAddress = strtnmCd,
+            basicAddress = basicAddr,
+            detailAddress = detailAddr,
+            infoService = infoSvc,
             workRegion = Work24CodeMapper.mapWorkRegion(region),
             workDistrict = Work24CodeMapper.extractDistrict(region),
             employmentType = Work24CodeMapper.mapEmploymentType(empTpCd),

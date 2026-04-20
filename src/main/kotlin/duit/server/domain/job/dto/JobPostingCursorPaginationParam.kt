@@ -20,16 +20,6 @@ data class JobPostingCursorPaginationParam(
     @get:Schema(minimum = "1", maximum = "100", defaultValue = "10")
     val size: Int = 10,
 
-    @get:Parameter(
-        description = """정렬 필드
-- CREATED_AT: 최신 등록순 (기본값)
-- EXPIRES_AT: 마감 임박순
-- SALARY: 급여순""",
-        example = "CREATED_AT"
-    )
-    @get:Schema(defaultValue = "CREATED_AT")
-    val field: JobPostingSortField = JobPostingSortField.CREATED_AT,
-
     @get:Parameter(description = """근무 지역 필터 (다중 선택 가능)
 - SEOUL: 서울
 - BUSAN: 부산

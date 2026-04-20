@@ -29,7 +29,7 @@ class JobPostingService(
         val actualJobPostings = if (hasNext) jobPostings.dropLast(1) else jobPostings
 
         val nextCursor = if (hasNext && actualJobPostings.isNotEmpty()) {
-            JobPostingCursor.fromJobPosting(actualJobPostings.last(), param.field).encode()
+            JobPostingCursor.fromJobPosting(actualJobPostings.last()).encode()
         } else null
 
         val responses = if (currentUserId != null && actualJobPostings.isNotEmpty()) {

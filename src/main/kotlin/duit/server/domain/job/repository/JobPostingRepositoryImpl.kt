@@ -1,114 +1,100 @@
 package duit.server.domain.job.repository
 
 import com.querydsl.core.types.dsl.BooleanExpression
-import com.querydsl.jpa.impl.JPAQuery
+import com.querydsl.core.types.dsl.Expressions
+import com.querydsl.jpa.JPAExpressions
 import com.querydsl.jpa.impl.JPAQueryFactory
 import duit.server.domain.job.dto.JobPostingCursor
 import duit.server.domain.job.dto.JobPostingCursorPaginationParam
-import duit.server.domain.job.dto.JobPostingSortField
-import duit.server.domain.job.entity.JobPosting
-import duit.server.domain.job.entity.QJobBookmark
-import duit.server.domain.job.entity.QJobPosting
-import jakarta.persistence.EntityManager
+import duit.server.domain.job.entity.*
 import org.springframework.stereotype.Repository
 
 @Repository
 class JobPostingRepositoryImpl(
     private val queryFactory: JPAQueryFactory,
-    private val entityManager: EntityManager
 ) : JobPostingRepositoryCustom {
 
     private val jobPosting = QJobPosting.jobPosting
     private val jobBookmark = QJobBookmark.jobBookmark
+    private val jobCompany = QJobCompany.jobCompany
+    private val jobPostingCompany = Expressions.path(JobCompany::class.java, jobPosting, "company")
+    private val jobPostingCompanyId = Expressions.numberPath(Long::class.javaObjectType, jobPostingCompany, "id")
 
     override fun findJobPostings(param: JobPostingCursorPaginationParam, currentUserId: Long?): List<JobPosting> {
-        val cursor = param.cursor?.let { JobPostingCursor.decode(it, param.field) }
+        val cursor = param.cursor?.let(JobPostingCursor::decode)
 
         val query = queryFactory
             .selectFrom(jobPosting)
-            .buildWhere(param, currentUserId, cursor)
-            .buildOrderBy(param)
-
-        return query.limit(param.size.toLong() + 1).fetch()
-    }
-
-    private fun <T> JPAQuery<T>.buildWhere(
-        param: JobPostingCursorPaginationParam,
-        currentUserId: Long?,
-        cursor: JobPostingCursor?
-    ): JPAQuery<T> {
-        if (param.bookmarked && currentUserId != null) {
-            this.join(jobPosting.bookmarks, jobBookmark)
-                .on(jobBookmark.user().id.eq(currentUserId))
-        }
+            .apply {
+                if (param.bookmarked && currentUserId != null) {
+                    join(jobPosting.bookmarks, jobBookmark)
+                        .on(jobBookmark.user().id.eq(currentUserId))
+                }
+            }
 
         val conditions = mutableListOf<BooleanExpression?>()
-
-        conditions.add(jobPosting.isActive.isTrue)
+        conditions += jobPosting.isActive.isTrue
 
         if (!param.workRegions.isNullOrEmpty()) {
-            conditions.add(jobPosting.workRegion.`in`(param.workRegions))
+            conditions += param.workRegions
+                .map { jobPosting.workRegion.startsWith(it.displayName) }
+                .reduceOrNull(BooleanExpression::or)
         }
 
         if (!param.employmentTypes.isNullOrEmpty()) {
-            conditions.add(jobPosting.employmentType.`in`(param.employmentTypes))
+            conditions += param.employmentTypes
+                .map { jobPosting.empTpNm.containsIgnoreCase(it.displayName) }
+                .reduceOrNull(BooleanExpression::or)
         }
 
         param.educationLevel?.let {
-            conditions.add(jobPosting.educationLevel.eq(it))
+            conditions += jobPosting.eduNm.containsIgnoreCase(it.displayName)
         }
 
         param.salaryType?.let {
-            conditions.add(jobPosting.salaryType.eq(it))
+            conditions += jobPosting.salTpNm.containsIgnoreCase(it.displayName)
         }
 
         if (!param.closeTypes.isNullOrEmpty()) {
-            conditions.add(jobPosting.closeType.`in`(param.closeTypes))
+            conditions += param.closeTypes.map {
+                when (it) {
+                    duit.server.domain.job.entity.CloseType.FIXED -> jobPosting.receiptCloseDt.isNotNull
+                        .and(jobPosting.receiptCloseDt.containsIgnoreCase("채용시까지").not())
+                        .and(jobPosting.receiptCloseDt.containsIgnoreCase("상시").not())
+                    duit.server.domain.job.entity.CloseType.ON_HIRE -> jobPosting.receiptCloseDt.containsIgnoreCase("채용시까지")
+                    duit.server.domain.job.entity.CloseType.ONGOING -> jobPosting.receiptCloseDt.containsIgnoreCase("상시")
+                }
+            }.reduceOrNull(BooleanExpression::or)
         }
 
         param.searchKeyword?.let { keyword ->
-            conditions.add(
-                jobPosting.title.containsIgnoreCase(keyword)
-                    .or(jobPosting.companyName.containsIgnoreCase(keyword))
-            )
+            conditions += jobPosting.wantedTitle.containsIgnoreCase(keyword)
+                .or(jobPosting.jobsNm.containsIgnoreCase(keyword))
+                .or(jobPosting.jobCont.containsIgnoreCase(keyword))
+                .or(
+                    JPAExpressions
+                        .selectOne()
+                        .from(jobCompany)
+                        .where(
+                            jobCompany.id.eq(jobPostingCompanyId),
+                            jobCompany.corpNm.containsIgnoreCase(keyword),
+                        )
+                        .exists()
+                )
         }
 
-        when (param.field) {
-            JobPostingSortField.EXPIRES_AT -> conditions.add(jobPosting.expiresAt.isNotNull)
-            JobPostingSortField.SALARY -> conditions.add(jobPosting.salaryMin.isNotNull)
-            else -> Unit
-        }
+        conditions += buildCursorCondition(cursor)
 
-        conditions.add(buildCursorCondition(cursor))
-
-        return this.where(*conditions.filterNotNull().toTypedArray())
+        return query
+            .where(*conditions.filterNotNull().toTypedArray())
+            .orderBy(jobPosting.id.desc())
+            .limit(param.size.toLong() + 1)
+            .fetch()
     }
 
     private fun buildCursorCondition(cursor: JobPostingCursor?): BooleanExpression? {
         if (cursor == null) return null
 
-        return when (cursor) {
-            is JobPostingCursor.CreatedAtCursor ->
-                jobPosting.createdAt.lt(cursor.createdAt)
-                    .or(jobPosting.createdAt.eq(cursor.createdAt).and(jobPosting.id.lt(cursor.id)))
-
-            is JobPostingCursor.ExpiresAtCursor ->
-                jobPosting.expiresAt.gt(cursor.expiresAt)
-                    .or(jobPosting.expiresAt.eq(cursor.expiresAt).and(jobPosting.id.lt(cursor.id)))
-
-            is JobPostingCursor.SalaryCursor ->
-                jobPosting.salaryMin.lt(cursor.salaryMin)
-                    .or(jobPosting.salaryMin.eq(cursor.salaryMin).and(jobPosting.id.lt(cursor.id)))
-        }
-    }
-
-    private fun <T> JPAQuery<T>.buildOrderBy(param: JobPostingCursorPaginationParam): JPAQuery<T> {
-        val orderSpecifiers = when (param.field) {
-            JobPostingSortField.CREATED_AT -> arrayOf(jobPosting.createdAt.desc(), jobPosting.id.desc())
-            JobPostingSortField.EXPIRES_AT -> arrayOf(jobPosting.expiresAt.asc(), jobPosting.id.desc())
-            JobPostingSortField.SALARY -> arrayOf(jobPosting.salaryMin.desc(), jobPosting.id.desc())
-        }
-
-        return this.orderBy(*orderSpecifiers)
+        return jobPosting.id.lt(cursor.id)
     }
 }
