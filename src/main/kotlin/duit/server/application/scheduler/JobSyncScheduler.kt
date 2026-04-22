@@ -3,7 +3,6 @@ package duit.server.application.scheduler
 import duit.server.domain.job.service.JobSyncService
 import org.slf4j.LoggerFactory
 import org.springframework.boot.context.event.ApplicationReadyEvent
-import org.springframework.context.annotation.Profile
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.EnableScheduling
 import org.springframework.scheduling.annotation.Scheduled
@@ -19,18 +18,18 @@ class JobSyncScheduler(
 
     @EventListener(ApplicationReadyEvent::class)
     fun onApplicationReady() {
-        syncIncrementalJobs()
+        syncJobs()
     }
 
-    /** 매 3시간마다 증분 수집 (경량) */
+    /** 매 3시간마다 전체 수집 (목록 → 상세) */
     @Scheduled(cron = "0 0 */3 * * *")
-    fun syncIncrementalJobs() {
-        logger.info("=== Starting incremental job sync ===")
+    fun syncJobs() {
+        logger.info("=== Starting job sync ===")
         try {
-            jobSyncService.syncIncremental()
-            logger.info("=== Incremental job sync completed successfully ===")
+            jobSyncService.syncAll()
+            logger.info("=== Job sync completed successfully ===")
         } catch (e: Exception) {
-            logger.error("Error during incremental job sync", e)
+            logger.error("Error during job sync", e)
         }
     }
 }

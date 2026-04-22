@@ -1,6 +1,6 @@
 package duit.server.domain.job.dto
 
-import duit.server.domain.job.entity.JobCompany
+import duit.server.domain.job.entity.Company
 import io.swagger.v3.oas.annotations.media.Schema
 import java.time.LocalDateTime
 
@@ -46,7 +46,7 @@ data class JobCompanyResponse(
     val updatedAt: LocalDateTime,
 ) {
     companion object {
-        fun from(company: JobCompany) = JobCompanyResponse(
+        fun from(company: Company) = JobCompanyResponse(
             id = company.id!!,
             corpNm = company.corpNm,
             reperNm = company.reperNm,

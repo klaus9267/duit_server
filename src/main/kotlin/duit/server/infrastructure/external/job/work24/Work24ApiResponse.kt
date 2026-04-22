@@ -43,12 +43,77 @@ data class Work24ApiResponse(
     )
 }
 
-/** 상세 API (callTp=D) 응답 — 루트가 wantedDtl, 제목은 wantedInfo.wantedTitle */
+/** 상세 API (callTp=D) 응답 — 루트 `wantedDtl` 아래 corpInfo / wantedInfo / empchargeInfo */
 @JacksonXmlRootElement(localName = "wantedDtl")
 data class Work24DetailResponse(
-    val wantedInfo: WantedInfo? = null
+    val wantedAuthNo: String? = null,
+    val corpInfo: CorpInfo? = null,
+    val wantedInfo: WantedInfo? = null,
+    val empchargeInfo: EmpchargeInfo? = null,
+    /** 정보 없음 응답일 때 사용되는 필드 (있을 수 있음) */
+    val message: String? = null,
+    val messageCd: String? = null,
 ) {
+    data class CorpInfo(
+        val corpNm: String? = null,
+        val reperNm: String? = null,
+        val totPsncnt: String? = null,
+        val capitalAmt: String? = null,
+        val yrSalesAmt: String? = null,
+        val indTpCdNm: String? = null,
+        val busiCont: String? = null,
+        val corpAddr: String? = null,
+        val homePg: String? = null,
+        val busiSize: String? = null,
+    )
+
     data class WantedInfo(
-        val wantedTitle: String? = null
+        val jobsNm: String? = null,
+        val wantedTitle: String? = null,
+        val relJobsNm: String? = null,
+        val jobCont: String? = null,
+        val receiptCloseDt: String? = null,
+        val empTpNm: String? = null,
+        val collectPsncnt: String? = null,
+        val salTpNm: String? = null,
+        val enterTpNm: String? = null,
+        val eduNm: String? = null,
+        val forLang: String? = null,
+        val major: String? = null,
+        val certificate: String? = null,
+        val mltsvcExcHope: String? = null,
+        val compAbl: String? = null,
+        val pfCond: String? = null,
+        val etcPfCond: String? = null,
+        val selMthd: String? = null,
+        val rcptMthd: String? = null,
+        val submitDoc: String? = null,
+        val etcHopeCont: String? = null,
+        val workRegion: String? = null,
+        val nearLine: String? = null,
+        val workdayWorkhrCont: String? = null,
+        val fourIns: String? = null,
+        val retirepay: String? = null,
+        val etcWelfare: String? = null,
+        val disableCvntl: String? = null,
+        val dtlRecrContUrl: String? = null,
+        val jobsCd: String? = null,
+        val minEdubgIcd: String? = null,
+        val maxEdubgIcd: String? = null,
+        val regionCd: String? = null,
+        val empTpCd: String? = null,
+        val enterTpCd: String? = null,
+        val salTpCd: String? = null,
+        val staAreaRegionCd: String? = null,
+        val lineCd: String? = null,
+        val staNmCd: String? = null,
+        val exitNoCd: String? = null,
+        val walkDistCd: String? = null,
+    )
+
+    data class EmpchargeInfo(
+        val empChargerDpt: String? = null,
+        val contactTelno: String? = null,
+        val chargerFaxNo: String? = null,
     )
 }

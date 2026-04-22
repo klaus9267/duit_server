@@ -1,11 +1,11 @@
 package duit.server.domain.job.repository
 
-import duit.server.domain.job.entity.JobCompany
+import duit.server.domain.job.entity.Company
 import org.springframework.data.jpa.repository.JpaRepository
 
-interface JobCompanyRepository : JpaRepository<JobCompany, Long> {
+interface JobCompanyRepository : JpaRepository<Company, Long> {
 
-    fun findByBusinessNumber(businessNumber: String): JobCompany?
+    fun findByBusinessNumber(businessNumber: String): Company?
 
-    fun findByCorpNm(corpNm: String): JobCompany?
+    fun findByCorpNm(corpNm: String): Company?
 }

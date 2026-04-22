@@ -8,13 +8,8 @@ import java.time.LocalDateTime
 
 @Entity
 @EntityListeners(AuditingEntityListener::class)
-@Table(
-    name = "job_companies",
-    indexes = [
-        Index(name = "idx_job_companies_corp_nm", columnList = "corp_nm"),
-    ],
-)
-class JobCompany(
+@Table(name = "companies")
+class Company(
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long? = null,

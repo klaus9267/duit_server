@@ -17,6 +17,55 @@
  **신규 의존성**: 없음
  **신규 env**: 없음
 
+## 2026-04-19 (고용24 목록 응답 누락 필드 및 회사 사업자번호 매핑 보강)
+
+**분류**: refactor | test | docs
+
+### 작업 내용
+- `JobCompany`에 `businessNumber` 필드를 추가하고, 고용24 목록 응답의 `busino`를 회사 식별 키로 사용할 수 있게 정리
+- `JobSyncService`에서 회사 조회 시 `businessNumber`를 우선 사용하고, 없을 때만 회사명으로 fallback 하도록 조정
+- `Work24ApiResponse.WantedItem`에 목록 응답 누락 필드 `busino`, `infoSvc`, `zipCd`, `strtnmCd`, `basicAddr`, `detailAddr`와 `indTpNm`까지 추가
+- `Work24JobFetcher` sanitize whitelist에도 같은 태그를 포함시켜 실제 XML 응답에서 값이 누락되지 않도록 수정
+- `JobFetchResult`에도 사업자등록번호, 정보제공처, 주소 분해 필드를 추가해 목록 응답 원문 정보를 이후 단계에서 계속 활용할 수 있게 유지
+- `Work24ApiResponseTest`, `Work24JobFetcherTest`, `JobSyncServiceTest`, `JobPostingTest`를 현재 정책에 맞게 갱신
+- 메인 코드에서 이미 제거된 사람인 매퍼에 매달려 있던 `SaraminCodeMapperTest` 고아 테스트를 정리해 전체 테스트 컴파일이 다시 가능하게 복구
+
+### 테스트 결과
+- `./gradlew test --tests "duit.server.infrastructure.external.job.work24.Work24ApiResponseTest" --tests "duit.server.infrastructure.external.job.work24.Work24JobFetcherTest" --tests "duit.server.domain.job.service.JobSyncServiceTest" --tests "duit.server.domain.job.entity.JobPostingTest"` 통과
+- `./gradlew test` 전체 통과
+
+### 기술적 결정
+- **회사 식별 우선순위**: `busino`가 있으면 `businessNumber` 기준으로 회사를 재사용하고, 없을 때만 `corpNm` fallback
+- **목록 응답 보존 강화**: 고용24 목록 응답에서 이미 제공하는 값은 DTO/수집 결과에 그대로 싣고, sanitize 단계에서 잘리지 않게 whitelist까지 함께 관리
+
+## 2026-04-14 (채용공고 상세 엔티티 구조 재정의 시작)
+
+**분류**: refactor | test | docs
+
+### 작업 내용
+- `JobPosting`에서 기존 정규화 필드(`title`, `companyName`, `jobCategory`, `salaryMin` 등)를 걷어내고, 고용24 상세 응답의 `wantedInfo` / `empchargeInfo`를 실제 엔티티 구조로 평탄화
+- `sourceType`, `externalId`도 제거하고 `wantedAuthNo` 단일 식별자로 단순화
+- `corpInfo`는 별도 `JobCompany` 엔티티로 분리하고 `JobPosting.company` 1:1 연관관계로 연결
+- 축약된 고용24 필드명(`mltsvcExcHope`, `staAreaRegionCd`, `walkDistCd` 등)에 의미 주석 추가
+- 첨부 파일 / 키워드 목록은 `ElementCollection`으로 구조화
+- `wantedAuthNo` 고유성은 테이블 레벨 제약 대신 `@Column(unique = true)`로 단순화
+- 고용24 상세 XML 원문(`detailRaw`) 저장은 제거하고 구조화 필드만 유지
+- `JobPostingResponse`도 정규화된 `title`, `companyName` 같은 이름 대신 엔티티 필드명을 그대로 따라가도록 정리
+- `JobCompanyResponse`는 `JobPostingResponse` 안에 중첩하지 않고 별도 DTO 파일로 분리
+- `JobPostingResponse` / `JobCompanyResponse`에 Swagger `@Schema` 설명을 추가해 축약 필드 의미를 문서에서 바로 확인 가능하게 정리
+- `JobCompanySnapshot`을 제거하고, `JobPosting.company`를 `ManyToOne`으로 바꿔 여러 공고가 하나의 `JobCompany`를 공유할 수 있게 정리
+- `JobPosting.updateWork24Detail()` / `changeCompany()` 도메인 메서드로 회사 연결을 단순화
+- `job_postings` 엔티티에는 Hibernate `@Comment`를 추가해 DB Structure 화면에서 컬럼 의미가 보이도록 정리
+- `JobPostingTest`를 새 구조 기준으로 재작성
+
+### 테스트 결과
+- 아직 미실행. 현재는 엔티티를 기준점으로 먼저 갈아엎는 단계라, 이후 채용공고 수집/조회 코드와 테스트를 새 구조에 맞춰 순차 정리해야 함
+
+### 기술적 결정
+- **엔티티 우선 리모델링**: 기존 조회/수집 코드 호환보다 최종 엔티티 구조를 먼저 확정
+- **고용24 상세 중심 모델**: `JobPosting`은 고용24 상세 응답 구조를 직접 담고, 앱 메타데이터도 `wantedAuthNo`, `isActive`만 최소로 유지
+- **기업 정보만 분리**: `corpInfo`만 `JobCompany`로 떼고 나머지 상세 필드는 `JobPosting`에 평탄화
+
 ## 2026-04-11 (디바이스 토큰 중복 데이터 복구 대응)
 
 **분류**: fix | ops | test | docs
@@ -129,9 +178,9 @@
   - `JobPostingController` — `GET /api/v1/job-postings` (목록), `GET /api/v1/job-postings/{id}` (상세)
   - `JobBookmarkController` — `POST /api/v1/job-bookmarks/{id}/toggle` (북마크 토글)
   - 필터: workRegions, employmentTypes, salaryTypes, closeTypes, sourceTypes, searchKeyword, onlyBookmarked
-  - 정렬: CREATED_AT (기본), POSTED_AT
+  - 정렬: `id DESC` 고정
   - QueryDSL 기반 동적 쿼리 (`JobPostingRepositoryImpl`)
-- **DTO**: JobPostingResponse, JobPostingCursorPaginationParam, JobPostingCursor, JobPostingSortField, JobBookmarkToggleResponse
+- **DTO**: JobPostingResponse, JobPostingCursorPaginationParam, JobPostingCursor, JobBookmarkToggleResponse
 - **테스트 (29개 신규)**:
   - `JobSyncSchedulerTest` — 스케줄러 호출 검증 (MockK)
   - `JobSyncServiceTest` — 비동기 병렬 fetch 검증 2개 추가
