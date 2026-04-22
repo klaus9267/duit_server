@@ -16,8 +16,8 @@ class JobPostingRepositoryImpl(
 
     private val jobPosting = QJobPosting.jobPosting
     private val jobBookmark = QJobBookmark.jobBookmark
-    private val jobCompany = QJobCompany.jobCompany
-    private val jobPostingCompany = Expressions.path(JobCompany::class.java, jobPosting, "company")
+    private val jobCompany = QCompany.company
+    private val jobPostingCompany = Expressions.path(Company::class.java, jobPosting, "company")
     private val jobPostingCompanyId = Expressions.numberPath(Long::class.javaObjectType, jobPostingCompany, "id")
 
     override fun findJobPostings(param: JobPostingCursorPaginationParam, currentUserId: Long?): List<JobPosting> {

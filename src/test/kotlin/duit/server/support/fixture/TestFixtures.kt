@@ -14,7 +14,7 @@ import duit.server.domain.job.entity.CloseType
 import duit.server.domain.job.entity.EducationLevel
 import duit.server.domain.job.entity.EmploymentType
 import duit.server.domain.job.entity.JobBookmark
-import duit.server.domain.job.entity.JobCompany
+import duit.server.domain.job.entity.Company
 import duit.server.domain.job.entity.JobPosting
 import duit.server.domain.job.entity.JobPostingWork24Detail
 import duit.server.domain.job.entity.SalaryType
@@ -183,7 +183,7 @@ object TestFixtures {
                 salTpCd = salaryType?.name,
                 workdayWorkhrCont = workHoursPerWeek?.let { "주 ${it}시간" },
             ),
-            company = JobCompany(corpNm = companyName)
+            company = Company(corpNm = companyName)
         )
     }
 

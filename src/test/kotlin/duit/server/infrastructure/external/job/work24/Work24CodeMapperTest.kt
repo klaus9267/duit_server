@@ -492,4 +492,44 @@ class Work24CodeMapperTest {
             assertNull(result)
         }
     }
+
+    @Nested
+    @DisplayName("parseLongPrefix")
+    inner class ParseLongPrefixTests {
+
+        @Test
+        fun `"100 명"은 100으로 파싱`() {
+            assertEquals(100L, Work24CodeMapper.parseLongPrefix("100 명"))
+        }
+
+        @Test
+        fun `"50 백만원"은 50으로 파싱`() {
+            assertEquals(50L, Work24CodeMapper.parseLongPrefix("50 백만원"))
+        }
+
+        @Test
+        fun `"0 백만원"은 null로 반환`() {
+            assertNull(Work24CodeMapper.parseLongPrefix("0 백만원"))
+        }
+
+        @Test
+        fun `null은 null로 반환`() {
+            assertNull(Work24CodeMapper.parseLongPrefix(null))
+        }
+
+        @Test
+        fun `빈 문자열은 null로 반환`() {
+            assertNull(Work24CodeMapper.parseLongPrefix(""))
+        }
+
+        @Test
+        fun `숫자가 없으면 null로 반환`() {
+            assertNull(Work24CodeMapper.parseLongPrefix("없음"))
+        }
+
+        @Test
+        fun `앞뒤 공백이 있어도 정상 파싱`() {
+            assertEquals(25L, Work24CodeMapper.parseLongPrefix("  25 명  "))
+        }
+    }
 }

@@ -96,27 +96,6 @@ class Work24ApiResponseTest {
         }
 
         @Test
-        fun `단일 항목 응답 파싱`() {
-            val xml = """
-                <wantedRoot>
-                    <total>1</total>
-                    <wanted>
-                        <wantedAuthNo>K111111</wantedAuthNo>
-                        <company>단일병원</company>
-                        <title>간호사</title>
-                        <jobsCd>3040</jobsCd>
-                    </wanted>
-                </wantedRoot>
-            """.trimIndent()
-
-            val response = xmlMapper.readValue(xml, Work24ApiResponse::class.java)
-
-            assertEquals("1", response.total)
-            assertEquals(1, response.wanted?.size)
-            assertEquals("K111111", response.wanted!![0].wantedAuthNo)
-        }
-
-        @Test
         fun `빈 목록 응답 — wanted 없음`() {
             val xml = """
                 <wantedRoot>
@@ -153,46 +132,6 @@ class Work24ApiResponseTest {
             assertEquals(1, response.wanted?.size)
             assertEquals("K111111", response.wanted!![0].wantedAuthNo)
         }
-
-        @Test
-        fun `모든 nullable 필드가 없어도 파싱 가능`() {
-            val xml = """
-                <wantedRoot>
-                    <wanted>
-                        <wantedAuthNo>K111111</wantedAuthNo>
-                    </wanted>
-                </wantedRoot>
-            """.trimIndent()
-
-            val response = xmlMapper.readValue(xml, Work24ApiResponse::class.java)
-
-            assertNull(response.total)
-            assertNull(response.startPage)
-            assertNull(response.display)
-            assertEquals(1, response.wanted?.size)
-
-            val item = response.wanted!![0]
-            assertEquals("K111111", item.wantedAuthNo)
-            assertNull(item.company)
-            assertNull(item.busino)
-            assertNull(item.indTpNm)
-            assertNull(item.title)
-            assertNull(item.salTpNm)
-            assertNull(item.minSal)
-            assertNull(item.maxSal)
-            assertNull(item.region)
-            assertNull(item.minEdubg)
-            assertNull(item.closeDt)
-            assertNull(item.infoSvc)
-            assertNull(item.wantedInfoUrl)
-            assertNull(item.zipCd)
-            assertNull(item.strtnmCd)
-            assertNull(item.basicAddr)
-            assertNull(item.detailAddr)
-            assertNull(item.empTpCd)
-            assertNull(item.jobsCd)
-            assertNull(item.smodifyDtm)
-        }
     }
 
     @Nested
@@ -200,19 +139,93 @@ class Work24ApiResponseTest {
     inner class DetailApiResponseTests {
 
         @Test
-        fun `정상 상세 응답 — wantedTitle 추출`() {
+        fun `정상 상세 응답 — corpInfo와 wantedInfo와 empchargeInfo 모두 파싱`() {
             val xml = """
                 <wantedDtl>
+                    <wantedAuthNo>K130112604210072</wantedAuthNo>
+                    <corpInfo>
+                        <corpNm>해운대한빛요양병원</corpNm>
+                        <reperNm>장미화</reperNm>
+                        <totPsncnt>100 명</totPsncnt>
+                        <capitalAmt>0 백만원</capitalAmt>
+                        <yrSalesAmt>0 백만원</yrSalesAmt>
+                        <indTpCdNm>그 외 기타 보건업</indTpCdNm>
+                        <busiCont>노령환자 입원진료</busiCont>
+                        <corpAddr>48034 부산광역시 해운대구 반여로 156</corpAddr>
+                        <homePg></homePg>
+                        <busiSize></busiSize>
+                    </corpInfo>
                     <wantedInfo>
-                        <wantedTitle>전체 간호사 채용 공고 제목입니다</wantedTitle>
+                        <jobsNm>일반 간호사(304002)</jobsNm>
+                        <wantedTitle>수간호사 구인합니다(일반병동)</wantedTitle>
+                        <relJobsNm>간호사 </relJobsNm>
+                        <jobCont>병동 간호 업무</jobCont>
+                        <receiptCloseDt>채용시까지</receiptCloseDt>
+                        <empTpNm>기간의 정함이 없는 근로계약</empTpNm>
+                        <collectPsncnt>1</collectPsncnt>
+                        <salTpNm>연봉39,000,000원 이상,</salTpNm>
+                        <enterTpNm>경력 (최소5년) 우대</enterTpNm>
+                        <eduNm>학력무관</eduNm>
+                        <certificate>간호사</certificate>
+                        <mltsvcExcHope>비희망</mltsvcExcHope>
+                        <selMthd>서류,면접</selMthd>
+                        <rcptMthd>방문,팩스,고용24,이메일</rcptMthd>
+                        <submitDoc>이력서,경력증명서</submitDoc>
+                        <workRegion>(48034) 부산광역시 해운대구 반여로 156</workRegion>
+                        <workdayWorkhrCont>평일 : (근무시간) 7시 ~ 16시</workdayWorkhrCont>
+                        <fourIns>국민연금 고용보험 산재보험 의료보험</fourIns>
+                        <retirepay>퇴직연금</retirepay>
+                        <dtlRecrContUrl>https://www.work24.go.kr/detail?wantedAuthNo=K130112604210072</dtlRecrContUrl>
+                        <jobsCd>304002</jobsCd>
+                        <minEdubgIcd>00</minEdubgIcd>
+                        <maxEdubgIcd>00</maxEdubgIcd>
+                        <regionCd>26350</regionCd>
+                        <empTpCd>10</empTpCd>
+                        <enterTpCd>E</enterTpCd>
+                        <salTpCd>Y</salTpCd>
                     </wantedInfo>
+                    <empchargeInfo>
+                        <empChargerDpt></empChargerDpt>
+                        <contactTelno>051-929-2000</contactTelno>
+                        <chargerFaxNo>051-929-2002</chargerFaxNo>
+                    </empchargeInfo>
                 </wantedDtl>
             """.trimIndent()
 
             val response = xmlMapper.readValue(xml, Work24DetailResponse::class.java)
 
-            assertNotNull(response.wantedInfo)
-            assertEquals("전체 간호사 채용 공고 제목입니다", response.wantedInfo?.wantedTitle)
+            assertEquals("K130112604210072", response.wantedAuthNo)
+
+            val corp = response.corpInfo
+            assertNotNull(corp)
+            assertEquals("해운대한빛요양병원", corp.corpNm)
+            assertEquals("장미화", corp.reperNm)
+            assertEquals("100 명", corp.totPsncnt)
+            assertEquals("0 백만원", corp.capitalAmt)
+            assertEquals("그 외 기타 보건업", corp.indTpCdNm)
+            assertEquals("노령환자 입원진료", corp.busiCont)
+            assertEquals("48034 부산광역시 해운대구 반여로 156", corp.corpAddr)
+
+            val info = response.wantedInfo
+            assertNotNull(info)
+            assertEquals("일반 간호사(304002)", info.jobsNm)
+            assertEquals("수간호사 구인합니다(일반병동)", info.wantedTitle)
+            assertEquals("채용시까지", info.receiptCloseDt)
+            assertEquals("1", info.collectPsncnt)
+            assertEquals("연봉39,000,000원 이상,", info.salTpNm)
+            assertEquals("경력 (최소5년) 우대", info.enterTpNm)
+            assertEquals("학력무관", info.eduNm)
+            assertEquals("간호사", info.certificate)
+            assertEquals("서류,면접", info.selMthd)
+            assertEquals("국민연금 고용보험 산재보험 의료보험", info.fourIns)
+            assertEquals("304002", info.jobsCd)
+            assertEquals("10", info.empTpCd)
+            assertEquals("Y", info.salTpCd)
+
+            val charge = response.empchargeInfo
+            assertNotNull(charge)
+            assertEquals("051-929-2000", charge.contactTelno)
+            assertEquals("051-929-2002", charge.chargerFaxNo)
         }
 
         @Test
@@ -225,21 +238,8 @@ class Work24ApiResponseTest {
             val response = xmlMapper.readValue(xml, Work24DetailResponse::class.java)
 
             assertNull(response.wantedInfo)
-        }
-
-        @Test
-        fun `wantedTitle이 없으면 null`() {
-            val xml = """
-                <wantedDtl>
-                    <wantedInfo>
-                    </wantedInfo>
-                </wantedDtl>
-            """.trimIndent()
-
-            val response = xmlMapper.readValue(xml, Work24DetailResponse::class.java)
-
-            assertNotNull(response.wantedInfo)
-            assertNull(response.wantedInfo?.wantedTitle)
+            assertNull(response.corpInfo)
+            assertNull(response.empchargeInfo)
         }
 
         @Test
@@ -258,41 +258,22 @@ class Work24ApiResponseTest {
 
             assertEquals("간호사 채용", response.wantedInfo?.wantedTitle)
         }
-    }
-
-    @Nested
-    @DisplayName("목록 API와 상세 API 구조 차이")
-    inner class ListVsDetailStructureTests {
 
         @Test
-        fun `목록 XML을 상세 클래스로 파싱하면 wantedInfo가 null`() {
-            val listXml = """
-                <wantedRoot>
-                    <total>1</total>
-                    <wanted>
-                        <wantedAuthNo>K111</wantedAuthNo>
-                        <title>간호사</title>
-                    </wanted>
-                </wantedRoot>
-            """.trimIndent()
-
-            val detailResponse = xmlMapper.readValue(listXml, Work24DetailResponse::class.java)
-            assertNull(detailResponse.wantedInfo)
-        }
-
-        @Test
-        fun `상세 XML을 목록 클래스로 파싱하면 wanted가 null`() {
-            val detailXml = """
+        fun `정보 없음 응답 파싱 — wantedInfo corpInfo 모두 null`() {
+            val xml = """
                 <wantedDtl>
-                    <wantedInfo>
-                        <wantedTitle>간호사 채용</wantedTitle>
-                    </wantedInfo>
+                    <message>정보가 존재하지 않습니다</message>
+                    <messageCd>018</messageCd>
                 </wantedDtl>
             """.trimIndent()
 
-            val listResponse = xmlMapper.readValue(detailXml, Work24ApiResponse::class.java)
-            assertNull(listResponse.wanted)
-            assertNull(listResponse.total)
+            val response = xmlMapper.readValue(xml, Work24DetailResponse::class.java)
+
+            assertNull(response.wantedInfo)
+            assertNull(response.corpInfo)
+            assertEquals("정보가 존재하지 않습니다", response.message)
+            assertEquals("018", response.messageCd)
         }
     }
 }

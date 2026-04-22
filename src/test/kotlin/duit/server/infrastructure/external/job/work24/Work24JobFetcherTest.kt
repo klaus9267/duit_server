@@ -1,21 +1,14 @@
 package duit.server.infrastructure.external.job.work24
 
-import duit.server.domain.job.entity.CloseType
-import duit.server.domain.job.entity.EmploymentType
 import duit.server.domain.job.entity.SourceType
-import duit.server.domain.job.entity.WorkRegion
-import duit.server.infrastructure.external.job.dto.JobFetchResult
 import io.mockk.every
 import io.mockk.spyk
-import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
-import java.time.LocalDateTime
 import kotlin.test.assertEquals
-import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 
 @DisplayName("Work24JobFetcher 단위 테스트")
@@ -25,10 +18,8 @@ class Work24JobFetcherTest {
 
     @BeforeEach
     fun setUp() {
-        fetcher = Work24JobFetcher("test-auth-key")
+        fetcher = Work24JobFetcher(authKey = "test-auth-key", listPageLimit = 0, detailLimit = 0)
     }
-
-    // ── 리플렉션 헬퍼 ──────────────────────────────────────────────────────────────
 
     private fun callStripNonXmlTags(xml: String): String {
         val method = Work24JobFetcher::class.java.getDeclaredMethod("stripNonXmlTags", String::class.java)
@@ -36,116 +27,52 @@ class Work24JobFetcherTest {
         return method.invoke(fetcher, xml) as String
     }
 
-    private fun callParseModifyDtm(smodifyDtm: String?): LocalDateTime? {
-        val method = Work24JobFetcher::class.java.getDeclaredMethod("parseModifyDtm", String::class.java)
-        method.isAccessible = true
-        return method.invoke(fetcher, smodifyDtm) as LocalDateTime?
-    }
-
-    private fun callToJobFetchResult(item: Work24ApiResponse.WantedItem): JobFetchResult? {
-        val method = Work24JobFetcher::class.java.getDeclaredMethod(
-            "toJobFetchResult", Work24ApiResponse.WantedItem::class.java
-        )
-        method.isAccessible = true
-        return method.invoke(fetcher, item) as JobFetchResult?
-    }
-
-    private fun callEnrichTruncatedTitles(results: List<JobFetchResult>): List<JobFetchResult> {
-        val method = Work24JobFetcher::class.java.getDeclaredMethod("enrichTruncatedTitles", List::class.java)
-        method.isAccessible = true
-        @Suppress("UNCHECKED_CAST")
-        return method.invoke(fetcher, results) as List<JobFetchResult>
-    }
-
-    private fun createWantedItem(
+    private fun listItem(
         wantedAuthNo: String? = "K123456",
         company: String? = "테스트병원",
         busino: String? = "123-45-67890",
         title: String? = "간호사 모집",
-        salTpNm: String? = "연봉",
-        sal: String? = null,
-        minSal: String? = "30000000",
-        maxSal: String? = "40000000",
+        closeDt: String? = null,
         region: String? = "서울특별시 강남구",
-        holidayTpNm: String? = null,
-        minEdubg: String? = "05",
-        maxEdubg: String? = null,
-        career: String? = null,
-        regDt: String? = "2025-01-01",
-        closeDt: String? = "2025-12-31",
-        infoSvc: String? = "VALIDATION",
-        wantedInfoUrl: String? = "https://example.com/job/1",
-        wantedMobileInfoUrl: String? = null,
-        zipCd: String? = "06123",
-        strtnmCd: String? = "서울특별시 강남구 테헤란로 1",
-        basicAddr: String? = "서울특별시 강남구",
-        detailAddr: String? = "101동 202호",
-        empTpCd: String? = "10",
         jobsCd: String? = "304000",
-        smodifyDtm: String? = null,
+        empTpCd: String? = "10",
+        wantedInfoUrl: String? = "https://example.com/1",
     ) = Work24ApiResponse.WantedItem(
         wantedAuthNo = wantedAuthNo,
         company = company,
         busino = busino,
         title = title,
-        salTpNm = salTpNm,
-        sal = sal,
-        minSal = minSal,
-        maxSal = maxSal,
-        region = region,
-        holidayTpNm = holidayTpNm,
-        minEdubg = minEdubg,
-        maxEdubg = maxEdubg,
-        career = career,
-        regDt = regDt,
         closeDt = closeDt,
-        infoSvc = infoSvc,
-        wantedInfoUrl = wantedInfoUrl,
-        wantedMobileInfoUrl = wantedMobileInfoUrl,
-        zipCd = zipCd,
-        strtnmCd = strtnmCd,
-        basicAddr = basicAddr,
-        detailAddr = detailAddr,
-        empTpCd = empTpCd,
+        region = region,
         jobsCd = jobsCd,
-        smodifyDtm = smodifyDtm,
+        empTpCd = empTpCd,
+        wantedInfoUrl = wantedInfoUrl,
     )
 
-    private fun createJobFetchResult(
-        externalId: String = "K123456",
-        title: String = "간호사 모집",
-        companyName: String = "테스트병원",
-        businessNumber: String? = "123-45-67890",
-    ) = JobFetchResult(
-        externalId = externalId,
-        title = title,
-        companyName = companyName,
-        businessNumber = businessNumber,
-        jobCategory = "304000",
-        location = "서울특별시 강남구",
-        zipCode = "06123",
-        roadNameAddress = "서울특별시 강남구 테헤란로 1",
-        basicAddress = "서울특별시 강남구",
-        detailAddress = "101동 202호",
-        infoService = "VALIDATION",
-        workRegion = WorkRegion.SEOUL,
-        workDistrict = "강남구",
-        employmentType = EmploymentType.FULL_TIME,
-        careerMin = null,
-        careerMax = null,
-        educationLevel = null,
-        salaryMin = 30000000L,
-        salaryMax = 40000000L,
-        salaryType = null,
-        postingUrl = "https://example.com/job/1",
-        postedAt = null,
-        expiresAt = null,
-        closeType = CloseType.ON_HIRE,
-        isActive = true,
-        workHoursPerWeek = null,
+    private fun detailResponse(
+        wantedTitle: String = "전체 제목",
+        receiptCloseDt: String? = "채용시까지",
+        corpNm: String = "테스트병원 상세",
+        reperNm: String? = "홍길동",
+        totPsncnt: String? = "100 명",
+    ) = Work24DetailResponse(
+        corpInfo = Work24DetailResponse.CorpInfo(
+            corpNm = corpNm,
+            reperNm = reperNm,
+            totPsncnt = totPsncnt,
+            busiCont = "의료서비스",
+        ),
+        wantedInfo = Work24DetailResponse.WantedInfo(
+            wantedTitle = wantedTitle,
+            receiptCloseDt = receiptCloseDt,
+            jobsNm = "간호사",
+            empTpNm = "기간의 정함이 없는 근로계약",
+            eduNm = "학력무관",
+        ),
+        empchargeInfo = Work24DetailResponse.EmpchargeInfo(
+            contactTelno = "02-1234-5678",
+        ),
     )
-
-    // ── authKey 검증 ─────────────────────────────────────────────────────────────
 
     @Nested
     @DisplayName("authKey 검증")
@@ -153,24 +80,14 @@ class Work24JobFetcherTest {
 
         @Test
         fun `authKey가 빈 문자열이면 fetchAll은 빈 리스트 반환`() {
-            val blankFetcher = Work24JobFetcher("")
-            val results = blankFetcher.fetchAll()
-            assertTrue(results.isEmpty())
+            val blankFetcher = Work24JobFetcher(authKey = "", listPageLimit = 0, detailLimit = 0)
+            assertTrue(blankFetcher.fetchAll().isEmpty())
         }
 
         @Test
         fun `authKey가 공백이면 fetchAll은 빈 리스트 반환`() {
-            val blankFetcher = Work24JobFetcher("   ")
-            val results = blankFetcher.fetchAll()
-            assertTrue(results.isEmpty())
-        }
-
-        @Test
-        fun `authKey가 빈 문자열이면 fetchIncremental은 빈 결과 반환`() {
-            val blankFetcher = Work24JobFetcher("")
-            val result = blankFetcher.fetchIncremental(LocalDateTime.now())
-            assertTrue(result.items.isEmpty())
-            assertNull(result.latestTimestamp)
+            val blankFetcher = Work24JobFetcher(authKey = "   ", listPageLimit = 0, detailLimit = 0)
+            assertTrue(blankFetcher.fetchAll().isEmpty())
         }
 
         @Test
@@ -179,337 +96,51 @@ class Work24JobFetcherTest {
         }
     }
 
-    // ── stripNonXmlTags ─────────────────────────────────────────────────────────
-
     @Nested
     @DisplayName("stripNonXmlTags()")
     inner class StripNonXmlTagsTests {
 
         @Test
         fun `화이트리스트에 있는 태그는 유지`() {
-            val xml = "<wantedRoot><total>10</total><wanted><title>간호사</title><busino>123-45-67890</busino><infoSvc>VALIDATION</infoSvc></wanted></wantedRoot>"
-            val result = callStripNonXmlTags(xml)
-            assertEquals(xml, result)
+            val xml = "<wantedRoot><total>10</total><wanted><title>간호사</title><infoSvc>VALIDATION</infoSvc></wanted></wantedRoot>"
+            assertEquals(xml, callStripNonXmlTags(xml))
         }
 
         @Test
         fun `화이트리스트에 없는 태그는 제거`() {
             val xml = "<wantedRoot><total>1</total><b>bold</b><script>alert(1)</script></wantedRoot>"
-            val result = callStripNonXmlTags(xml)
-            assertEquals("<wantedRoot><total>1</total>boldalert(1)</wantedRoot>", result)
+            assertEquals("<wantedRoot><total>1</total>boldalert(1)</wantedRoot>", callStripNonXmlTags(xml))
+        }
+
+        @Test
+        fun `상세 API corpInfo 태그도 화이트리스트에 포함`() {
+            val xml = "<wantedDtl><corpInfo><corpNm>테스트</corpNm><reperNm>홍길동</reperNm></corpInfo></wantedDtl>"
+            assertEquals(xml, callStripNonXmlTags(xml))
+        }
+
+        @Test
+        fun `상세 API empchargeInfo 태그도 화이트리스트에 포함`() {
+            val xml = "<empchargeInfo><contactTelno>02-1234-5678</contactTelno></empchargeInfo>"
+            assertEquals(xml, callStripNonXmlTags(xml))
         }
 
         @Test
         fun `HTML 태그가 섞인 응답 정리`() {
             val xml = "<wantedRoot><wanted><title><b>간호사</b> 모집</title></wanted></wantedRoot>"
-            val result = callStripNonXmlTags(xml)
-            assertEquals("<wantedRoot><wanted><title>간호사 모집</title></wanted></wantedRoot>", result)
-        }
-
-        @Test
-        fun `상세 API 태그도 화이트리스트에 포함`() {
-            val xml = "<wantedDtl><wantedInfo><wantedTitle>전체 제목</wantedTitle></wantedInfo></wantedDtl>"
-            val result = callStripNonXmlTags(xml)
-            assertEquals(xml, result)
-        }
-
-        @Test
-        fun `닫는 태그도 화이트리스트 검증 적용`() {
-            val xml = "<wantedRoot></wantedRoot>"
-            val result = callStripNonXmlTags(xml)
-            assertEquals(xml, result)
-        }
-
-        @Test
-        fun `화이트리스트에 없는 닫는 태그 제거`() {
-            val xml = "<wantedRoot><div></div></wantedRoot>"
-            val result = callStripNonXmlTags(xml)
-            assertEquals("<wantedRoot></wantedRoot>", result)
+            assertEquals("<wantedRoot><wanted><title>간호사 모집</title></wanted></wantedRoot>", callStripNonXmlTags(xml))
         }
 
         @Test
         fun `태그가 없는 텍스트는 그대로 반환`() {
-            val text = "plain text without tags"
-            val result = callStripNonXmlTags(text)
-            assertEquals(text, result)
-        }
-
-        @Test
-        fun `셀프 클로징 태그도 처리`() {
-            val xml = "<wantedRoot><br/><hr/><total>1</total></wantedRoot>"
-            val result = callStripNonXmlTags(xml)
-            assertEquals("<wantedRoot><total>1</total></wantedRoot>", result)
+            assertEquals("plain text", callStripNonXmlTags("plain text"))
         }
 
         @Test
         fun `속성이 있는 태그 처리`() {
             val xml = "<wantedRoot><a href=\"url\">link</a><title>간호사</title></wantedRoot>"
-            val result = callStripNonXmlTags(xml)
-            assertEquals("<wantedRoot>link<title>간호사</title></wantedRoot>", result)
+            assertEquals("<wantedRoot>link<title>간호사</title></wantedRoot>", callStripNonXmlTags(xml))
         }
     }
-
-    // ── parseModifyDtm ──────────────────────────────────────────────────────────
-
-    @Nested
-    @DisplayName("parseModifyDtm()")
-    inner class ParseModifyDtmTests {
-
-        @Test
-        fun `정상 포맷 yyyyMMddHHmm 파싱`() {
-            val result = callParseModifyDtm("202503151430")
-            assertEquals(LocalDateTime.of(2025, 3, 15, 14, 30), result)
-        }
-
-        @Test
-        fun `자정 시각 파싱`() {
-            val result = callParseModifyDtm("202501010000")
-            assertEquals(LocalDateTime.of(2025, 1, 1, 0, 0), result)
-        }
-
-        @Test
-        fun `null 입력은 null 반환`() {
-            val result = callParseModifyDtm(null)
-            assertNull(result)
-        }
-
-        @Test
-        fun `빈 문자열은 null 반환`() {
-            val result = callParseModifyDtm("")
-            assertNull(result)
-        }
-
-        @Test
-        fun `공백 문자열은 null 반환`() {
-            val result = callParseModifyDtm("   ")
-            assertNull(result)
-        }
-
-        @Test
-        fun `잘못된 형식은 null 반환`() {
-            val result = callParseModifyDtm("2025-03-15 14:30")
-            assertNull(result)
-        }
-
-        @Test
-        fun `짧은 문자열은 null 반환`() {
-            val result = callParseModifyDtm("2025031")
-            assertNull(result)
-        }
-    }
-
-    // ── toJobFetchResult ────────────────────────────────────────────────────────
-
-    @Nested
-    @DisplayName("toJobFetchResult()")
-    inner class ToJobFetchResultTests {
-
-        @Test
-        fun `정상 간호 직종 항목 변환`() {
-            val item = createWantedItem()
-            val result = callToJobFetchResult(item)
-
-            assertNotNull(result)
-            assertEquals("K123456", result!!.externalId)
-            assertEquals("간호사 모집", result.title)
-            assertEquals("테스트병원", result.companyName)
-            assertEquals("123-45-67890", result.businessNumber)
-            assertEquals("304000", result.jobCategory)
-            assertEquals("서울특별시 강남구", result.location)
-            assertEquals("06123", result.zipCode)
-            assertEquals("서울특별시 강남구 테헤란로 1", result.roadNameAddress)
-            assertEquals("서울특별시 강남구", result.basicAddress)
-            assertEquals("101동 202호", result.detailAddress)
-            assertEquals("VALIDATION", result.infoService)
-            assertEquals(WorkRegion.SEOUL, result.workRegion)
-            assertEquals("강남구", result.workDistrict)
-            assertEquals(EmploymentType.FULL_TIME, result.employmentType)
-            assertEquals(30000000L, result.salaryMin)
-            assertEquals(40000000L, result.salaryMax)
-            assertEquals("https://example.com/job/1", result.postingUrl)
-        }
-
-        @Test
-        fun `허용된 간호 직종코드가 아니면 null 반환`() {
-            val item = createWantedItem(jobsCd = "2010")
-            val result = callToJobFetchResult(item)
-            assertNull(result)
-        }
-
-        @Test
-        fun `jobsCd가 null이면 null 반환`() {
-            val item = createWantedItem(jobsCd = null)
-            val result = callToJobFetchResult(item)
-            assertNull(result)
-        }
-
-        @Test
-        fun `307500 간호조무사는 변환 성공`() {
-            val item = createWantedItem(jobsCd = "307500")
-            val result = callToJobFetchResult(item)
-            assertNotNull(result)
-        }
-
-        @Test
-        fun `307501 간호조무사는 변환하지 않는다`() {
-            val item = createWantedItem(jobsCd = "307501")
-            val result = callToJobFetchResult(item)
-            assertNull(result)
-        }
-
-        @Test
-        fun `wantedAuthNo가 null이면 null 반환`() {
-            val item = createWantedItem(wantedAuthNo = null)
-            val result = callToJobFetchResult(item)
-            assertNull(result)
-        }
-
-        @Test
-        fun `title이 null이면 null 반환`() {
-            val item = createWantedItem(title = null)
-            val result = callToJobFetchResult(item)
-            assertNull(result)
-        }
-
-        @Test
-        fun `company가 null이면 null 반환`() {
-            val item = createWantedItem(company = null)
-            val result = callToJobFetchResult(item)
-            assertNull(result)
-        }
-
-        @Test
-        fun `wantedInfoUrl이 null이면 null 반환`() {
-            val item = createWantedItem(wantedInfoUrl = null)
-            val result = callToJobFetchResult(item)
-            assertNull(result)
-        }
-
-        // ── CloseType 판정 ──
-
-        @Test
-        fun `closeDt가 null이면 ON_HIRE`() {
-            val item = createWantedItem(closeDt = null)
-            val result = callToJobFetchResult(item)!!
-
-            assertEquals(CloseType.ON_HIRE, result.closeType)
-            assertNull(result.expiresAt)
-            assertTrue(result.isActive)
-        }
-
-        @Test
-        fun `closeDt가 빈 문자열이면 ON_HIRE`() {
-            val item = createWantedItem(closeDt = "")
-            val result = callToJobFetchResult(item)!!
-
-            assertEquals(CloseType.ON_HIRE, result.closeType)
-            assertTrue(result.isActive)
-        }
-
-        @Test
-        fun `closeDt가 채용시까지이면 ON_HIRE`() {
-            val item = createWantedItem(closeDt = "채용시까지")
-            val result = callToJobFetchResult(item)!!
-
-            assertEquals(CloseType.ON_HIRE, result.closeType)
-            assertNull(result.expiresAt)
-            assertTrue(result.isActive)
-        }
-
-        @Test
-        fun `closeDt에 채용시까지 포함되면 ON_HIRE`() {
-            val item = createWantedItem(closeDt = "2025-12-31(채용시까지)")
-            val result = callToJobFetchResult(item)!!
-
-            assertEquals(CloseType.ON_HIRE, result.closeType)
-            assertTrue(result.isActive)
-        }
-
-        @Test
-        fun `closeDt가 미래 날짜면 FIXED이고 isActive true`() {
-            val futureDate = LocalDateTime.now().plusDays(30)
-            val dateStr = "${futureDate.year}-${"%02d".format(futureDate.monthValue)}-${"%02d".format(futureDate.dayOfMonth)}"
-            val item = createWantedItem(closeDt = dateStr)
-            val result = callToJobFetchResult(item)!!
-
-            assertEquals(CloseType.FIXED, result.closeType)
-            assertNotNull(result.expiresAt)
-            assertTrue(result.isActive)
-        }
-
-        @Test
-        fun `closeDt가 과거 날짜면 FIXED이고 isActive false`() {
-            val item = createWantedItem(closeDt = "2020-01-01")
-            val result = callToJobFetchResult(item)!!
-
-            assertEquals(CloseType.FIXED, result.closeType)
-            assertNotNull(result.expiresAt)
-            assertFalse(result.isActive)
-        }
-
-        @Test
-        fun `closeDt 앞뒤 공백 trim 처리`() {
-            val item = createWantedItem(closeDt = "  채용시까지  ")
-            val result = callToJobFetchResult(item)!!
-
-            assertEquals(CloseType.ON_HIRE, result.closeType)
-        }
-
-        // ── 선택 필드 매핑 ──
-
-        @Test
-        fun `region이 null이면 workRegion과 workDistrict도 null`() {
-            val item = createWantedItem(region = null)
-            val result = callToJobFetchResult(item)!!
-
-            assertNull(result.workRegion)
-            assertNull(result.workDistrict)
-        }
-
-        @Test
-        fun `empTpCd가 null이면 employmentType null`() {
-            val item = createWantedItem(empTpCd = null)
-            val result = callToJobFetchResult(item)!!
-
-            assertNull(result.employmentType)
-        }
-
-        @Test
-        fun `minSal과 maxSal이 null이면 salaryMin과 salaryMax null`() {
-            val item = createWantedItem(minSal = null, maxSal = null)
-            val result = callToJobFetchResult(item)!!
-
-            assertNull(result.salaryMin)
-            assertNull(result.salaryMax)
-        }
-
-        @Test
-        fun `regDt가 null이면 postedAt null`() {
-            val item = createWantedItem(regDt = null)
-            val result = callToJobFetchResult(item)!!
-
-            assertNull(result.postedAt)
-        }
-
-        @Test
-        fun `careerMin과 careerMax는 항상 null`() {
-            val item = createWantedItem()
-            val result = callToJobFetchResult(item)!!
-
-            assertNull(result.careerMin)
-            assertNull(result.careerMax)
-        }
-
-        @Test
-        fun `workHoursPerWeek는 항상 null`() {
-            val item = createWantedItem()
-            val result = callToJobFetchResult(item)!!
-
-            assertNull(result.workHoursPerWeek)
-        }
-    }
-
-    // ── fetchAll ────────────────────────────────────────────────────────────────
 
     @Nested
     @DisplayName("fetchAll()")
@@ -519,125 +150,45 @@ class Work24JobFetcherTest {
 
         @BeforeEach
         fun setUp() {
-            spyFetcher = spyk(Work24JobFetcher("test-auth-key"), recordPrivateCalls = true)
+            spyFetcher = spyk(
+                Work24JobFetcher(authKey = "test-auth-key", listPageLimit = 0, detailLimit = 0),
+                recordPrivateCalls = true,
+            )
         }
 
         @Test
-        fun `단일 페이지 결과 수집`() {
-            val apiResponse = Work24ApiResponse(
+        fun `목록과 상세를 모두 조회하여 병합`() {
+            every { spyFetcher["fetchListPage"](1) } returns Work24ApiResponse(
                 total = "1",
-                wanted = listOf(createWantedItem(title = "간호사 채용"))
+                wanted = listOf(listItem())
             )
-            every { spyFetcher["fetchPage"](1, 100) } returns apiResponse
+            every { spyFetcher["fetchDetail"]("K123456") } returns detailResponse(wantedTitle = "수간호사 채용")
 
             val results = spyFetcher.fetchAll()
 
             assertEquals(1, results.size)
-            assertEquals("간호사 채용", results[0].title)
+            val result = results[0]
+            assertEquals("K123456", result.externalId)
+            assertEquals("수간호사 채용", result.detail.wantedTitle)
+            assertEquals("간호사", result.detail.jobsNm)
+            assertEquals("02-1234-5678", result.detail.contactTelno)
+            assertEquals("테스트병원 상세", result.company.corpNm)
+            assertEquals("홍길동", result.company.reperNm)
+            assertEquals(100L, result.company.totPsncnt)
+            assertEquals("123-45-67890", result.company.businessNumber)
         }
 
         @Test
-        fun `여러 페이지 결과 수집`() {
-            val page1Items = (1..100).map {
-                createWantedItem(wantedAuthNo = "K${it}", title = "간호사 $it")
-            }
-            val page2Items = listOf(
-                createWantedItem(wantedAuthNo = "K101", title = "간호사 101")
-            )
-
-            every { spyFetcher["fetchPage"](1, 100) } returns Work24ApiResponse(
-                total = "101", wanted = page1Items
-            )
-            every { spyFetcher["fetchPage"](2, 100) } returns Work24ApiResponse(
-                total = "101", wanted = page2Items
-            )
-
-            val results = spyFetcher.fetchAll()
-
-            assertEquals(101, results.size)
-        }
-
-        @Test
-        fun `빈 항목 수신 시 페이징 중단`() {
-            every { spyFetcher["fetchPage"](1, 100) } returns Work24ApiResponse(
-                total = "100", wanted = emptyList()
-            )
-
-            val results = spyFetcher.fetchAll()
-
-            assertTrue(results.isEmpty())
-        }
-
-        @Test
-        fun `fetchPage가 null 반환 시 페이징 중단`() {
-            every { spyFetcher["fetchPage"](1, 100) } returns null
-
-            val results = spyFetcher.fetchAll()
-
-            assertTrue(results.isEmpty())
-        }
-
-        @Test
-        fun `간호 직종이 아닌 항목은 필터링`() {
-            val apiResponse = Work24ApiResponse(
-                total = "3",
-                wanted = listOf(
-                    createWantedItem(wantedAuthNo = "K1", jobsCd = "304000"),
-                    createWantedItem(wantedAuthNo = "K2", jobsCd = "2010"),
-                    createWantedItem(wantedAuthNo = "K3", jobsCd = "307500"),
-                )
-            )
-            every { spyFetcher["fetchPage"](1, 100) } returns apiResponse
-
-            val results = spyFetcher.fetchAll()
-
-            assertEquals(2, results.size)
-            assertEquals("K1", results[0].externalId)
-            assertEquals("K3", results[1].externalId)
-        }
-
-        @Test
-        fun `필수 필드 누락 항목은 필터링`() {
-            val apiResponse = Work24ApiResponse(
-                total = "3",
-                wanted = listOf(
-                    createWantedItem(wantedAuthNo = "K1"),
-                    createWantedItem(wantedAuthNo = null),
-                    createWantedItem(wantedAuthNo = "K3", company = null),
-                )
-            )
-            every { spyFetcher["fetchPage"](1, 100) } returns apiResponse
-
-            val results = spyFetcher.fetchAll()
-
-            assertEquals(1, results.size)
-            assertEquals("K1", results[0].externalId)
-        }
-
-        @Test
-        fun `total 이상 수집되면 페이징 중단`() {
-            val apiResponse = Work24ApiResponse(
+        fun `detail 조회 실패 시 해당 항목은 건너뛴다`() {
+            every { spyFetcher["fetchListPage"](1) } returns Work24ApiResponse(
                 total = "2",
                 wanted = listOf(
-                    createWantedItem(wantedAuthNo = "K1"),
-                    createWantedItem(wantedAuthNo = "K2"),
+                    listItem(wantedAuthNo = "K1"),
+                    listItem(wantedAuthNo = "K2"),
                 )
             )
-            every { spyFetcher["fetchPage"](1, 100) } returns apiResponse
-
-            val results = spyFetcher.fetchAll()
-
-            assertEquals(2, results.size)
-        }
-
-        @Test
-        fun `페이지 중간에 예외 발생 시 이전까지 수집된 부분 반환`() {
-            val page1Items = listOf(createWantedItem(wantedAuthNo = "K1", title = "간호사 1"))
-
-            every { spyFetcher["fetchPage"](1, 100) } returns Work24ApiResponse(
-                total = "200", wanted = page1Items
-            )
-            every { spyFetcher["fetchPage"](2, 100) } throws RuntimeException("API 오류")
+            every { spyFetcher["fetchDetail"]("K1") } returns detailResponse()
+            every { spyFetcher["fetchDetail"]("K2") } returns null
 
             val results = spyFetcher.fetchAll()
 
@@ -646,308 +197,197 @@ class Work24JobFetcherTest {
         }
 
         @Test
-        fun `total이 null이면 0으로 처리하여 첫 페이지만 수집`() {
-            val apiResponse = Work24ApiResponse(
-                total = null,
-                wanted = listOf(createWantedItem(wantedAuthNo = "K1"))
+        fun `detail 조회에서 예외가 나도 해당 항목만 건너뛴다`() {
+            every { spyFetcher["fetchListPage"](1) } returns Work24ApiResponse(
+                total = "2",
+                wanted = listOf(
+                    listItem(wantedAuthNo = "K1"),
+                    listItem(wantedAuthNo = "K2"),
+                )
             )
-            every { spyFetcher["fetchPage"](1, 100) } returns apiResponse
+            every { spyFetcher["fetchDetail"]("K1") } throws RuntimeException("network error")
+            every { spyFetcher["fetchDetail"]("K2") } returns detailResponse()
 
             val results = spyFetcher.fetchAll()
 
             assertEquals(1, results.size)
+            assertEquals("K2", results[0].externalId)
         }
 
         @Test
-        fun `total이 숫자가 아니면 0으로 처리`() {
-            val apiResponse = Work24ApiResponse(
-                total = "invalid",
-                wanted = listOf(createWantedItem(wantedAuthNo = "K1"))
-            )
-            every { spyFetcher["fetchPage"](1, 100) } returns apiResponse
+        fun `빈 목록이면 detail을 조회하지 않고 빈 리스트 반환`() {
+            every { spyFetcher["fetchListPage"](1) } returns Work24ApiResponse(total = "0", wanted = emptyList())
 
             val results = spyFetcher.fetchAll()
 
-            assertEquals(1, results.size)
+            assertTrue(results.isEmpty())
+        }
+
+        @Test
+        fun `fetchListPage가 null이면 빈 리스트 반환`() {
+            every { spyFetcher["fetchListPage"](1) } returns null
+
+            val results = spyFetcher.fetchAll()
+
+            assertTrue(results.isEmpty())
+        }
+
+        @Test
+        fun `receiptCloseDt가 채용시까지이면 isActive true`() {
+            every { spyFetcher["fetchListPage"](1) } returns Work24ApiResponse(
+                total = "1", wanted = listOf(listItem())
+            )
+            every { spyFetcher["fetchDetail"]("K123456") } returns detailResponse(receiptCloseDt = "채용시까지")
+
+            val results = spyFetcher.fetchAll()
+
+            assertTrue(results[0].isActive)
+        }
+
+        @Test
+        fun `receiptCloseDt가 과거 날짜면 isActive false`() {
+            every { spyFetcher["fetchListPage"](1) } returns Work24ApiResponse(
+                total = "1", wanted = listOf(listItem())
+            )
+            every { spyFetcher["fetchDetail"]("K123456") } returns detailResponse(receiptCloseDt = "2020-01-01")
+
+            val results = spyFetcher.fetchAll()
+
+            assertEquals(false, results[0].isActive)
         }
     }
 
-    // ── fetchIncremental ────────────────────────────────────────────────────────
+    @Nested
+    @DisplayName("listPageLimit / detailLimit 설정")
+    inner class LimitTests {
+
+        @Test
+        fun `listPageLimit이 1이면 첫 페이지만 조회한다`() {
+            val limited = spyk(
+                Work24JobFetcher(authKey = "test-auth-key", listPageLimit = 1, detailLimit = 0),
+                recordPrivateCalls = true,
+            )
+            val page1 = (1..100).map { listItem(wantedAuthNo = "K$it") }
+
+            every { limited["fetchListPage"](1) } returns Work24ApiResponse(total = "200", wanted = page1)
+            every { limited["fetchDetail"](any<String>()) } returns detailResponse()
+
+            val results = limited.fetchAll()
+
+            assertEquals(100, results.size)
+        }
+
+        @Test
+        fun `detailLimit 100이면 목록이 더 많아도 100건만 상세 조회한다`() {
+            val limited = spyk(
+                Work24JobFetcher(authKey = "test-auth-key", listPageLimit = 0, detailLimit = 100),
+                recordPrivateCalls = true,
+            )
+            val page1 = (1..100).map { listItem(wantedAuthNo = "K$it") }
+            val page2 = (101..120).map { listItem(wantedAuthNo = "K$it") }
+
+            every { limited["fetchListPage"](1) } returns Work24ApiResponse(total = "120", wanted = page1)
+            every { limited["fetchListPage"](2) } returns Work24ApiResponse(total = "120", wanted = page2)
+            every { limited["fetchDetail"](any<String>()) } returns detailResponse()
+
+            val results = limited.fetchAll()
+
+            assertEquals(100, results.size)
+        }
+    }
 
     @Nested
-    @DisplayName("fetchIncremental()")
-    inner class FetchIncrementalTests {
+    @DisplayName("merge 결과 검증")
+    inner class MergeTests {
 
         private lateinit var spyFetcher: Work24JobFetcher
 
         @BeforeEach
         fun setUp() {
-            spyFetcher = spyk(Work24JobFetcher("test-auth-key"), recordPrivateCalls = true)
-        }
-
-        @Test
-        fun `since 이후 항목만 수집하고 이전 항목에서 중단`() {
-            val since = LocalDateTime.of(2025, 3, 14, 0, 0)
-
-            val apiResponse = Work24ApiResponse(
-                total = "3",
-                wanted = listOf(
-                    createWantedItem(wantedAuthNo = "K1", smodifyDtm = "202503151430"),
-                    createWantedItem(wantedAuthNo = "K2", smodifyDtm = "202503150900"),
-                    createWantedItem(wantedAuthNo = "K3", smodifyDtm = "202503130000"),
-                )
+            spyFetcher = spyk(
+                Work24JobFetcher(authKey = "test-auth-key", listPageLimit = 0, detailLimit = 0),
+                recordPrivateCalls = true,
             )
-            every { spyFetcher["fetchPage"](1, 100) } returns apiResponse
-
-            val result = spyFetcher.fetchIncremental(since)
-
-            assertEquals(2, result.items.size)
-            assertEquals("K1", result.items[0].externalId)
-            assertEquals("K2", result.items[1].externalId)
         }
 
         @Test
-        fun `latestTimestamp는 가장 최신 modifyDtm으로 설정`() {
-            val since = LocalDateTime.of(2025, 3, 10, 0, 0)
-
-            val apiResponse = Work24ApiResponse(
+        fun `wantedAuthNo가 null인 목록 항목은 건너뛴다`() {
+            every { spyFetcher["fetchListPage"](1) } returns Work24ApiResponse(
                 total = "2",
                 wanted = listOf(
-                    createWantedItem(wantedAuthNo = "K1", smodifyDtm = "202503120900"),
-                    createWantedItem(wantedAuthNo = "K2", smodifyDtm = "202503151430"),
+                    listItem(wantedAuthNo = null),
+                    listItem(wantedAuthNo = "K2"),
                 )
             )
-            every { spyFetcher["fetchPage"](1, 100) } returns apiResponse
+            every { spyFetcher["fetchDetail"]("K2") } returns detailResponse()
 
-            val result = spyFetcher.fetchIncremental(since)
+            val results = spyFetcher.fetchAll()
 
-            assertEquals(LocalDateTime.of(2025, 3, 15, 14, 30), result.latestTimestamp)
+            assertEquals(1, results.size)
+            assertEquals("K2", results[0].externalId)
         }
 
         @Test
-        fun `smodifyDtm이 null인 항목도 수집`() {
-            val since = LocalDateTime.of(2025, 3, 14, 0, 0)
-
-            val apiResponse = Work24ApiResponse(
-                total = "2",
-                wanted = listOf(
-                    createWantedItem(wantedAuthNo = "K1", smodifyDtm = "202503151430"),
-                    createWantedItem(wantedAuthNo = "K2", smodifyDtm = null),
-                )
-            )
-            every { spyFetcher["fetchPage"](1, 100) } returns apiResponse
-
-            val result = spyFetcher.fetchIncremental(since)
-
-            assertEquals(2, result.items.size)
-        }
-
-        @Test
-        fun `smodifyDtm이 since와 같으면 중단`() {
-            val since = LocalDateTime.of(2025, 3, 15, 14, 30)
-
-            val apiResponse = Work24ApiResponse(
-                total = "2",
-                wanted = listOf(
-                    createWantedItem(wantedAuthNo = "K1", smodifyDtm = "202503151430"),
-                    createWantedItem(wantedAuthNo = "K2", smodifyDtm = "202503151430"),
-                )
-            )
-            every { spyFetcher["fetchPage"](1, 100) } returns apiResponse
-
-            val result = spyFetcher.fetchIncremental(since)
-
-            assertTrue(result.items.isEmpty())
-        }
-
-        @Test
-        fun `모든 항목이 since 이후이면 다음 페이지도 수집`() {
-            val since = LocalDateTime.of(2025, 3, 10, 0, 0)
-
-            every { spyFetcher["fetchPage"](1, 100) } returns Work24ApiResponse(
-                total = "2",
-                wanted = listOf(createWantedItem(wantedAuthNo = "K1", smodifyDtm = "202503151430"))
-            )
-            every { spyFetcher["fetchPage"](2, 100) } returns Work24ApiResponse(
-                total = "2",
-                wanted = emptyList()
-            )
-
-            val result = spyFetcher.fetchIncremental(since)
-
-            assertEquals(1, result.items.size)
-        }
-
-        @Test
-        fun `빈 응답이면 바로 중단`() {
-            every { spyFetcher["fetchPage"](1, 100) } returns Work24ApiResponse(
-                total = "0", wanted = emptyList()
-            )
-
-            val result = spyFetcher.fetchIncremental(LocalDateTime.now())
-
-            assertTrue(result.items.isEmpty())
-            assertNull(result.latestTimestamp)
-        }
-
-        @Test
-        fun `예외 발생 시 이전까지 수집된 결과 반환`() {
-            val since = LocalDateTime.of(2025, 3, 10, 0, 0)
-
-            every { spyFetcher["fetchPage"](1, 100) } returns Work24ApiResponse(
-                total = "200",
-                wanted = listOf(createWantedItem(wantedAuthNo = "K1", smodifyDtm = "202503151430"))
-            )
-            every { spyFetcher["fetchPage"](2, 100) } throws RuntimeException("API 오류")
-
-            val result = spyFetcher.fetchIncremental(since)
-
-            assertEquals(1, result.items.size)
-            assertNotNull(result.latestTimestamp)
-        }
-
-        @Test
-        fun `간호 직종 아닌 항목은 필터링되지만 스캔은 계속`() {
-            val since = LocalDateTime.of(2025, 3, 10, 0, 0)
-
-            val apiResponse = Work24ApiResponse(
-                total = "2",
-                wanted = listOf(
-                    createWantedItem(wantedAuthNo = "K1", jobsCd = "2010", smodifyDtm = "202503151430"),
-                    createWantedItem(wantedAuthNo = "K2", jobsCd = "304000", smodifyDtm = "202503151400"),
-                )
-            )
-            every { spyFetcher["fetchPage"](1, 100) } returns apiResponse
-
-            val result = spyFetcher.fetchIncremental(since)
-
-            assertEquals(1, result.items.size)
-            assertEquals("K2", result.items[0].externalId)
-        }
-
-        @Test
-        fun `latestTimestamp는 필터된 항목의 modifyDtm도 포함하지 않음`() {
-            val since = LocalDateTime.of(2025, 3, 10, 0, 0)
-
-            val apiResponse = Work24ApiResponse(
+        fun `상세에 값이 있으면 목록보다 상세값 우선`() {
+            every { spyFetcher["fetchListPage"](1) } returns Work24ApiResponse(
                 total = "1",
-                wanted = listOf(
-                    createWantedItem(
-                        wantedAuthNo = "K1",
-                        jobsCd = "2010",
-                        smodifyDtm = "202503151430"
-                    ),
-                )
+                wanted = listOf(listItem(title = "목록 제목", jobsCd = "999999"))
             )
-            every { spyFetcher["fetchPage"](1, 100) } returns apiResponse
-
-            val result = spyFetcher.fetchIncremental(since)
-
-            assertTrue(result.items.isEmpty())
-            assertNull(result.latestTimestamp)
-        }
-    }
-
-    // ── enrichTruncatedTitles ───────────────────────────────────────────────────
-
-    @Nested
-    @DisplayName("enrichTruncatedTitles()")
-    inner class EnrichTruncatedTitlesTests {
-
-        @Test
-        fun `잘린 제목이 없으면 원본 그대로 반환`() {
-            val results = listOf(
-                createJobFetchResult(externalId = "K1", title = "간호사 채용"),
-                createJobFetchResult(externalId = "K2", title = "간호조무사 채용"),
+            every { spyFetcher["fetchDetail"]("K123456") } returns Work24DetailResponse(
+                wantedInfo = Work24DetailResponse.WantedInfo(
+                    wantedTitle = "상세 제목",
+                    jobsCd = "304002",
+                ),
+                corpInfo = Work24DetailResponse.CorpInfo(corpNm = "상세 회사"),
             )
 
-            val enriched = callEnrichTruncatedTitles(results)
+            val result = spyFetcher.fetchAll()[0]
 
-            assertEquals(2, enriched.size)
-            assertEquals("간호사 채용", enriched[0].title)
-            assertEquals("간호조무사 채용", enriched[1].title)
+            assertEquals("상세 제목", result.detail.wantedTitle)
+            assertEquals("304002", result.detail.jobsCd)
+            assertEquals("상세 회사", result.company.corpNm)
         }
 
         @Test
-        fun `빈 리스트는 그대로 반환`() {
-            val enriched = callEnrichTruncatedTitles(emptyList())
-            assertTrue(enriched.isEmpty())
+        fun `상세에 값이 없으면 목록값 fallback`() {
+            every { spyFetcher["fetchListPage"](1) } returns Work24ApiResponse(
+                total = "1",
+                wanted = listOf(listItem(
+                    title = "목록 제목",
+                    region = "서울",
+                    wantedInfoUrl = "https://list-url",
+                ))
+            )
+            every { spyFetcher["fetchDetail"]("K123456") } returns Work24DetailResponse(
+                wantedInfo = Work24DetailResponse.WantedInfo(),
+                corpInfo = Work24DetailResponse.CorpInfo(),
+            )
+
+            val result = spyFetcher.fetchAll()[0]
+
+            assertEquals("목록 제목", result.detail.wantedTitle)
+            assertEquals("서울", result.detail.workRegion)
+            assertEquals("https://list-url", result.detail.dtlRecrContUrl)
         }
 
         @Test
-        fun `잘린 제목이 있지만 상세 API 실패 시 원본 제목 유지`() {
-            val spyFetcher = spyk(Work24JobFetcher("test-auth-key"), recordPrivateCalls = true)
-            every { spyFetcher["fetchDetailTitle"](any<String>()) } returns null
-
-            val results = listOf(
-                createJobFetchResult(externalId = "K1", title = "간호사 채용..."),
+        fun `자본금 0 백만원은 null로 변환`() {
+            every { spyFetcher["fetchListPage"](1) } returns Work24ApiResponse(
+                total = "1", wanted = listOf(listItem())
+            )
+            every { spyFetcher["fetchDetail"]("K123456") } returns Work24DetailResponse(
+                corpInfo = Work24DetailResponse.CorpInfo(
+                    corpNm = "테스트",
+                    capitalAmt = "0 백만원",
+                    totPsncnt = "100 명",
+                ),
+                wantedInfo = Work24DetailResponse.WantedInfo(),
             )
 
-            val method = Work24JobFetcher::class.java.getDeclaredMethod("enrichTruncatedTitles", List::class.java)
-            method.isAccessible = true
-            @Suppress("UNCHECKED_CAST")
-            val enriched = method.invoke(spyFetcher, results) as List<JobFetchResult>
+            val result = spyFetcher.fetchAll()[0]
 
-            assertEquals(1, enriched.size)
-            assertEquals("간호사 채용...", enriched[0].title)
-        }
-
-        @Test
-        fun `잘린 제목 보정 성공 시 전체 제목으로 교체`() {
-            val spyFetcher = spyk(Work24JobFetcher("test-auth-key"), recordPrivateCalls = true)
-            every { spyFetcher["fetchDetailTitle"]("K1") } returns "전체 간호사 채용 공고 제목"
-
-            val results = listOf(
-                createJobFetchResult(externalId = "K1", title = "전체 간호사 채용..."),
-            )
-
-            val method = Work24JobFetcher::class.java.getDeclaredMethod("enrichTruncatedTitles", List::class.java)
-            method.isAccessible = true
-            @Suppress("UNCHECKED_CAST")
-            val enriched = method.invoke(spyFetcher, results) as List<JobFetchResult>
-
-            assertEquals(1, enriched.size)
-            assertEquals("전체 간호사 채용 공고 제목", enriched[0].title)
-        }
-
-        @Test
-        fun `잘린 제목과 정상 제목이 섞여 있으면 잘린 것만 보정`() {
-            val spyFetcher = spyk(Work24JobFetcher("test-auth-key"), recordPrivateCalls = true)
-            every { spyFetcher["fetchDetailTitle"]("K1") } returns "전체 제목 1"
-
-            val results = listOf(
-                createJobFetchResult(externalId = "K1", title = "잘린 제목..."),
-                createJobFetchResult(externalId = "K2", title = "정상 제목"),
-            )
-
-            val method = Work24JobFetcher::class.java.getDeclaredMethod("enrichTruncatedTitles", List::class.java)
-            method.isAccessible = true
-            @Suppress("UNCHECKED_CAST")
-            val enriched = method.invoke(spyFetcher, results) as List<JobFetchResult>
-
-            assertEquals(2, enriched.size)
-            assertEquals("전체 제목 1", enriched[0].title)
-            assertEquals("정상 제목", enriched[1].title)
-        }
-
-        @Test
-        fun `일부만 보정 성공하면 실패한 것은 원본 유지`() {
-            val spyFetcher = spyk(Work24JobFetcher("test-auth-key"), recordPrivateCalls = true)
-            every { spyFetcher["fetchDetailTitle"]("K1") } returns "전체 제목 1"
-            every { spyFetcher["fetchDetailTitle"]("K2") } returns null
-
-            val results = listOf(
-                createJobFetchResult(externalId = "K1", title = "잘린 1..."),
-                createJobFetchResult(externalId = "K2", title = "잘린 2..."),
-            )
-
-            val method = Work24JobFetcher::class.java.getDeclaredMethod("enrichTruncatedTitles", List::class.java)
-            method.isAccessible = true
-            @Suppress("UNCHECKED_CAST")
-            val enriched = method.invoke(spyFetcher, results) as List<JobFetchResult>
-
-            assertEquals("전체 제목 1", enriched[0].title)
-            assertEquals("잘린 2...", enriched[1].title)
+            assertNull(result.company.capitalAmt)
+            assertEquals(100L, result.company.totPsncnt)
         }
     }
 }

@@ -47,7 +47,7 @@ class JobPostingTest {
                     empChargerDpt = "간호부",
                     contactTelno = "02-1234-5678",
                 ),
-                company = JobCompany(
+                company = Company(
                     businessNumber = "123-45-67890",
                     corpNm = "테스트병원",
                     reperNm = "홍길동",
@@ -91,7 +91,7 @@ class JobPostingTest {
             val posting = createJobPosting()
 
             posting.changeCompany(
-                JobCompany(
+                Company(
                     corpNm = "기존병원",
                     reperNm = "대표자",
                 )

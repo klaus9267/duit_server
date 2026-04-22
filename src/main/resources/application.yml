@@ -76,3 +76,7 @@ api:
     access-key: ${SARAMIN_ACCESS_KE:}
   work24:
     auth-key: ${WORK24_KEY}
+    # 목록 페이지 수집 상한 (0 또는 미지정 = 전체) — 테스트 시 1로 제한
+    list-page-limit: ${WORK24_LIST_PAGE_LIMIT:0}
+    # 상세 API 호출 상한 (0 또는 미지정 = 전체) — 테스트 시 100으로 제한
+    detail-limit: ${WORK24_DETAIL_LIMIT:0}

@@ -95,4 +95,13 @@ object Work24CodeMapper {
         val value = sal.trim().toLongOrNull() ?: return null
         return if (value <= 0) null else value
     }
+
+    private val leadingNumberPattern = Regex("^-?\\d+")
+
+    /** "100 명", "50 백만원" 같은 선행 숫자 추출 */
+    fun parseLongPrefix(raw: String?): Long? {
+        if (raw.isNullOrBlank()) return null
+        val matched = leadingNumberPattern.find(raw.trim())?.value ?: return null
+        return matched.toLongOrNull()?.takeIf { it != 0L }
+    }
 }

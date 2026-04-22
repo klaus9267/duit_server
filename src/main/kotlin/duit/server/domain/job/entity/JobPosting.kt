@@ -40,7 +40,7 @@ class JobPosting(
     @Comment("연결된 기업 정보 ID")
     @ManyToOne(fetch = FetchType.LAZY, cascade = [CascadeType.PERSIST, CascadeType.MERGE])
     @JoinColumn(name = "company_id")
-    var company: JobCompany? = null
+    var company: Company? = null
         protected set
 
     @Comment("모집직종명")
@@ -243,7 +243,7 @@ class JobPosting(
 
     fun updateWork24Detail(
         detail: JobPostingWork24Detail,
-        company: JobCompany? = this.company,
+        company: Company? = this.company,
     ) {
         jobsNm = detail.jobsNm
         wantedTitle = detail.wantedTitle
@@ -303,7 +303,7 @@ class JobPosting(
         this.company = company
     }
 
-    fun changeCompany(company: JobCompany?) {
+    fun changeCompany(company: Company?) {
         this.company = company
     }
 }
