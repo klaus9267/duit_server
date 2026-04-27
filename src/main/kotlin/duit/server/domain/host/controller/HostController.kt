@@ -58,7 +58,7 @@ class HostController(
         thumbnail: MultipartFile?
     ): HostResponse = hostService.updateHost(hostId, request, thumbnail)
 
-    @DeleteMapping("{hostId}")
+//    @DeleteMapping("{hostId}")
     @Operation(summary = "주최측 삭제 (관리자)", description = "주최 기관을 삭제합니다")
     @RequireAuth
     @ResponseStatus(HttpStatus.NO_CONTENT)
