@@ -1,5 +1,6 @@
 package duit.server.domain.host.service
 
+import duit.server.domain.event.repository.EventRepository
 import duit.server.domain.host.dto.HostRequest
 import duit.server.domain.host.dto.HostUpdateRequest
 import duit.server.domain.host.entity.Host
@@ -21,14 +22,16 @@ import java.util.*
 class HostServiceUnitTest {
 
     private lateinit var hostRepository: HostRepository
+    private lateinit var eventRepository: EventRepository
     private lateinit var fileStorageService: FileStorageService
     private lateinit var hostService: HostService
 
     @BeforeEach
     fun setUp() {
         hostRepository = mockk()
+        eventRepository = mockk()
         fileStorageService = mockk(relaxed = true)
-        hostService = HostService(hostRepository, fileStorageService)
+        hostService = HostService(hostRepository, eventRepository, fileStorageService)
     }
 
     @Nested
@@ -109,15 +112,32 @@ class HostServiceUnitTest {
     inner class DeleteHostTests {
 
         @Test
-        @DisplayName("호스트가 존재하면 삭제한다")
+        @DisplayName("연결된 행사가 없으면 호스트를 삭제한다")
         fun deleteSuccess() {
-            val host = Host(id = 1L, name = "삭제대상")
+            val host = Host(id = 1L, name = "삭제대상", thumbnail = "uploads/logo.png")
             every { hostRepository.findById(1L) } returns Optional.of(host)
+            every { eventRepository.existsByHostId(1L) } returns false
             every { hostRepository.delete(host) } just runs
 
             hostService.deleteHost(1L)
 
+            verify(exactly = 1) { fileStorageService.deleteFile("uploads/logo.png") }
             verify(exactly = 1) { hostRepository.delete(host) }
+        }
+
+        @Test
+        @DisplayName("연결된 행사가 있으면 IllegalStateException이 발생한다")
+        fun throwsWhenEventsLinked() {
+            val host = Host(id = 1L, name = "삭제대상", thumbnail = "uploads/logo.png")
+            every { hostRepository.findById(1L) } returns Optional.of(host)
+            every { eventRepository.existsByHostId(1L) } returns true
+
+            assertThrows<IllegalStateException> {
+                hostService.deleteHost(1L)
+            }
+
+            verify(exactly = 0) { hostRepository.delete(any()) }
+            verify(exactly = 0) { fileStorageService.deleteFile(any()) }
         }
 
         @Test
@@ -132,32 +152,79 @@ class HostServiceUnitTest {
     }
 
     @Nested
-    @DisplayName("deleteHosts - 일괄 삭제")
+    @DisplayName("deleteHosts - 일괄 삭제 (부분 성공)")
     inner class DeleteHostsTests {
 
         @Test
-        @DisplayName("존재하는 호스트들의 썸네일을 삭제하고 호스트를 삭제한다")
-        fun deletesExistingWithThumbnails() {
+        @DisplayName("모든 호스트가 삭제 가능하면 전부 삭제하고 blockedHosts는 비어있다")
+        fun allDeletable() {
             val host1 = Host(id = 1L, name = "주최1", thumbnail = "uploads/logo1.png")
             val host2 = Host(id = 2L, name = "주최2", thumbnail = null)
-            every { hostRepository.findById(1L) } returns Optional.of(host1)
-            every { hostRepository.findById(2L) } returns Optional.of(host2)
-            every { hostRepository.delete(any()) } just runs
+            every { hostRepository.findAllById(listOf(1L, 2L)) } returns listOf(host1, host2)
+            every { eventRepository.findHostIdsWithEvents(listOf(1L, 2L)) } returns emptyList()
+            every { hostRepository.deleteAll(any<Iterable<Host>>()) } just runs
 
-            hostService.deleteHosts(listOf(1L, 2L))
+            val result = hostService.deleteHosts(listOf(1L, 2L))
 
+            assertEquals(2, result["deletedCount"])
+            assertEquals(emptyList<Map<String, Any>>(), result["blockedHosts"])
             verify(exactly = 1) { fileStorageService.deleteFile("uploads/logo1.png") }
-            verify(exactly = 2) { hostRepository.delete(any()) }
+            verify(exactly = 1) { hostRepository.deleteAll(match<Iterable<Host>> { it.toList() == listOf(host1, host2) }) }
         }
 
         @Test
-        @DisplayName("존재하지 않는 ID는 무시한다")
+        @DisplayName("일부에 행사가 있으면 가능한 것만 삭제하고 차단된 것은 응답에 포함한다")
+        fun partialDeletable() {
+            val host1 = Host(id = 1L, name = "주최1", thumbnail = "uploads/logo1.png")
+            val host2 = Host(id = 2L, name = "주최2", thumbnail = null)
+            val host3 = Host(id = 3L, name = "주최3", thumbnail = "uploads/logo3.png")
+            every { hostRepository.findAllById(listOf(1L, 2L, 3L)) } returns listOf(host1, host2, host3)
+            every { eventRepository.findHostIdsWithEvents(listOf(1L, 2L, 3L)) } returns listOf(2L)
+            every { hostRepository.deleteAll(any<Iterable<Host>>()) } just runs
+
+            val result = hostService.deleteHosts(listOf(1L, 2L, 3L))
+
+            assertEquals(2, result["deletedCount"])
+            @Suppress("UNCHECKED_CAST")
+            val blocked = result["blockedHosts"] as List<Map<String, Any>>
+            assertEquals(1, blocked.size)
+            assertEquals(2L, blocked[0]["id"])
+            assertEquals("주최2", blocked[0]["name"])
+            verify(exactly = 1) { fileStorageService.deleteFile("uploads/logo1.png") }
+            verify(exactly = 1) { fileStorageService.deleteFile("uploads/logo3.png") }
+            verify(exactly = 1) { hostRepository.deleteAll(match<Iterable<Host>> { it.toList() == listOf(host1, host3) }) }
+        }
+
+        @Test
+        @DisplayName("모두 행사가 있으면 아무것도 삭제하지 않고 전부 차단된다")
+        fun allBlocked() {
+            val host1 = Host(id = 1L, name = "주최1")
+            val host2 = Host(id = 2L, name = "주최2")
+            every { hostRepository.findAllById(listOf(1L, 2L)) } returns listOf(host1, host2)
+            every { eventRepository.findHostIdsWithEvents(listOf(1L, 2L)) } returns listOf(1L, 2L)
+            every { hostRepository.deleteAll(any<Iterable<Host>>()) } just runs
+
+            val result = hostService.deleteHosts(listOf(1L, 2L))
+
+            assertEquals(0, result["deletedCount"])
+            @Suppress("UNCHECKED_CAST")
+            val blocked = result["blockedHosts"] as List<Map<String, Any>>
+            assertEquals(2, blocked.size)
+            verify(exactly = 0) { fileStorageService.deleteFile(any()) }
+            verify(exactly = 1) { hostRepository.deleteAll(match<Iterable<Host>> { it.toList().isEmpty() }) }
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 ID는 무시된다")
         fun ignoresNonExistingIds() {
-            every { hostRepository.findById(999L) } returns Optional.empty()
+            every { hostRepository.findAllById(listOf(999L)) } returns emptyList()
+            every { eventRepository.findHostIdsWithEvents(listOf(999L)) } returns emptyList()
+            every { hostRepository.deleteAll(any<Iterable<Host>>()) } just runs
 
-            hostService.deleteHosts(listOf(999L))
+            val result = hostService.deleteHosts(listOf(999L))
 
-            verify(exactly = 0) { hostRepository.delete(any()) }
+            assertEquals(0, result["deletedCount"])
+            assertEquals(emptyList<Map<String, Any>>(), result["blockedHosts"])
         }
     }
 

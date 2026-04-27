@@ -1,11 +1,13 @@
 package duit.server.domain.host.controller
 
+import duit.server.domain.event.entity.Event
 import duit.server.domain.host.entity.Host
 import duit.server.domain.user.entity.User
 import duit.server.support.IntegrationTestSupport
 import duit.server.support.fixture.TestFixtures
 import org.hamcrest.Matchers.equalTo
 import org.hamcrest.Matchers.greaterThanOrEqualTo
+import org.hamcrest.Matchers.hasSize
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -204,7 +206,7 @@ class HostControllerIntegrationTest : IntegrationTestSupport() {
     }
 
     @Nested
-    @DisplayName("DELETE /api/v1/hosts/{hostId} - 주최측 삭제")
+    @DisplayName("DELETE /api/v1/hosts/{hostId} - 주최측 단건 삭제")
     inner class DeleteHostTests {
 
         @Nested
@@ -212,7 +214,7 @@ class HostControllerIntegrationTest : IntegrationTestSupport() {
         inner class Success {
 
             @Test
-            @DisplayName("주최측을 삭제한다")
+            @DisplayName("연결된 행사가 없으면 주최측을 삭제한다")
             fun deleteHost() {
                 mockMvc.perform(
                     delete("/api/v1/hosts/{hostId}", host3.id!!)
@@ -239,6 +241,23 @@ class HostControllerIntegrationTest : IntegrationTestSupport() {
             }
 
             @Test
+            @DisplayName("연결된 행사가 있으면 409를 반환한다")
+            fun conflictWhenEventLinked() {
+                val event: Event = TestFixtures.event(host = host1)
+                entityManager.persist(event)
+                entityManager.flush()
+                entityManager.clear()
+
+                mockMvc.perform(
+                    delete("/api/v1/hosts/{hostId}", host1.id!!)
+                        .header("Authorization", authHeader(user.id!!))
+                )
+                    .andDo(print())
+                    .andExpect(status().isConflict)
+                    .andExpect(jsonPath("$.code").value("CONFLICT"))
+            }
+
+            @Test
             @DisplayName("인증 없이 접근하면 401을 반환한다")
             fun unauthorized() {
                 mockMvc.perform(delete("/api/v1/hosts/{hostId}", host1.id!!))
@@ -249,7 +268,7 @@ class HostControllerIntegrationTest : IntegrationTestSupport() {
     }
 
     @Nested
-    @DisplayName("DELETE /api/v1/hosts/batch - 주최측 일괄 삭제")
+    @DisplayName("DELETE /api/v1/hosts - 주최측 일괄 삭제 (부분 성공)")
     inner class BatchDeleteHostTests {
 
         @Nested
@@ -257,20 +276,49 @@ class HostControllerIntegrationTest : IntegrationTestSupport() {
         inner class Success {
 
             @Test
-            @DisplayName("여러 주최측을 일괄 삭제한다")
-            fun batchDeleteHosts() {
+            @DisplayName("연결된 행사가 없는 주최측들은 모두 삭제되고 blockedHosts는 비어있다")
+            fun allDeletable() {
                 val requestBody = objectMapper.writeValueAsString(
                     mapOf("hostIds" to listOf(host1.id!!, host2.id!!))
                 )
 
                 mockMvc.perform(
-                    delete("/api/v1/hosts/batch")
+                    delete("/api/v1/hosts")
                         .header("Authorization", authHeader(user.id!!))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestBody)
                 )
                     .andDo(print())
-                    .andExpect(status().isNoContent)
+                    .andExpect(status().isOk)
+                    .andExpect(jsonPath("$.deletedCount").value(2))
+                    .andExpect(jsonPath("$.blockedHosts").isArray)
+                    .andExpect(jsonPath("$.blockedHosts").value(hasSize<Any>(0)))
+            }
+
+            @Test
+            @DisplayName("일부에 행사가 있으면 가능한 것만 삭제하고 차단된 주최측은 blockedHosts에 포함된다")
+            fun partialDeletable() {
+                val event: Event = TestFixtures.event(host = host2)
+                entityManager.persist(event)
+                entityManager.flush()
+                entityManager.clear()
+
+                val requestBody = objectMapper.writeValueAsString(
+                    mapOf("hostIds" to listOf(host1.id!!, host2.id!!, host3.id!!))
+                )
+
+                mockMvc.perform(
+                    delete("/api/v1/hosts")
+                        .header("Authorization", authHeader(user.id!!))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody)
+                )
+                    .andDo(print())
+                    .andExpect(status().isOk)
+                    .andExpect(jsonPath("$.deletedCount").value(2))
+                    .andExpect(jsonPath("$.blockedHosts").value(hasSize<Any>(1)))
+                    .andExpect(jsonPath("$.blockedHosts[0].id").value(host2.id!!.toInt()))
+                    .andExpect(jsonPath("$.blockedHosts[0].name").value("주최기관B"))
             }
         }
 
@@ -286,12 +334,29 @@ class HostControllerIntegrationTest : IntegrationTestSupport() {
                 )
 
                 mockMvc.perform(
-                    delete("/api/v1/hosts/batch")
+                    delete("/api/v1/hosts")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestBody)
                 )
                     .andDo(print())
                     .andExpect(status().isUnauthorized)
+            }
+
+            @Test
+            @DisplayName("hostIds가 비어있으면 400을 반환한다")
+            fun emptyHostIds() {
+                val requestBody = objectMapper.writeValueAsString(
+                    mapOf("hostIds" to emptyList<Long>())
+                )
+
+                mockMvc.perform(
+                    delete("/api/v1/hosts")
+                        .header("Authorization", authHeader(user.id!!))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody)
+                )
+                    .andDo(print())
+                    .andExpect(status().isBadRequest)
             }
         }
     }

@@ -58,15 +58,19 @@ class HostController(
         thumbnail: MultipartFile?
     ): HostResponse = hostService.updateHost(hostId, request, thumbnail)
 
-//    @DeleteMapping("{hostId}")
-    @Operation(summary = "주최측 삭제 (관리자)", description = "주최 기관을 삭제합니다")
+    @DeleteMapping("{hostId}")
+    @Operation(summary = "주최측 삭제 (관리자)", description = "주최 기관을 삭제합니다. 연결된 행사가 있으면 409 Conflict를 반환합니다.")
     @RequireAuth
     @ResponseStatus(HttpStatus.NO_CONTENT)
     fun deleteHost(@PathVariable hostId: Long) = hostService.deleteHost(hostId)
 
-    @DeleteMapping("batch")
-    @Operation(summary = "주최측 일괄 삭제 (관리자)", description = "여러 주최 기관을 일괄 삭제합니다. 존재하지 않는 ID는 무시됩니다.")
+    @DeleteMapping
+    @Operation(
+        summary = "주최측 일괄 삭제 (관리자)",
+        description = "여러 주최 기관을 일괄 삭제합니다. 연결된 행사가 있는 주최 기관은 스킵되어 응답의 blockedHosts에 포함됩니다."
+    )
     @RequireAuth
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    fun deleteHosts(@Valid @RequestBody request: HostDeleteRequest) = hostService.deleteHosts(request.hostIds)
+    @ResponseStatus(HttpStatus.OK)
+    fun deleteHosts(@Valid @RequestBody request: HostDeleteRequest): Map<String, Any> =
+        hostService.deleteHosts(request.hostIds)
 }

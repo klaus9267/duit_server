@@ -14,6 +14,6 @@ class Host(
     var name: String,
     var thumbnail: String? = null,
 
-    @OneToMany(mappedBy = "host", cascade = [CascadeType.ALL], orphanRemoval = true)
+    @OneToMany(mappedBy = "host")
     val events: List<Event> = emptyList()
 )
