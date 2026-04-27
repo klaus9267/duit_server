@@ -8,6 +8,7 @@ import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.EntityGraph
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
+import org.springframework.data.repository.query.Param
 import java.time.LocalDateTime
 
 interface EventRepository : JpaRepository<Event, Long>, EventRepositoryCustom {
@@ -138,4 +139,9 @@ interface EventRepository : JpaRepository<Event, Long>, EventRepositoryCustom {
         """
     )
     fun countActiveEvents(): Long
+
+    fun existsByHostId(hostId: Long): Boolean
+
+    @Query("SELECT DISTINCT e.host.id FROM Event e WHERE e.host.id IN :hostIds")
+    fun findHostIdsWithEvents(@Param("hostIds") hostIds: List<Long>): List<Long>
 }
