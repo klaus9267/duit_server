@@ -1,5 +1,6 @@
 package duit.server.domain.event.controller
 
+import duit.server.application.common.RequireAdmin
 import duit.server.application.common.RequireAuth
 import duit.server.domain.event.dto.*
 import duit.server.domain.event.service.EventService
@@ -34,7 +35,7 @@ class EventController(
 
     @PostMapping("/admin", consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
     @Operation(summary = "관리자 행사 생성", description = "관리자가 행사를 생성합니다 (자동 승인)")
-    @RequireAuth
+    @RequireAdmin
     @ResponseStatus(HttpStatus.CREATED)
     fun createEventByAdmin(
         @Valid @RequestPart("data") eventRequest: EventCreateRequest,
@@ -69,13 +70,13 @@ class EventController(
 
     @PatchMapping("{eventId}/approve")
     @Operation(summary = "행사 승인", description = "행사를 승인합니다")
-    @RequireAuth
+    @RequireAdmin
     @ResponseStatus(HttpStatus.NO_CONTENT)
     fun approveEvent(@PathVariable eventId: Long) = eventService.updateStatus(eventId)
 
     @PutMapping("{eventId}", consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
     @Operation(summary = "행사 수정 (관리자)", description = "관리자가 행사를 수정합니다")
-    @RequireAuth
+    @RequireAdmin
     @ResponseStatus(HttpStatus.OK)
     fun updateEvent(
         @PathVariable eventId: Long,
@@ -90,7 +91,7 @@ class EventController(
 
     @DeleteMapping("batch")
     @Operation(summary = "행사 목록 삭제(관리자)")
-    @RequireAuth
+    @RequireAdmin
     @ResponseStatus(HttpStatus.OK)
     fun deleteEvents(
         @RequestParam eventIds: List<Long>

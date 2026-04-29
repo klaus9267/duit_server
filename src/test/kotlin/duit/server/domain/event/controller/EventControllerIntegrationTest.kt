@@ -35,6 +35,8 @@ class EventControllerIntegrationTest : IntegrationTestSupport() {
     fun setUp() {
         user = TestFixtures.user(nickname = "이벤트유저", providerId = "event-provider")
         entityManager.persist(user)
+        // 관리자 엔드포인트 테스트용: user 를 관리자로 등록
+        entityManager.persist(TestFixtures.admin(user = user))
 
         host = TestFixtures.host(name = "이벤트테스트주최")
         entityManager.persist(host)

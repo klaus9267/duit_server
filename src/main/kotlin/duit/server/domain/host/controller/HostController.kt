@@ -1,6 +1,6 @@
 package duit.server.domain.host.controller
 
-import duit.server.application.common.RequireAuth
+import duit.server.application.common.RequireAdmin
 import duit.server.domain.common.dto.pagination.PageResponse
 import duit.server.domain.host.dto.HostDeleteRequest
 import duit.server.domain.host.dto.HostPaginationParam
@@ -35,7 +35,7 @@ class HostController(
 
     @PostMapping(consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
     @Operation(summary = "주최측 생성 (관리자)", description = "새로운 주최 기관을 생성합니다")
-    @RequireAuth
+    @RequireAdmin
     @ResponseStatus(HttpStatus.CREATED)
     fun createHost(
         @Parameter
@@ -48,7 +48,7 @@ class HostController(
 
     @PutMapping("{hostId}", consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
     @Operation(summary = "주최측 수정 (관리자)", description = "주최 기관 정보를 수정합니다")
-    @RequireAuth
+    @RequireAdmin
     @ResponseStatus(HttpStatus.OK)
     fun updateHost(
         @PathVariable hostId: Long,
@@ -60,7 +60,7 @@ class HostController(
 
     @DeleteMapping("{hostId}")
     @Operation(summary = "주최측 삭제 (관리자)", description = "주최 기관을 삭제합니다. 연결된 행사가 있으면 409 Conflict를 반환합니다.")
-    @RequireAuth
+    @RequireAdmin
     @ResponseStatus(HttpStatus.NO_CONTENT)
     fun deleteHost(@PathVariable hostId: Long) = hostService.deleteHost(hostId)
 
@@ -69,7 +69,7 @@ class HostController(
         summary = "주최측 일괄 삭제 (관리자)",
         description = "여러 주최 기관을 일괄 삭제합니다. 연결된 행사가 있는 주최 기관은 스킵되어 응답의 blockedHosts에 포함됩니다."
     )
-    @RequireAuth
+    @RequireAdmin
     @ResponseStatus(HttpStatus.OK)
     fun deleteHosts(@Valid @RequestBody request: HostDeleteRequest): Map<String, Any> =
         hostService.deleteHosts(request.hostIds)

@@ -27,6 +27,8 @@ class UserControllerIntegrationTest : IntegrationTestSupport() {
         otherUser = TestFixtures.user(nickname = "다른유저", providerId = "provider-2", email = "other@example.com")
         entityManager.persist(user)
         entityManager.persist(otherUser)
+        // 관리자 엔드포인트 테스트용: user 를 관리자로 등록 (otherUser 는 일반 사용자)
+        entityManager.persist(TestFixtures.admin(user = user))
         entityManager.flush()
         entityManager.clear()
     }
@@ -102,6 +104,18 @@ class UserControllerIntegrationTest : IntegrationTestSupport() {
                 mockMvc.perform(get("/api/v1/users"))
                     .andDo(print())
                     .andExpect(status().isUnauthorized)
+            }
+
+            @Test
+            @DisplayName("관리자가 아닌 사용자는 403을 반환한다")
+            fun forbiddenForNonAdmin() {
+                mockMvc.perform(
+                    get("/api/v1/users")
+                        .header("Authorization", authHeader(otherUser.id!!))
+                )
+                    .andDo(print())
+                    .andExpect(status().isForbidden)
+                    .andExpect(jsonPath("$.code").value("FORBIDDEN"))
             }
         }
     }

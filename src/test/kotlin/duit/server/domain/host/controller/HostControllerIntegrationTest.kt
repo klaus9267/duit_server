@@ -23,14 +23,23 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 class HostControllerIntegrationTest : IntegrationTestSupport() {
 
     private lateinit var user: User
+    private lateinit var nonAdminUser: User
     private lateinit var host1: Host
     private lateinit var host2: Host
     private lateinit var host3: Host
 
     @BeforeEach
     fun setUp() {
-        user = TestFixtures.user(nickname = "호스트테스트유저")
+        user = TestFixtures.user(nickname = "호스트테스트관리자", providerId = "host-admin-1")
+        nonAdminUser = TestFixtures.user(
+            nickname = "일반사용자",
+            providerId = "host-non-admin-1",
+            email = "non-admin@example.com",
+        )
         entityManager.persist(user)
+        entityManager.persist(nonAdminUser)
+        // user 만 관리자로 등록 (nonAdminUser 는 403 검증용)
+        entityManager.persist(TestFixtures.admin(user = user))
 
         host1 = TestFixtures.host(name = "주최기관A")
         host2 = TestFixtures.host(name = "주최기관B")
@@ -133,6 +142,20 @@ class HostControllerIntegrationTest : IntegrationTestSupport() {
                     .andDo(print())
                     .andExpect(status().isUnauthorized)
             }
+
+            @Test
+            @DisplayName("관리자가 아닌 사용자는 403을 반환한다")
+            fun forbiddenForNonAdmin() {
+                mockMvc.perform(
+                    multipart("/api/v1/hosts")
+                        .param("name", "새 주최기관")
+                        .header("Authorization", authHeader(nonAdminUser.id!!))
+                        .contentType(MediaType.MULTIPART_FORM_DATA)
+                )
+                    .andDo(print())
+                    .andExpect(status().isForbidden)
+                    .andExpect(jsonPath("$.code").value("FORBIDDEN"))
+            }
         }
     }
 
@@ -202,6 +225,25 @@ class HostControllerIntegrationTest : IntegrationTestSupport() {
                     .andDo(print())
                     .andExpect(status().isUnauthorized)
             }
+
+            @Test
+            @DisplayName("관리자가 아닌 사용자는 403을 반환한다")
+            fun forbiddenForNonAdmin() {
+                val data = MockMultipartFile(
+                    "data", "", "application/json",
+                    objectMapper.writeValueAsBytes(mapOf("name" to "수정", "deleteThumbnail" to false))
+                )
+
+                mockMvc.perform(
+                    multipart("/api/v1/hosts/{hostId}", host1.id!!)
+                        .file(data)
+                        .with { it.method = "PUT"; it }
+                        .header("Authorization", authHeader(nonAdminUser.id!!))
+                )
+                    .andDo(print())
+                    .andExpect(status().isForbidden)
+                    .andExpect(jsonPath("$.code").value("FORBIDDEN"))
+            }
         }
     }
 
@@ -263,6 +305,18 @@ class HostControllerIntegrationTest : IntegrationTestSupport() {
                 mockMvc.perform(delete("/api/v1/hosts/{hostId}", host1.id!!))
                     .andDo(print())
                     .andExpect(status().isUnauthorized)
+            }
+
+            @Test
+            @DisplayName("관리자가 아닌 사용자는 403을 반환한다")
+            fun forbiddenForNonAdmin() {
+                mockMvc.perform(
+                    delete("/api/v1/hosts/{hostId}", host3.id!!)
+                        .header("Authorization", authHeader(nonAdminUser.id!!))
+                )
+                    .andDo(print())
+                    .andExpect(status().isForbidden)
+                    .andExpect(jsonPath("$.code").value("FORBIDDEN"))
             }
         }
     }
@@ -340,6 +394,24 @@ class HostControllerIntegrationTest : IntegrationTestSupport() {
                 )
                     .andDo(print())
                     .andExpect(status().isUnauthorized)
+            }
+
+            @Test
+            @DisplayName("관리자가 아닌 사용자는 403을 반환한다")
+            fun forbiddenForNonAdmin() {
+                val requestBody = objectMapper.writeValueAsString(
+                    mapOf("hostIds" to listOf(host1.id!!))
+                )
+
+                mockMvc.perform(
+                    delete("/api/v1/hosts")
+                        .header("Authorization", authHeader(nonAdminUser.id!!))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody)
+                )
+                    .andDo(print())
+                    .andExpect(status().isForbidden)
+                    .andExpect(jsonPath("$.code").value("FORBIDDEN"))
             }
 
             @Test

@@ -1,5 +1,6 @@
 package duit.server.domain.user.controller
 
+import duit.server.application.common.RequireAdmin
 import duit.server.application.common.RequireAuth
 import duit.server.domain.common.dto.pagination.PageResponse
 import duit.server.domain.user.dto.UpdateNicknameRequest
@@ -27,8 +28,8 @@ class UserController(
 ) {
 
     @GetMapping
-    @Operation(summary = "사용자 목록 조회", description = "모든 사용자를 페이징하여 조회합니다")
-    @RequireAuth
+    @Operation(summary = "사용자 목록 조회 (관리자)", description = "모든 사용자를 페이징하여 조회합니다")
+    @RequireAdmin
     @ResponseStatus(HttpStatus.OK)
     fun getAllUsers(
         @Valid @ParameterObject param: UserPaginationParam
