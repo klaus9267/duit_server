@@ -122,19 +122,35 @@ class Event(...) {
 
 | 엔티티 | 테이블 | 감사 필드 | 도메인 로직 | 관계 |
 |--------|-------|----------|------------|------|
-| JobPosting | job_postings | O (created, updated) | updateFromSource(), syncActiveStatus(), careerDescription, salaryDescription | OneToMany(JobBookmark) |
+| JobPosting | job_postings | O (created, updated) | updateWork24Detail(), changeCompany() | OneToMany(JobBookmark), ManyToOne(JobCompany) |
+| JobCompany | job_companies | O (created, updated) | 없음 | OneToMany(JobPosting) |
 | JobBookmark | job_bookmarks | O (created만) | 없음 | ManyToOne(User, JobPosting) |
 
 ### Job Enum 목록
 
 | Enum | 값 | 사용처 |
 |------|---|-------|
-| SourceType | SARAMIN, WORK24 | JobPosting.sourceType |
 | CloseType | FIXED, ON_HIRE, ONGOING | JobPosting.closeType |
 | EmploymentType | FULL_TIME, CONTRACT, INTERN, PART_TIME, DISPATCH, ETC | JobPosting.employmentType |
 | SalaryType | ANNUAL, MONTHLY, HOURLY | JobPosting.salaryType |
 | WorkRegion | SEOUL, BUSAN, ... (17개 광역자치단체) + ETC | JobPosting.workRegion |
 | EducationLevel | NONE, HIGH_SCHOOL, ASSOCIATE, BACHELOR, MASTER, DOCTOR | JobPosting.educationLevel |
+
+### JobPosting 상세 저장 규칙
+
+- 고용24 상세 응답의 `corpInfo`는 `JobCompany` 엔티티로 분리하고, `JobPosting.company` `ManyToOne` 연관관계로 연결한다.
+- `JobCompany`는 목록 응답의 `busino`(사업자등록번호)를 `businessNumber`로 저장하고, 같은 사업자번호를 가진 공고들은 같은 회사를 공유하게 관리한다.
+- 고용24 상세 응답의 `wantedInfo` / `empchargeInfo`는 별도 embedded 객체로 감싸지 않고 `JobPosting` 필드에 평탄화한다.
+- `JobPosting`은 더 이상 `title`, `companyName`, `jobCategory`, `salaryMin` 같은 별도 정규화 필드를 기본 구조로 두지 않고, 고용24 상세 응답 필드(`wantedTitle`, `jobsNm`, `salTpNm`, `workRegion` 등)를 직접 저장한다.
+- 식별자는 `wantedAuthNo` 단일 값으로 관리하고, `sourceType` / `externalId` 필드는 두지 않는다.
+- 서비스 메타데이터로는 `wantedAuthNo`, `isActive`, 감사 필드만 유지한다.
+- 이름이 축약된 고용24 필드는 엔티티 필드 위에 주석으로 의미를 남긴다. 예: `mltsvcExcHope`, `staAreaRegionCd`, `walkDistCd`
+- `job_postings`처럼 DB Structure 화면에서 바로 의미를 확인해야 하는 테이블은 Hibernate `@Comment`를 함께 선언해 컬럼 comment가 실제 DB에 보이도록 유지한다.
+- 배열 구조는 문자열 컬렉션으로 저장한다.
+  - `corpAttachList.attachFileUrl` → `JobPosting.corpAttachList`
+  - `keywordList.srchKeywordNm` → `JobPosting.keywordList`
+- `wantedAuthNo` 고유성은 `@Column(unique = true)`로 선언하고, 테이블 재생성 시 스키마에 바로 반영되게 유지한다.
+- 회사 정보 전달용 `JobCompanySnapshot` 같은 중간 객체는 두지 않고, `JobCompany` 엔티티를 직접 조회/연결한다.
 
 ## Embeddable
 

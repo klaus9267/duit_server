@@ -173,7 +173,7 @@ data class JobPostingResponse(
             id = jobPosting.id!!,
             wantedAuthNo = jobPosting.wantedAuthNo,
             isActive = jobPosting.isActive,
-            company = jobPosting.company?.let(JobCompanyResponse::from),
+            company = jobPosting.company?.let { JobCompanyResponse.from(it) },
             jobsNm = jobPosting.jobsNm,
             wantedTitle = jobPosting.wantedTitle,
             relJobsNm = jobPosting.relJobsNm,

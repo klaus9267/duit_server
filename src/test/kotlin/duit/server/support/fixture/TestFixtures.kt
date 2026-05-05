@@ -15,6 +15,7 @@ import duit.server.domain.job.entity.EducationLevel
 import duit.server.domain.job.entity.EmploymentType
 import duit.server.domain.job.entity.JobBookmark
 import duit.server.domain.job.entity.Company
+import duit.server.domain.job.entity.CompanyBookmark
 import duit.server.domain.job.entity.JobPosting
 import duit.server.domain.job.entity.JobPostingWork24Detail
 import duit.server.domain.job.entity.SalaryType
@@ -193,5 +194,23 @@ object TestFixtures {
     ): JobBookmark = JobBookmark(
         user = user,
         jobPosting = jobPosting,
+    )
+
+    fun company(
+        corpNm: String? = "테스트 회사",
+        businessNumber: String? = "test-${System.nanoTime()}",
+        reperNm: String? = "홍길동",
+    ): Company = Company(
+        corpNm = corpNm,
+        businessNumber = businessNumber,
+        reperNm = reperNm,
+    )
+
+    fun companyBookmark(
+        user: User,
+        company: Company,
+    ): CompanyBookmark = CompanyBookmark(
+        user = user,
+        company = company,
     )
 }
