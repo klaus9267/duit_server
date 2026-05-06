@@ -19,9 +19,13 @@ spring:
       settings:
         web-allow-others: true
 
+  flyway:
+    # 로컬 개발 편의: 마이그레이션 실패 row 를 다음 기동 시 자동 정리. prod 에는 적용 X (수동 검토)
+    repair-on-migrate: true
+
   jpa:
     hibernate:
-      ddl-auto: update  # 스키마 자동 업데이트 (데이터 유지)
+      ddl-auto: validate  # Flyway 가 스키마 권한. JPA 는 entity↔DB 검증만
     show-sql: false
     properties:
       hibernate:

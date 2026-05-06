@@ -23,6 +23,10 @@ spring:
         use_sql_comments: false
     show-sql: false
 
+  # Flyway 비활성화 — 테스트는 H2 + JPA 자동 스키마 사용
+  flyway:
+    enabled: false
+
   sql:
     init:
       mode: never  # 테스트는 data.sql 실행 안함
