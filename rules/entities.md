@@ -114,7 +114,8 @@ class Event(...) {
 | Host | hosts | **X (미구현)** | 없음 | OneToMany(Event) |
 | View | views | **X (미구현)** | 없음 | OneToOne(Event) |
 | Bookmark | bookmarks | O (created, updated) | 없음 | ManyToOne(User, Event) |
-| Alarm | alarms | O (created만) | 없음 | ManyToOne(User, Event) |
+| Alarm | alarms | O (created만) | XOR invariant in init (event ⊕ jobPosting) | ManyToOne(User), ManyToOne(Event?), ManyToOne(JobPosting?) |
+| Subscription | subscriptions | O (created만) | type 별 invariant in init | ManyToOne(User), ManyToOne(Host?), ManyToOne(Company?) |
 | Admin | admins | O (created, updated) | 없음 | OneToOne(User) |
 | BannedIp | banned_ips | O (created만) | ban(), unban(), recordFailure() | 없음 |
 
@@ -174,7 +175,8 @@ class Event(...) {
 | EventStatus | PENDING, RECRUITMENT_WAITING, RECRUITING, EVENT_WAITING, ACTIVE, FINISHED | Event.status |
 | EventStatusGroup | PENDING, ACTIVE, FINISHED | Event.statusGroup |
 | EventType | CONFERENCE, SEMINAR, WEBINAR, WORKSHOP, CONTEST, CONTINUING_EDUCATION, EDUCATION, VOLUNTEER, TRAINING, ETC | Event.eventType |
-| AlarmType | EVENT_START, RECRUITMENT_START, RECRUITMENT_END | Alarm.type |
+| AlarmType | EVENT_START, RECRUITMENT_START, RECRUITMENT_END (북마크 기반) + EVENT_SUBSCRIPTION_KEYWORD/HOST/TYPE, JOB_SUBSCRIPTION_KEYWORD/COMPANY (구독 기반) | Alarm.type |
+| SubscriptionType | EVENT_KEYWORD, EVENT_HOST, EVENT_TYPE, JOB_KEYWORD, JOB_COMPANY | Subscription.type — `SubscriptionType.toAlarmType()` 로 AlarmType 1:1 매핑 |
 | ProviderType | KAKAO, GOOGLE, APPLE | User.providerType |
 | EventDate | START_AT, RECRUITMENT_START_AT, RECRUITMENT_END_AT | 스케줄러 내부 사용 |
 

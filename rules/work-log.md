@@ -8,14 +8,45 @@
 
 > 매 작업 후 갱신. 새 세션 시작 시 이 섹션만 읽으면 전체 파악 가능.
 
- **마지막 작업일**: 2026-04-11
- **진행 중인 작업**: `user_device_tokens` 중복 데이터 정리 및 유니크 제약 복구 대응
- **블로커**: 운영 DB에서 `scripts/sql/deduplicate_user_device_tokens.sql` 실행 후 `scripts/sql/add_user_device_tokens_unique_constraint.sql` 적용 필요
+ **마지막 작업일**: 2026-05-09
+ **진행 중인 작업**: 구독(Subscription) 도메인 + 알림 발송 시스템 신설 완료 (Phase 1-5). origin/dev 대비 dev 7 커밋 앞.
+ **블로커**: 운영 DB에서 `scripts/sql/deduplicate_user_device_tokens.sql` 실행 후 `scripts/sql/add_user_device_tokens_unique_constraint.sql` 적용 필요 (이전 작업)
  **미수정 CRITICAL**: 1건 (배포된 비밀 노출 사고 후 실제 비밀 rotation / GHCR 정리 필요)
  **미수정 HIGH**: 6건 (CORS, 외부 API 타임아웃/재시도, FCM invalid token 정리, JWT Refresh Token, Discord fire-and-forget)
  **브랜치**: dev
- **신규 의존성**: 없음
- **신규 env**: 없음
+ **신규 의존성**: 없음 (Flyway는 기존 build.gradle 활성화)
+ **신규 env**: `application*.yml` 의 `ddl-auto: validate` + `flyway enabled`
+
+## 2026-05-09 (구독 도메인 + 알림 발송 시스템 신설)
+
+**분류**: feat | refactor | test | docs
+
+### 작업 내용
+- **구독(Subscription) 도메인 신설**: 5종 type (`EVENT_KEYWORD`, `EVENT_HOST`, `EVENT_TYPE`, `JOB_KEYWORD`, `JOB_COMPANY`) 을 단일 폴리모픽 entity + `init` invariant 로 관리. dedup 은 `SubscriptionRepository.existsBy...` 4쌍 + factory 명시 체크 (MySQL UNIQUE NULL distinct 한계)
+- **Strategy 패턴**: `SubscriptionFactory` 인터페이스 + 5 `@Component` 구현체. `type / create / toResponse` 책임 응집. `SubscriptionService` 가 `List<SubscriptionFactory>` 자동 주입 + `init {}` 누락 검증 (Fail-Fast)
+- **응답 폴리모픽**: `SubscriptionResponse` sealed interface + 5 자식 + `SubscriptionTargetHost/Company` mini DTO. `@Schema(oneOf = [...])` 로 Swagger 분기. 새 type 추가 시 자식 클래스 1개만 추가
+- **`SubscriptionType.toAlarmType()` 확장 함수**: when exhaustive 로 `SubscriptionType` ↔ `AlarmType` 1:1 매핑 한 곳에 응집. 새 type 추가 시 컴파일 에러로 강제 동기화
+- **알람 도메인 확장**: `Alarm.event` nullable + `jobPosting` 추가, XOR invariant `init` 블록. `AlarmType` 5종 (`EVENT_SUBSCRIPTION_*`, `JOB_SUBSCRIPTION_*`) 추가
+- **알람 응답 V2**: `AlarmResponseV2` + `AlarmTargetResponse` sealed interface (Event/JobPosting). V1 후방호환 위해 `findByUserIdAndEventIsNotNull` 분기 추가 → V1 클라이언트는 event 알람만 받음
+- **`AlarmControllerV2`** (`api/v2/alarms`): GET 폴리모픽 응답 1 엔드포인트. read/delete 는 V1 공유
+- **매칭 + 알림 발송**: `EventSubscriptionMatcher` / `JobSubscriptionMatcher` 도메인 단위 2 클래스. `SubscriptionNotificationService` 가 매칭 → Alarm dedup 저장 → FCM 발송. 알람 content 는 type 별 when 분기
+- **훅**: `EventService.createEvent(autoApprove=true)` + `EventService.updateStatus(PENDING → non-PENDING)` + `JobSyncService.upsertAll` 신규 `isActive` insert 시 → `notifyOnEventApproved` / `notifyOnJobPostingCreated`
+- **Flyway 도입**: `V1__create_subscriptions.sql` + `V2__extend_alarms_for_subscription.sql`. `application*.yml` 의 `ddl-auto: validate` + `flyway enabled`
+- **CRUD API**: `SubscriptionController` (`api/v1/subscriptions`) — POST 단일 통합 DTO + GET `?type=` enum 필터 + DELETE 본인만
+
+### 테스트 결과
+- `./gradlew test` 전체 BUILD SUCCESSFUL (30s)
+- `AlarmServiceIntegrationTest` 에 V1/V2 분리 검증 케이스 추가 (`findByUserIdAndEventIsNotNull` vs `findByUserId`)
+- `SubscriptionNotificationServiceIntegrationTest` 신설 (4 케이스: EVENT_HOST 매칭, EVENT_KEYWORD 부분일치 + 미매칭 분리, dedup 중복 호출, JOB_KEYWORD 매칭)
+- 영향받은 unit test 3곳 (`EventServiceUnitTest`, `EventServiceCacheTest`, `JobSyncServiceTest`) 에 `SubscriptionNotificationService` mock 추가
+
+### 기술적 결정
+- **단일 폴리모픽 entity**: 마스터 플랜(`docs/plans/2026-03-05-...`)의 `EventSubscription` / `JobSubscription` 분리안 대신 단일 `Subscription` 테이블. 통합 조회 빈번 + 데이터 소량(사용자당 수십 건) 이라 SINGLE_TABLE 최적
+- **POST DTO 단일 / Response 폴리모픽**: 클라이언트 단순성(Flutter) 위해 Request 는 nullable 필드 단일 DTO. 응답은 OCP 위해 sealed interface
+- **Alarm V1 후방호환 유지**: 기존 클라이언트 응답 스키마(`event` non-null) 보존 위해 V1 은 `event IS NOT NULL` 필터, V2 는 폴리모픽 응답으로 분리
+- **dedup 책임 분배**: 이벤트 알람은 DB UNIQUE `(user_id, event_id, type)`. 채용 알람(event_id IS NULL)은 NULL distinct 로 DB UNIQUE 미작동 → `AlarmRepository.existsByUserIdAndJobPostingIdAndType` 명시 체크
+- **Matcher 도메인 단위**: `EventSubscriptionMatcher` 안에서 KEYWORD/HOST/TYPE 3종 when 분기. 매칭 정책 1개라 sub-type 별 5 클래스로 분리할 가치 낮음. 새 도메인(예: Hospital subscription) 추가 시 새 Matcher 추가
+- **알람 content 위치**: `SubscriptionNotificationService` 내 type 별 when 분기. `SubscriptionFactory` 에 `buildAlarmContent` 추가 안 함 — 알람 도메인 의존이 factory 에 들어가는 것 회피
 
 ## 2026-04-19 (고용24 목록 응답 누락 필드 및 회사 사업자번호 매핑 보강)
 
