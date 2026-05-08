@@ -21,26 +21,7 @@ import org.springframework.web.bind.annotation.RestController
 
 @RestController
 @RequestMapping("api/v1/subscriptions")
-@Tag(
-    name = "Subscription",
-    description = """
-        구독 관련 API.
-
-        사용자가 관심 있는 행사/채용공고에 대한 알림을 받기 위해 5종 구독을 관리한다.
-        구독이 매칭되면 자동으로 [Alarm] 이 생성되고 FCM 푸시가 발송된다 (등록 디바이스 토큰 기준).
-
-        **5종 구독 타입:**
-        - `EVENT_KEYWORD` — 행사 제목 부분일치
-        - `EVENT_HOST`    — 특정 주최 기관
-        - `EVENT_TYPE`    — 특정 행사 유형 (CONFERENCE/SEMINAR/...)
-        - `JOB_KEYWORD`   — 채용공고 제목 부분일치
-        - `JOB_COMPANY`   — 특정 회사
-
-        응답은 type 별 자식 클래스로 폴리모픽 (sealed). 클라이언트는 `type` 필드로 분기.
-
-        조회 결과는 페이지네이션 없이 List 반환 — 사용자당 구독 수가 보통 수십 건 이내.
-    """,
-)
+@Tag(name = "Subscription", description = "구독 관련 API")
 class SubscriptionController(
     private val subscriptionService: SubscriptionService,
 ) {

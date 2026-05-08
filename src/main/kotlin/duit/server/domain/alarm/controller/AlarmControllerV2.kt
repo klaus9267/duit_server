@@ -17,18 +17,7 @@ import org.springframework.web.bind.annotation.RestController
 
 @RestController
 @RequestMapping("api/v2/alarms")
-@Tag(
-    name = "Alarm V2",
-    description = """
-        알림 V2 — 이벤트/채용공고 폴리모픽 응답.
-
-        **V1 vs V2:**
-        - V1 (`api/v1/alarms`): event 필드 non-null 알람만 반환 (이벤트 전용). 기존 클라이언트 후방호환.
-        - V2 (`api/v2/alarms`): 이벤트 + 채용공고 알람 모두 반환. `target` 폴리모픽으로 클라이언트가 분기.
-
-        **읽음 처리 / 삭제 등은 V1 (`api/v1/alarms`) 엔드포인트 공유** — type 무관.
-    """,
-)
+@Tag(name = "Alarm V2", description = "알림 V2 — 이벤트/채용공고 폴리모픽 응답")
 class AlarmControllerV2(
     private val alarmService: AlarmService,
 ) {
