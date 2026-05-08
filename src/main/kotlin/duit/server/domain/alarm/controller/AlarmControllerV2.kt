@@ -26,33 +26,20 @@ class AlarmControllerV2(
     @Operation(
         summary = "알림 목록 조회 (V2)",
         description = """
-            현재 인증 사용자의 알림을 페이징하여 반환한다.
-            **이벤트 알림 + 채용공고 알림 모두 포함** (V1 은 이벤트 전용).
+현재 인증 사용자의 알림을 페이징하여 반환한다.
+**이벤트 알림 + 채용공고 알림 모두 포함** (V1 은 이벤트 전용).
 
-            **응답 (200 OK):** [PageResponse]<[AlarmResponseV2]>. 각 알람은 다음 구조:
-            - `id`, `isRead`, `createdAt`
-            - `type`: [AlarmType] — 알림 발생 사유
-              - 북마크 기반: `EVENT_START` / `RECRUITMENT_START` / `RECRUITMENT_END`
-              - 구독 기반: `EVENT_SUBSCRIPTION_KEYWORD` / `_HOST` / `_TYPE`, `JOB_SUBSCRIPTION_KEYWORD` / `_COMPANY`
-            - `target`: [AlarmTargetResponse] sealed (oneOf):
-              - `targetType=EVENT`        → `event: EventResponse` (행사 정보)
-              - `targetType=JOB_POSTING`  → `jobPosting: JobPostingResponse` (채용공고 정보)
+**응답 (200 OK):** [PageResponse]<[AlarmResponseV2]>. 각 알람은 다음 구조:
+- id, isRead, createdAt
+- type: [AlarmType] — 알림 발생 사유
+  - 북마크 기반: EVENT_START / RECRUITMENT_START / RECRUITMENT_END
+  - 구독 기반: EVENT_SUBSCRIPTION_KEYWORD / _HOST / _TYPE, JOB_SUBSCRIPTION_KEYWORD / _COMPANY
+- target: [AlarmTargetResponse] sealed (oneOf):
+  - targetType=EVENT        → event: EventResponse (행사 정보)
+  - targetType=JOB_POSTING  → jobPosting: JobPostingResponse (채용공고 정보)
 
-            클라이언트는 `target.targetType` 으로 분기해 해당 필드 접근.
-            정렬: 페이지네이션 파라미터 (`field=ID`, `DESC` 기본) — 최신 알람 순.
-
-            **쿼리** ([AlarmPaginationParam]):
-            - `page` (기본 0), `size` (기본 10): 오프셋 페이징
-            - `isRead` (선택): `true`=읽음만, `false`=안읽음만, 미지정=전체
-
-            **관련 엔드포인트** (V1 공유, type 무관):
-            - 단건 읽음: `PATCH /api/v1/alarms/{alarmId}/read`
-            - 전체 읽음: `PATCH /api/v1/alarms/read-all`
-            - 단건 삭제: `DELETE /api/v1/alarms/{alarmId}`
-            - 전체 삭제: `DELETE /api/v1/alarms?readOnly=true|false`
-
-            **예외:**
-            - 401 UNAUTHORIZED: 인증 없음
+**예외:**
+- 401 UNAUTHORIZED: 인증 없음
         """,
     )
     @RequireAuth
