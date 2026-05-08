@@ -11,6 +11,7 @@ import duit.server.domain.event.repository.EventRepository
 import duit.server.domain.host.dto.HostRequest
 import duit.server.domain.host.entity.Host
 import duit.server.domain.host.service.HostService
+import duit.server.domain.subscription.service.SubscriptionNotificationService
 import duit.server.infrastructure.external.discord.DiscordService
 import duit.server.infrastructure.external.file.FileStorageService
 import io.mockk.*
@@ -58,7 +59,8 @@ class EventServiceUnitTest {
         fileStorageService: FileStorageService,
         eventQueryService: EventQueryService = mockk(relaxed = true),
         eventCacheEvictService: EventCacheEvictService = mockk(relaxed = true),
-    ) = EventService(eventRepository, securityUtil, discordService, hostService, fileStorageService, eventQueryService, eventCacheEvictService)
+        subscriptionNotificationService: SubscriptionNotificationService = mockk(relaxed = true),
+    ) = EventService(eventRepository, securityUtil, discordService, hostService, fileStorageService, eventQueryService, eventCacheEvictService, subscriptionNotificationService)
 
     @Nested
     @DisplayName("createEvent")
