@@ -49,13 +49,9 @@ data class JobPostingAlarmTargetResponse(
  * 새 대상 추가 시 분기 1줄만 추가하면 끝 (기존 코드 수정 X).
  */
 object AlarmTargetResponseFactory {
-    fun from(alarm: Alarm): AlarmTargetResponse {
-        val event = alarm.event
-        val jobPosting = alarm.jobPosting
-        return when {
-            event != null -> EventAlarmTargetResponse(EventResponse.from(event))
-            jobPosting != null -> JobPostingAlarmTargetResponse(JobPostingResponse.from(jobPosting))
-            else -> error("Alarm id=${alarm.id} 에 target 이 없습니다 (event/jobPosting 둘 다 NULL)")
-        }
+    fun from(alarm: Alarm): AlarmTargetResponse = when {
+        alarm.event != null -> EventAlarmTargetResponse(EventResponse.from(alarm.event!!))
+        alarm.jobPosting != null -> JobPostingAlarmTargetResponse(JobPostingResponse.from(alarm.jobPosting!!))
+        else -> error("Alarm id=${alarm.id} 에 target 이 없습니다")
     }
 }
