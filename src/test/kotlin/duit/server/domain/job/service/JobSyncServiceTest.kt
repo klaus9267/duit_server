@@ -48,7 +48,7 @@ class JobSyncServiceTest {
         every { syncStateRepository.findById(any<SourceType>()) } returns Optional.empty()
         every { syncStateRepository.save(any<JobSyncState>()) } answers { firstArg() }
 
-        syncService = JobSyncService(listOf(fetcher), companyRepository, repository, syncStateRepository, discordService)
+        syncService = JobSyncService(listOf(fetcher), companyRepository, repository, syncStateRepository, discordService, mockk(relaxed = true))
     }
 
     private fun createFetchResult(

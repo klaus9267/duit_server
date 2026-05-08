@@ -6,6 +6,7 @@ import duit.server.domain.job.entity.JobSyncState
 import duit.server.domain.job.repository.JobCompanyRepository
 import duit.server.domain.job.repository.JobPostingRepository
 import duit.server.domain.job.repository.JobSyncStateRepository
+import duit.server.domain.subscription.service.SubscriptionNotificationService
 import duit.server.infrastructure.external.discord.DiscordService
 import duit.server.infrastructure.external.job.JobFetcher
 import duit.server.infrastructure.external.job.dto.CompanyFetchResult
@@ -23,6 +24,7 @@ class JobSyncService(
     private val jobPostingRepository: JobPostingRepository,
     private val jobSyncStateRepository: JobSyncStateRepository,
     private val discordService: DiscordService,
+    private val subscriptionNotificationService: SubscriptionNotificationService,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -70,7 +72,7 @@ class JobSyncService(
                 existing.updateWork24Detail(detail = result.detail, company = company)
                 updateCount++
             } else {
-                jobPostingRepository.save(
+                val saved = jobPostingRepository.save(
                     JobPosting(
                         wantedAuthNo = result.externalId,
                         isActive = result.isActive,
@@ -79,6 +81,9 @@ class JobSyncService(
                     }
                 )
                 insertCount++
+                if (saved.isActive) {
+                    subscriptionNotificationService.notifyOnJobPostingCreated(saved)
+                }
             }
         }
 

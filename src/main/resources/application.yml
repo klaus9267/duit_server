@@ -13,6 +13,13 @@ spring:
   jpa:
     open-in-view: false  # OSIV 비활성화 — 컨트롤러에서 Lazy Loading 방지, 커넥션 풀 점유 최소화
 
+  # Flyway 스키마 마이그레이션 — prod/local 에서 활성, test 는 application-test.yml 에서 비활성화
+  flyway:
+    enabled: true
+    baseline-on-migrate: true   # 기존 운영 DB에 첫 적용 시 baseline 자동 생성
+    baseline-version: 0
+    locations: classpath:db/migration
+
   # 파일 업로드 크기 제한 설정
   servlet:
     multipart:

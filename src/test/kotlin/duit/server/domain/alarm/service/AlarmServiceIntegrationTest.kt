@@ -1,11 +1,13 @@
 package duit.server.domain.alarm.service
 
+import duit.server.domain.alarm.entity.Alarm
 import duit.server.domain.alarm.entity.AlarmType
 import duit.server.domain.alarm.repository.AlarmRepository
 import duit.server.domain.event.entity.Event
 import duit.server.domain.event.entity.EventStatus
 import duit.server.domain.event.entity.EventStatusGroup
 import duit.server.domain.user.entity.AlarmSettings
+import duit.server.domain.user.entity.User
 import duit.server.support.IntegrationTestSupport
 import duit.server.support.fixture.TestFixtures
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -15,6 +17,7 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.data.domain.PageRequest
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.support.TransactionTemplate
 import java.time.LocalDateTime
@@ -103,7 +106,7 @@ class AlarmServiceIntegrationTest : IntegrationTestSupport() {
             assertEquals(3, alarms.size)
             alarms.forEach { alarm ->
                 assertEquals(AlarmType.EVENT_START, alarm.type)
-                assertEquals(eventId, alarm.event.id)
+                assertEquals(eventId, alarm.event!!.id)
             }
         }
 
@@ -167,6 +170,37 @@ class AlarmServiceIntegrationTest : IntegrationTestSupport() {
             val alarms = alarmRepository.findAll()
             assertEquals(3, alarms.size)
             assertTrue(alarms.none { it.user.nickname == "토큰없는유저" })
+        }
+    }
+
+    @Nested
+    @DisplayName("이벤트/채용 알람 분리 (V1 vs V2)")
+    inner class EventVsJobAlarmTests {
+
+        @Test
+        @DisplayName("V1 조회는 채용 알람을 제외하고 V2 조회는 모두 포함한다")
+        fun `V1 V2 jobPosting 알람 분리`() {
+            val user = entityManager.createQuery(
+                "SELECT u FROM User u WHERE u.nickname = :name", User::class.java
+            ).setParameter("name", "유저1").singleResult
+            val event = entityManager.getReference(Event::class.java, eventId)
+
+            val jobPosting = TestFixtures.jobPosting(title = "구독 매칭 채용")
+            entityManager.persist(jobPosting)
+
+            alarmRepository.save(Alarm(user = user, event = event, type = AlarmType.EVENT_START))
+            alarmRepository.save(
+                Alarm(user = user, jobPosting = jobPosting, type = AlarmType.JOB_SUBSCRIPTION_KEYWORD)
+            )
+            entityManager.flush()
+            entityManager.clear()
+
+            val v1 = alarmRepository.findByUserIdAndEventIsNotNull(user.id!!, PageRequest.of(0, 10))
+            val v2 = alarmRepository.findByUserId(user.id!!, PageRequest.of(0, 10))
+
+            assertEquals(1, v1.totalElements)
+            assertEquals(2, v2.totalElements)
+            assertTrue(v2.content.any { it.jobPosting != null && it.event == null })
         }
     }
 
@@ -241,7 +275,7 @@ class AlarmServiceIntegrationTest : IntegrationTestSupport() {
 
                 val alarms = txTemplate.execute {
                     alarmRepository.findAll()
-                        .filter { it.type == AlarmType.EVENT_START && it.event.id == committedEventId }
+                        .filter { it.type == AlarmType.EVENT_START && it.event!!.id == committedEventId }
                 }!!
 
                 // H2는 MySQL과 동시성 동작이 다르므로 (row-level locking, UK violation 시점 등),

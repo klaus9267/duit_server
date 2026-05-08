@@ -22,6 +22,7 @@ import duit.server.domain.event.entity.EventStatusGroup
 import duit.server.domain.event.repository.EventRepository
 import duit.server.domain.host.dto.HostRequest
 import duit.server.domain.host.service.HostService
+import duit.server.domain.subscription.service.SubscriptionNotificationService
 import duit.server.infrastructure.external.discord.DiscordService
 import duit.server.infrastructure.external.file.FileStorageService
 import org.springframework.data.domain.PageRequest
@@ -39,7 +40,8 @@ class EventService(
     private val hostService: HostService,
     private val fileStorageService: FileStorageService,
     private val eventQueryService: EventQueryService,
-    private val eventCacheEvictService: EventCacheEvictService
+    private val eventCacheEvictService: EventCacheEvictService,
+    private val subscriptionNotificationService: SubscriptionNotificationService,
 ) {
     @Transactional
     fun createEvent(
@@ -75,7 +77,9 @@ class EventService(
 
         val savedEvent = eventRepository.save(event)
 
-        if (!autoApprove) {
+        if (autoApprove) {
+            subscriptionNotificationService.notifyOnEventApproved(savedEvent)
+        } else {
             discordService.sendNewEventNotification(savedEvent)
         }
 
@@ -219,11 +223,16 @@ class EventService(
     @Transactional
     fun updateStatus(eventId: Long) {
         val event = getEvent(eventId)
+        val wasPending = event.status == EventStatus.PENDING
 
         event.updateStatus(LocalDateTime.now())
 
         // 캐시 무효화
         eventCacheEvictService.evictAll()
+
+        if (wasPending && event.status != EventStatus.PENDING) {
+            subscriptionNotificationService.notifyOnEventApproved(event)
+        }
     }
 
     @Transactional

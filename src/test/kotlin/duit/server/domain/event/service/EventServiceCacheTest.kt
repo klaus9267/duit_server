@@ -15,6 +15,7 @@ import duit.server.domain.event.entity.EventType
 import duit.server.domain.event.repository.EventRepository
 import duit.server.domain.host.entity.Host
 import duit.server.domain.host.service.HostService
+import duit.server.domain.subscription.service.SubscriptionNotificationService
 import duit.server.infrastructure.external.discord.DiscordService
 import duit.server.infrastructure.external.file.FileStorageService
 import io.mockk.every
@@ -52,7 +53,8 @@ class EventServiceCacheTest {
         eventCacheEvictService = mockk(relaxed = true)
         eventService = EventService(
             eventRepository, securityUtil, discordService,
-            hostService, fileStorageService, eventQueryService, eventCacheEvictService
+            hostService, fileStorageService, eventQueryService, eventCacheEvictService,
+            mockk(relaxed = true)
         )
     }
 

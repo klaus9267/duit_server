@@ -45,6 +45,10 @@ dependencies {
     runtimeOnly 'com.mysql:mysql-connector-j'
     runtimeOnly 'com.h2database:h2'
 
+    // Flyway (스키마 마이그레이션) — Flyway 10+ 부터 MySQL 모듈 분리됨
+    implementation 'org.flywaydb:flyway-core'
+    implementation 'org.flywaydb:flyway-mysql'
+
     // Redis
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
     implementation 'org.springframework.boot:spring-boot-starter-cache'

@@ -15,7 +15,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: validate  # 프로덕션: 스키마 검증만 수행
+      ddl-auto: validate  # Flyway 가 스키마 권한. JPA 는 entity↔DB 검증만
     show-sql: false  # SQL 로그 비활성화
     properties:
       hibernate:

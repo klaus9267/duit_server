@@ -29,7 +29,11 @@ class AlarmController(
 ) {
 
     @GetMapping
-    @Operation(summary = "알림 목록 조회", description = "사용자의 알림 목록을 페이징하여 조회합니다 (isRead 필터링 가능)")
+    @Operation(
+        summary = "알림 목록 조회 (V1)",
+        description = "사용자의 **이벤트 알림만** 페이징하여 조회합니다 (isRead 필터링 가능). " +
+            "채용공고 알림은 본 엔드포인트에서 제외되며 V2 (`GET /api/v2/alarms`) 에서 폴리모픽 응답으로 조회 가능합니다."
+    )
     @RequireAuth
     @ResponseStatus(HttpStatus.OK)
     fun getAlarms(

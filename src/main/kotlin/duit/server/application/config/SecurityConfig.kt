@@ -63,6 +63,9 @@ class SecurityConfig(
                         "/api/v1/admin/auth/login",
                         "/api/v1/alarms/test"
                     ).permitAll()
+                    // 회사 북마크 목록은 인증 필요 — `{companyId}` 와일드카드보다 먼저 평가되어야 함
+                    .requestMatchers(HttpMethod.GET, "/api/v1/companies/bookmarked")
+                    .authenticated()
                     .requestMatchers(
                         HttpMethod.GET,
                         "/api/v1/events",
@@ -72,6 +75,7 @@ class SecurityConfig(
                         "/api/v1/hosts",
                         "/api/v1/job-postings",
                         "/api/v1/job-postings/{jobPostingId}",
+                        "/api/v1/companies/{companyId}",
                     ).permitAll()
 
                     // CORS preflight 요청 (OPTIONS) 허용
