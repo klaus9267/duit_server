@@ -61,6 +61,8 @@ class JobPostingControllerIntegrationTest : IntegrationTestSupport() {
             TestFixtures.jobPosting(
                 title = "경기 파트타임 간호조무사",
                 companyName = "경기의원",
+                jobCategory = "간호조무사",
+                jobsCd = "307500",
                 workRegion = WorkRegion.GYEONGGI,
                 employmentType = EmploymentType.PART_TIME,
                 educationLevel = EducationLevel.HIGH_SCHOOL,
@@ -119,8 +121,8 @@ class JobPostingControllerIntegrationTest : IntegrationTestSupport() {
         )
         entityManager.persist(
             TestFixtures.jobPosting(
-                title = "광주 시급 간호조무사",
-                companyName = "광주의원",
+                title = "광주 시급 간호사",
+                companyName = "광주병원",
                 workRegion = WorkRegion.GWANGJU,
                 employmentType = EmploymentType.PART_TIME,
                 educationLevel = EducationLevel.HIGH_SCHOOL,
@@ -281,7 +283,7 @@ class JobPostingControllerIntegrationTest : IntegrationTestSupport() {
                     .andExpect(status().isOk)
                     .andExpect(jsonPath("$.content").isArray)
                     .andExpect(jsonPath("$.content.length()").value(1))
-                    .andExpect(jsonPath("$.content[0].company.corpNm").value("광주의원"))
+                    .andExpect(jsonPath("$.content[0].company.corpNm").value("광주병원"))
             }
 
             @Test
@@ -293,7 +295,19 @@ class JobPostingControllerIntegrationTest : IntegrationTestSupport() {
                     .andDo(print())
                     .andExpect(status().isOk)
                     .andExpect(jsonPath("$.content").isArray)
-                    .andExpect(jsonPath("$.content.length()").value(3))
+                    .andExpect(jsonPath("$.content.length()").value(2))
+            }
+
+            @Test
+            fun `간호조무사 직종코드 공고는 목록에서 제외`() {
+                mockMvc.perform(
+                    get("/api/v1/job-postings")
+                        .param("searchKeyword", "간호조무사")
+                )
+                    .andDo(print())
+                    .andExpect(status().isOk)
+                    .andExpect(jsonPath("$.content").isArray)
+                    .andExpect(jsonPath("$.content.length()").value(0))
             }
 
             @Test

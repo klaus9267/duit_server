@@ -8,14 +8,30 @@
 
 > 매 작업 후 갱신. 새 세션 시작 시 이 섹션만 읽으면 전체 파악 가능.
 
- **마지막 작업일**: 2026-05-09
- **진행 중인 작업**: 구독(Subscription) 도메인 + 알림 발송 시스템 신설 완료 (Phase 1-5). origin/dev 대비 dev 7 커밋 앞.
+ **마지막 작업일**: 2026-06-24
+ **진행 중인 작업**: 고용24 채용공고에서 간호조무사 직종코드 `307500` 제외 처리. `codex/exclude-nursing-assistant-jobs` 브랜치에서 진행.
  **블로커**: 운영 DB에서 `scripts/sql/deduplicate_user_device_tokens.sql` 실행 후 `scripts/sql/add_user_device_tokens_unique_constraint.sql` 적용 필요 (이전 작업)
  **미수정 CRITICAL**: 1건 (배포된 비밀 노출 사고 후 실제 비밀 rotation / GHCR 정리 필요)
  **미수정 HIGH**: 6건 (CORS, 외부 API 타임아웃/재시도, FCM invalid token 정리, JWT Refresh Token, Discord fire-and-forget)
- **브랜치**: dev
+ **브랜치**: codex/exclude-nursing-assistant-jobs
  **신규 의존성**: 없음 (Flyway는 기존 build.gradle 활성화)
  **신규 env**: `application*.yml` 의 `ddl-auto: validate` + `flyway enabled`
+
+## 2026-06-24 (간호조무사 채용공고 노출 제외)
+
+**분류**: fix | test | docs
+
+### 작업 내용
+- 고용24 채용공고 수집 `occupation` 필터에서 간호조무사 직종코드 `307500`을 제거하고, 간호사 대상 코드 `304000|304001|304002`만 요청하도록 변경
+- 외부 API 응답에 비대상 직종이 섞여 들어올 경우를 대비해 `JobPosting.NURSE_TARGET_JOB_CODES` / `isNurseTarget()` 기준으로 수집 결과를 한 번 더 필터링
+- 기존 DB에 이미 저장된 `307500` 공고가 계속 노출되지 않도록 채용공고 목록 QueryDSL 조건에 허용 직종코드 필터 추가
+- 채용공고 통합 테스트 fixture에 `jobsCd` 입력을 분리하고, 간호조무사 직종코드 공고가 목록에서 제외되는 회귀 테스트 추가
+
+### 테스트
+- 통과: `./gradlew test --tests "duit.server.infrastructure.external.job.work24.Work24JobFetcherTest" --tests "duit.server.domain.job.controller.JobPostingControllerIntegrationTest"` (임시 JDK 17 사용)
+
+### 결정 사항
+- 수집 단계만 수정하면 기존 활성 `307500` 데이터가 목록에 남을 수 있어, 조회 단계에도 동일한 허용 코드 조건을 적용한다.
 
 ## 2026-05-09 (구독 도메인 + 알림 발송 시스템 신설)
 

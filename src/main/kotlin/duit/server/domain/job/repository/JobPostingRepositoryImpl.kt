@@ -6,7 +6,12 @@ import com.querydsl.jpa.JPAExpressions
 import com.querydsl.jpa.impl.JPAQueryFactory
 import duit.server.domain.job.dto.JobPostingCursor
 import duit.server.domain.job.dto.JobPostingCursorPaginationParam
-import duit.server.domain.job.entity.*
+import duit.server.domain.job.entity.CloseType
+import duit.server.domain.job.entity.Company
+import duit.server.domain.job.entity.JobPosting
+import duit.server.domain.job.entity.QCompany
+import duit.server.domain.job.entity.QJobBookmark
+import duit.server.domain.job.entity.QJobPosting
 import org.springframework.stereotype.Repository
 
 @Repository
@@ -34,6 +39,7 @@ class JobPostingRepositoryImpl(
 
         val conditions = mutableListOf<BooleanExpression?>()
         conditions += jobPosting.isActive.isTrue
+        conditions += jobPosting.jobsCd.`in`(JobPosting.NURSE_TARGET_JOB_CODES)
 
         if (!param.workRegions.isNullOrEmpty()) {
             conditions += param.workRegions
@@ -58,11 +64,11 @@ class JobPostingRepositoryImpl(
         if (!param.closeTypes.isNullOrEmpty()) {
             conditions += param.closeTypes.map {
                 when (it) {
-                    duit.server.domain.job.entity.CloseType.FIXED -> jobPosting.receiptCloseDt.isNotNull
+                    CloseType.FIXED -> jobPosting.receiptCloseDt.isNotNull
                         .and(jobPosting.receiptCloseDt.containsIgnoreCase("채용시까지").not())
                         .and(jobPosting.receiptCloseDt.containsIgnoreCase("상시").not())
-                    duit.server.domain.job.entity.CloseType.ON_HIRE -> jobPosting.receiptCloseDt.containsIgnoreCase("채용시까지")
-                    duit.server.domain.job.entity.CloseType.ONGOING -> jobPosting.receiptCloseDt.containsIgnoreCase("상시")
+                    CloseType.ON_HIRE -> jobPosting.receiptCloseDt.containsIgnoreCase("채용시까지")
+                    CloseType.ONGOING -> jobPosting.receiptCloseDt.containsIgnoreCase("상시")
                 }
             }.reduceOrNull(BooleanExpression::or)
         }

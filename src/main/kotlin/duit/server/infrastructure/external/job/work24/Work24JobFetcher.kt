@@ -3,6 +3,7 @@ package duit.server.infrastructure.external.job.work24
 import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.dataformat.xml.XmlMapper
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
+import duit.server.domain.job.entity.JobPosting
 import duit.server.domain.job.entity.JobPostingWork24Detail
 import duit.server.domain.job.entity.SourceType
 import duit.server.infrastructure.external.job.JobFetcher
@@ -35,7 +36,7 @@ class Work24JobFetcher(
         .build()
 
     companion object {
-        private const val OCCUPATION_FILTER = "304000|304001|304002|307500"
+        private const val OCCUPATION_FILTER = "304000|304001|304002"
         private const val LIST_DISPLAY = 100
     }
 
@@ -69,8 +70,13 @@ class Work24JobFetcher(
             if (detail == null) {
                 skipped++
             } else {
-                results.add(mergeListAndDetail(item, detail))
-                success++
+                val result = mergeListAndDetail(item, detail)
+                if (isNurseTarget(result)) {
+                    results.add(result)
+                    success++
+                } else {
+                    skipped++
+                }
             }
 
             val processed = index + 1
@@ -82,6 +88,9 @@ class Work24JobFetcher(
         logger.info("Work24 수집 완료: list={}, 요청={}, 성공={}, 스킵={}", listItems.size, targets.size, success, skipped)
         return results
     }
+
+    private fun isNurseTarget(result: JobFetchResult): Boolean =
+        result.detail.jobsCd?.let(JobPosting.NURSE_TARGET_JOB_CODES::contains) == true
 
     private fun fetchListAll(): List<Work24ApiResponse.WantedItem> {
         val results = mutableListOf<Work24ApiResponse.WantedItem>()
