@@ -8,14 +8,44 @@
 
 > 매 작업 후 갱신. 새 세션 시작 시 이 섹션만 읽으면 전체 파악 가능.
 
- **마지막 작업일**: 2026-05-09
- **진행 중인 작업**: 구독(Subscription) 도메인 + 알림 발송 시스템 신설 완료 (Phase 1-5). origin/dev 대비 dev 7 커밋 앞.
+ **마지막 작업일**: 2026-06-23
+ **진행 중인 작업**: 고용24 채용공고 지역/고용형태 필터 원문 매칭 보정 완료.
  **블로커**: 운영 DB에서 `scripts/sql/deduplicate_user_device_tokens.sql` 실행 후 `scripts/sql/add_user_device_tokens_unique_constraint.sql` 적용 필요 (이전 작업)
  **미수정 CRITICAL**: 1건 (배포된 비밀 노출 사고 후 실제 비밀 rotation / GHCR 정리 필요)
  **미수정 HIGH**: 6건 (CORS, 외부 API 타임아웃/재시도, FCM invalid token 정리, JWT Refresh Token, Discord fire-and-forget)
- **브랜치**: dev
+ **브랜치**: main
  **신규 의존성**: 없음 (Flyway는 기존 build.gradle 활성화)
  **신규 env**: `application*.yml` 의 `ddl-auto: validate` + `flyway enabled`
+
+## 2026-06-23 (고용24 채용공고 필터 원문 매칭 보정)
+
+**분류**: fix | test | docs
+
+### 작업 내용
+- 채용공고 조회의 `workRegions`, `employmentTypes` 필터가 고용24 원문 주소/고용형태에서도 매칭되도록 수정
+- 지역은 `regionCd` 시도 코드 prefix를 우선 사용하고, 코드가 없는 데이터만 원문 주소 별칭으로 fallback
+- 고용형태는 `empTpCd` 고용24 코드(`10/11`, `20/21`, `4`)를 우선 사용하고, 코드가 없는 데이터만 원문 고용형태 문구로 fallback
+- `Work24CodeMapper`가 우편번호 괄호 또는 5자리 우편번호 접두를 제거한 뒤 지역/구군을 파싱하도록 보강
+- 고용24 원문 형태와 코드/원문 불일치 케이스 회귀 테스트 추가
+
+### 테스트 결과
+- `JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home ./gradlew test --tests "duit.server.domain.job.controller.JobPostingControllerIntegrationTest"` 통과
+- `JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home ./gradlew test --tests "duit.server.infrastructure.external.job.work24.Work24CodeMapperTest"` 통과
+
+### 기술적 결정
+- 스키마 변경 없이 기존 `regionCd`, `empTpCd`, 원문 필드를 조합해 필터를 보정 → 즉시 배포 가능하고 기존 수집 데이터에도 적용됨
+- 강원/전북은 구 행정코드와 특별자치도 전환 후 코드를 모두 prefix로 허용
+- 고용24 지역/고용형태 코드는 원문 문자열보다 더 명확하므로, 코드가 있으면 코드만 authoritative하게 사용하고 원문 문자열은 코드가 비어 있을 때만 사용
+- 지역 원문 fallback은 주소 시작 또는 우편번호 직후 시작 지점만 매칭해 `경기도 광주시`가 `광주광역시` 필터에 걸리는 오탐을 방지
+
+### 영향 범위
+- 채용공고 조회 API `/api/v1/job-postings`
+- 고용24 코드 매퍼
+- DB 스키마 변경 없음
+
+### 발견한 제약 조건
+- 라이브 데이터의 `workRegion`은 `(07516) 서울특별시...`처럼 우편번호가 앞에 올 수 있음
+- 라이브 데이터의 `empTpNm`은 `정규직`/`계약직`이 아니라 `기간의 정함이 없는/있는 근로계약` 원문일 수 있음
 
 ## 2026-05-09 (구독 도메인 + 알림 발송 시스템 신설)
 
