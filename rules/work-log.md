@@ -8,14 +8,29 @@
 
 > 매 작업 후 갱신. 새 세션 시작 시 이 섹션만 읽으면 전체 파악 가능.
 
- **마지막 작업일**: 2026-06-24
- **진행 중인 작업**: 고용24 채용공고에서 간호조무사 직종코드 `307500` 제외 처리. `codex/exclude-nursing-assistant-jobs` 브랜치에서 진행.
+ **마지막 작업일**: 2026-06-25
+ **진행 중인 작업**: PR #148 GitHub Actions 실패 원인 확인 및 fork PR 권한 대응 완료. `codex/exclude-nursing-assistant-jobs` 브랜치에서 진행.
  **블로커**: 운영 DB에서 `scripts/sql/deduplicate_user_device_tokens.sql` 실행 후 `scripts/sql/add_user_device_tokens_unique_constraint.sql` 적용 필요 (이전 작업)
  **미수정 CRITICAL**: 1건 (배포된 비밀 노출 사고 후 실제 비밀 rotation / GHCR 정리 필요)
  **미수정 HIGH**: 6건 (CORS, 외부 API 타임아웃/재시도, FCM invalid token 정리, JWT Refresh Token, Discord fire-and-forget)
  **브랜치**: codex/exclude-nursing-assistant-jobs
  **신규 의존성**: 없음 (Flyway는 기존 build.gradle 활성화)
  **신규 env**: `application*.yml` 의 `ddl-auto: validate` + `flyway enabled`
+
+## 2026-06-25 (PR #148 GitHub Actions 권한 실패 대응)
+
+**분류**: ci | docs
+
+### 작업 내용
+- PR #148 실패 로그 확인 결과, 애플리케이션 테스트는 `534 tests run, 532 passed, 2 skipped, 0 failed`로 통과
+- 실패 원인은 fork PR에서 `GITHUB_TOKEN`이 read-only로 제한되어 `Post coverage comment`와 `mikepenz/action-junit-report`의 check 생성이 `Resource not accessible by integration`으로 실패한 것
+- fork PR에서는 쓰기 권한이 필요한 coverage comment / JUnit check 게시 단계를 건너뛰고, 같은 저장소 PR에서만 실행되도록 `.github/workflows/test.yml` 조건 추가
+
+### 테스트
+- 원격 로그 확인: `gh run view 28042670855 --repo klaus9267/duit_server --job 83214458009 --log`
+
+### 결정 사항
+- 테스트 실행 자체는 유지하고, 권한이 필요한 게시 단계만 조건부 실행한다. fork PR에서도 실제 테스트 실패는 `Run tests` 단계에서 그대로 실패로 드러난다.
 
 ## 2026-06-24 (간호조무사 채용공고 노출 제외)
 
