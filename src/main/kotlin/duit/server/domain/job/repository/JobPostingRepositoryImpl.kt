@@ -41,6 +41,7 @@ class JobPostingRepositoryImpl(
 
         val conditions = mutableListOf<BooleanExpression?>()
         conditions += jobPosting.isActive.isTrue
+        conditions += jobPosting.jobsCd.`in`(JobPosting.NURSE_TARGET_JOB_CODES)
 
         if (!param.workRegions.isNullOrEmpty()) {
             conditions += buildWorkRegionCondition(param.workRegions)

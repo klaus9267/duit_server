@@ -102,6 +102,7 @@ fun publicEndpoint() = ...
 - 고용24 상세 응답은 DB에 저장된 구조화 필드 기준으로 만들고, `corpInfo`는 `company` 연관 엔티티에서 복원한다
 - 우리 서비스 메타 정보는 `id`, `wantedAuthNo`, `isBookmarked`, `createdAt`, `updatedAt`처럼 최소 필드만 루트에 둔다
 - 목록 API는 가벼운 summary DTO를 유지하고, 상세 API만 `wantedDtl` 기반 richer payload를 내려준다
+- 채용공고 목록 API는 간호사가 대상에 포함된 고용24 직종코드(`304000`, `304001`, `304002`)만 노출한다. 간호조무사 코드 `307500`은 제외한다
 - `JobPostingResponse`는 별도 이름 변환보다 `JobPosting` 엔티티 필드명을 최대한 그대로 따른다. 예: `wantedTitle`, `jobsNm`, `workRegion`, `empTpNm`
 - 응답 DTO에 축약 필드가 포함되면 `@Schema(description = ...)`로 의미를 반드시 명시한다. 예: `minEdubgIcd`, `staAreaRegionCd`, `mltsvcExcHope`
 
