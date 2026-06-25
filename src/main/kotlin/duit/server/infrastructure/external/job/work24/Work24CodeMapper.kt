@@ -41,31 +41,32 @@ object Work24CodeMapper {
 
     fun mapWorkRegion(region: String?): WorkRegion? {
         if (region.isNullOrBlank()) return null
+        val normalized = normalizeRegion(region)
         return when {
-            region.startsWith("서울") -> WorkRegion.SEOUL
-            region.startsWith("부산") -> WorkRegion.BUSAN
-            region.startsWith("대구") -> WorkRegion.DAEGU
-            region.startsWith("인천") -> WorkRegion.INCHEON
-            region.startsWith("광주") -> WorkRegion.GWANGJU
-            region.startsWith("대전") -> WorkRegion.DAEJEON
-            region.startsWith("울산") -> WorkRegion.ULSAN
-            region.startsWith("세종") -> WorkRegion.SEJONG
-            region.startsWith("경기") -> WorkRegion.GYEONGGI
-            region.startsWith("강원") -> WorkRegion.GANGWON
-            region.startsWith("충북") -> WorkRegion.CHUNGBUK
-            region.startsWith("충남") -> WorkRegion.CHUNGNAM
-            region.startsWith("전북") || region.startsWith("전라북도") -> WorkRegion.JEONBUK
-            region.startsWith("전남") || region.startsWith("전라남도") -> WorkRegion.JEONNAM
-            region.startsWith("경북") || region.startsWith("경상북도") -> WorkRegion.GYEONGBUK
-            region.startsWith("경남") || region.startsWith("경상남도") -> WorkRegion.GYEONGNAM
-            region.startsWith("제주") -> WorkRegion.JEJU
+            normalized.startsWith("서울") -> WorkRegion.SEOUL
+            normalized.startsWith("부산") -> WorkRegion.BUSAN
+            normalized.startsWith("대구") -> WorkRegion.DAEGU
+            normalized.startsWith("인천") -> WorkRegion.INCHEON
+            normalized.startsWith("광주") -> WorkRegion.GWANGJU
+            normalized.startsWith("대전") -> WorkRegion.DAEJEON
+            normalized.startsWith("울산") -> WorkRegion.ULSAN
+            normalized.startsWith("세종") -> WorkRegion.SEJONG
+            normalized.startsWith("경기") -> WorkRegion.GYEONGGI
+            normalized.startsWith("강원") -> WorkRegion.GANGWON
+            normalized.startsWith("충북") || normalized.startsWith("충청북도") -> WorkRegion.CHUNGBUK
+            normalized.startsWith("충남") || normalized.startsWith("충청남도") -> WorkRegion.CHUNGNAM
+            normalized.startsWith("전북") || normalized.startsWith("전라북도") -> WorkRegion.JEONBUK
+            normalized.startsWith("전남") || normalized.startsWith("전라남도") -> WorkRegion.JEONNAM
+            normalized.startsWith("경북") || normalized.startsWith("경상북도") -> WorkRegion.GYEONGBUK
+            normalized.startsWith("경남") || normalized.startsWith("경상남도") -> WorkRegion.GYEONGNAM
+            normalized.startsWith("제주") -> WorkRegion.JEJU
             else -> WorkRegion.ETC
         }
     }
 
     fun extractDistrict(region: String?): String? {
         if (region.isNullOrBlank()) return null
-        val parts = region.trim().split(" ").filter { it.isNotBlank() }
+        val parts = normalizeRegion(region).split(" ").filter { it.isNotBlank() }
         if (parts.size <= 1) return null
         return parts.drop(1).joinToString(" ")
     }
@@ -97,6 +98,10 @@ object Work24CodeMapper {
     }
 
     private val leadingNumberPattern = Regex("^-?\\d+")
+    private val leadingPostalCodePattern = Regex("^\\s*(?:\\([^)]*\\)|\\d{5})\\s*")
+
+    private fun normalizeRegion(region: String): String =
+        region.replaceFirst(leadingPostalCodePattern, "").trim()
 
     /** "100 명", "50 백만원" 같은 선행 숫자 추출 */
     fun parseLongPrefix(raw: String?): Long? {
