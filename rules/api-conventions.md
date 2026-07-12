@@ -219,8 +219,11 @@ data class EventCursorPaginationParam(
 }
 ```
 
-- 채용공고 목록 API는 별도 정렬 필드를 받지 않고 `id DESC` 고정 정렬을 사용한다
-- 채용공고 커서는 마지막 응답 항목의 `id`만 Base64로 인코딩해 사용한다
+- 채용공고 목록 API는 `field=CREATED_AT|EXPIRES_AT|SALARY` 정렬을 지원한다
+  - `CREATED_AT`: 등록 시각 내림차순
+  - `EXPIRES_AT`: 마감 시각 오름차순. 마감일이 없는 채용시까지/상시 공고는 제외
+  - `SALARY`: 최소 급여 내림차순. 급여 금액이 없는 공고는 제외
+- 채용공고 커서는 선택한 정렬값과 `id`를 함께 Base64로 인코딩한다. 다음 페이지 요청에는 첫 페이지와 같은 `field`를 전달해야 한다
 
 ### 정렬 옵션 (PaginationField)
 

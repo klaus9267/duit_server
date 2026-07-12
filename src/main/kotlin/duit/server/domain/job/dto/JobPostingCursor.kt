@@ -1,26 +1,52 @@
 package duit.server.domain.job.dto
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import duit.server.domain.job.entity.JobPosting
+import java.time.LocalDateTime
 import java.util.Base64
 
-data class JobPostingCursor(
-    val id: Long,
-) {
-    companion object {
-        internal val objectMapper = ObjectMapper().registerKotlinModule()
+sealed interface JobPostingCursor {
+    data class CreatedAtCursor(val createdAt: LocalDateTime, val id: Long) : JobPostingCursor
+    data class ExpiresAtCursor(val expiresAt: LocalDateTime, val id: Long) : JobPostingCursor
+    data class SalaryCursor(val salaryMin: Long, val id: Long) : JobPostingCursor
 
-        fun decode(encoded: String): JobPostingCursor =
+    companion object {
+        internal val objectMapper = ObjectMapper()
+            .registerKotlinModule()
+            .registerModule(JavaTimeModule())
+
+        fun decode(encoded: String, field: JobPostingSortField): JobPostingCursor =
             try {
                 val decoded = String(Base64.getUrlDecoder().decode(encoded), Charsets.UTF_8)
-                objectMapper.readValue(decoded, JobPostingCursor::class.java)
+                val cursorType = when (field) {
+                    JobPostingSortField.CREATED_AT -> CreatedAtCursor::class.java
+                    JobPostingSortField.EXPIRES_AT -> ExpiresAtCursor::class.java
+                    JobPostingSortField.SALARY -> SalaryCursor::class.java
+                }
+                objectMapper.readValue(decoded, cursorType)
             } catch (e: Exception) {
                 throw IllegalArgumentException("유효하지 않은 커서입니다: ${e.message}", e)
             }
 
-        fun fromJobPosting(jobPosting: JobPosting): JobPostingCursor =
-            JobPostingCursor(jobPosting.id ?: throw IllegalArgumentException("JobPosting ID must not be null"))
+        fun fromJobPosting(jobPosting: JobPosting, field: JobPostingSortField): JobPostingCursor {
+            val id = jobPosting.id ?: throw IllegalArgumentException("JobPosting ID must not be null")
+
+            return when (field) {
+                JobPostingSortField.CREATED_AT -> CreatedAtCursor(jobPosting.createdAt, id)
+                JobPostingSortField.EXPIRES_AT -> ExpiresAtCursor(
+                    jobPosting.expiresAt
+                        ?: throw IllegalArgumentException("expiresAt must not be null for EXPIRES_AT sort"),
+                    id,
+                )
+                JobPostingSortField.SALARY -> SalaryCursor(
+                    jobPosting.salaryMin
+                        ?: throw IllegalArgumentException("salaryMin must not be null for SALARY sort"),
+                    id,
+                )
+            }
+        }
     }
 }
 

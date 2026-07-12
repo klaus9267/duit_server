@@ -522,6 +522,109 @@ class JobPostingControllerIntegrationTest : IntegrationTestSupport() {
             }
 
             @Test
+            fun `CREATED_AT은 최신 등록순으로 정렬한다`() {
+                val result = mockMvc.perform(
+                    get("/api/v1/job-postings")
+                        .param("field", "CREATED_AT")
+                        .param("size", "3")
+                )
+                    .andExpect(status().isOk)
+                    .andReturn()
+
+                assertThat(responseTitles(result.response.contentAsString))
+                    .containsExactly("울산 정규직 간호사", "대전 정규직 간호사", "광주 시급 간호사")
+            }
+
+            @Test
+            fun `EXPIRES_AT은 마감 임박순으로 정렬한다`() {
+                val result = mockMvc.perform(
+                    get("/api/v1/job-postings")
+                        .param("field", "EXPIRES_AT")
+                        .param("size", "3")
+                )
+                    .andExpect(status().isOk)
+                    .andReturn()
+
+                assertThat(responseTitles(result.response.contentAsString))
+                    .containsExactly("대전 정규직 간호사", "서울 정규직 간호사", "부산 계약직 간호사")
+            }
+
+            @Test
+            fun `SALARY는 급여 높은순으로 정렬한다`() {
+                val result = mockMvc.perform(
+                    get("/api/v1/job-postings")
+                        .param("field", "SALARY")
+                        .param("size", "3")
+                )
+                    .andExpect(status().isOk)
+                    .andReturn()
+
+                assertThat(responseTitles(result.response.contentAsString))
+                    .containsExactly("울산 정규직 간호사", "서울 정규직 간호사", "대전 정규직 간호사")
+            }
+
+            @Test
+            fun `EXPIRES_AT 커서는 다음 마감 공고부터 이어서 조회한다`() {
+                val firstPage = mockMvc.perform(
+                    get("/api/v1/job-postings")
+                        .param("field", "EXPIRES_AT")
+                        .param("size", "2")
+                )
+                    .andExpect(status().isOk)
+                    .andReturn()
+                val firstBody = objectMapper.readTree(firstPage.response.contentAsString)
+
+                val secondPage = mockMvc.perform(
+                    get("/api/v1/job-postings")
+                        .param("field", "EXPIRES_AT")
+                        .param("size", "2")
+                        .param("cursor", firstBody.get("pageInfo").get("nextCursor").asText())
+                )
+                    .andExpect(status().isOk)
+                    .andReturn()
+
+                assertThat(responseTitles(firstPage.response.contentAsString))
+                    .containsExactly("대전 정규직 간호사", "서울 정규직 간호사")
+                assertThat(responseTitles(secondPage.response.contentAsString))
+                    .containsExactly("부산 계약직 간호사", "인천 계약직 간호사")
+            }
+
+            @Test
+            fun `CREATED_AT 커서는 등록 시각이 같아도 id 역순으로 이어서 조회한다`() {
+                val createdAt = java.time.LocalDateTime.of(2027, 1, 1, 0, 0)
+                val postings = listOf("동시등록 첫 공고", "동시등록 둘째 공고").map { title ->
+                    TestFixtures.jobPosting(title = title).also(entityManager::persist)
+                }
+                entityManager.flush()
+                entityManager.createNativeQuery(
+                    "UPDATE job_postings SET created_at = :createdAt WHERE id IN (:ids)"
+                )
+                    .setParameter("createdAt", createdAt)
+                    .setParameter("ids", postings.map { it.id })
+                    .executeUpdate()
+                entityManager.clear()
+
+                val pages = requestTwoSingleItemPages(field = "CREATED_AT", searchKeyword = "동시등록")
+
+                assertThat(responseTitles(pages.first)).containsExactly("동시등록 둘째 공고")
+                assertThat(responseTitles(pages.second)).containsExactly("동시등록 첫 공고")
+            }
+
+            @Test
+            fun `SALARY 커서는 급여가 같아도 id 역순으로 이어서 조회한다`() {
+                listOf("동일급여 첫 공고", "동일급여 둘째 공고").forEach { title ->
+                    entityManager.persist(TestFixtures.jobPosting(title = title, salaryMin = 7_000))
+                }
+                entityManager.flush()
+                entityManager.clear()
+
+                val pages = requestTwoSingleItemPages(field = "SALARY", searchKeyword = "동일급여")
+
+                assertThat(responseTitles(pages.first)).containsExactly("동일급여 둘째 공고")
+                assertThat(responseTitles(pages.second)).containsExactly("동일급여 첫 공고")
+            }
+
+            @Test
             fun `비활성 공고 제외 확인`() {
                 mockMvc.perform(
                     get("/api/v1/job-postings")
@@ -533,6 +636,37 @@ class JobPostingControllerIntegrationTest : IntegrationTestSupport() {
                     .andExpect(jsonPath("$.content.length()").value(0))
             }
         }
+    }
+
+    private fun responseTitles(body: String): List<String> = objectMapper.readTree(body)
+        .get("content")
+        .map { it.get("wantedTitle").asText() }
+
+    private fun requestTwoSingleItemPages(field: String, searchKeyword: String): Pair<String, String> {
+        val firstPage = mockMvc.perform(
+            get("/api/v1/job-postings")
+                .param("field", field)
+                .param("searchKeyword", searchKeyword)
+                .param("size", "1")
+        )
+            .andExpect(status().isOk)
+            .andReturn()
+            .response
+            .contentAsString
+        val cursor = objectMapper.readTree(firstPage).get("pageInfo").get("nextCursor").asText()
+        val secondPage = mockMvc.perform(
+            get("/api/v1/job-postings")
+                .param("field", field)
+                .param("searchKeyword", searchKeyword)
+                .param("size", "1")
+                .param("cursor", cursor)
+        )
+            .andExpect(status().isOk)
+            .andReturn()
+            .response
+            .contentAsString
+
+        return firstPage to secondPage
     }
 
     @Nested

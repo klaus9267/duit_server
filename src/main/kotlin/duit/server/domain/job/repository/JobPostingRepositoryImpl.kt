@@ -6,6 +6,7 @@ import com.querydsl.jpa.JPAExpressions
 import com.querydsl.jpa.impl.JPAQueryFactory
 import duit.server.domain.job.dto.JobPostingCursor
 import duit.server.domain.job.dto.JobPostingCursorPaginationParam
+import duit.server.domain.job.dto.JobPostingSortField
 import duit.server.domain.job.entity.CloseType
 import duit.server.domain.job.entity.Company
 import duit.server.domain.job.entity.EmploymentType
@@ -28,7 +29,7 @@ class JobPostingRepositoryImpl(
     private val jobPostingCompanyId = Expressions.numberPath(Long::class.javaObjectType, jobPostingCompany, "id")
 
     override fun findJobPostings(param: JobPostingCursorPaginationParam, currentUserId: Long?): List<JobPosting> {
-        val cursor = param.cursor?.let(JobPostingCursor::decode)
+        val cursor = param.cursor?.let { JobPostingCursor.decode(it, param.field) }
 
         val query = queryFactory
             .selectFrom(jobPosting)
@@ -87,11 +88,22 @@ class JobPostingRepositoryImpl(
                 )
         }
 
+        conditions += when (param.field) {
+            JobPostingSortField.CREATED_AT -> null
+            JobPostingSortField.EXPIRES_AT -> jobPosting.expiresAt.isNotNull
+            JobPostingSortField.SALARY -> jobPosting.salaryMin.isNotNull
+        }
         conditions += buildCursorCondition(cursor)
 
         return query
             .where(*conditions.filterNotNull().toTypedArray())
-            .orderBy(jobPosting.id.desc())
+            .orderBy(
+                *when (param.field) {
+                    JobPostingSortField.CREATED_AT -> arrayOf(jobPosting.createdAt.desc(), jobPosting.id.desc())
+                    JobPostingSortField.EXPIRES_AT -> arrayOf(jobPosting.expiresAt.asc(), jobPosting.id.desc())
+                    JobPostingSortField.SALARY -> arrayOf(jobPosting.salaryMin.desc(), jobPosting.id.desc())
+                }
+            )
             .limit(param.size.toLong() + 1)
             .fetch()
     }
@@ -133,7 +145,17 @@ class JobPostingRepositoryImpl(
     private fun buildCursorCondition(cursor: JobPostingCursor?): BooleanExpression? {
         if (cursor == null) return null
 
-        return jobPosting.id.lt(cursor.id)
+        return when (cursor) {
+            is JobPostingCursor.CreatedAtCursor ->
+                jobPosting.createdAt.lt(cursor.createdAt)
+                    .or(jobPosting.createdAt.eq(cursor.createdAt).and(jobPosting.id.lt(cursor.id)))
+            is JobPostingCursor.ExpiresAtCursor ->
+                jobPosting.expiresAt.gt(cursor.expiresAt)
+                    .or(jobPosting.expiresAt.eq(cursor.expiresAt).and(jobPosting.id.lt(cursor.id)))
+            is JobPostingCursor.SalaryCursor ->
+                jobPosting.salaryMin.lt(cursor.salaryMin)
+                    .or(jobPosting.salaryMin.eq(cursor.salaryMin).and(jobPosting.id.lt(cursor.id)))
+        }
     }
 }
 

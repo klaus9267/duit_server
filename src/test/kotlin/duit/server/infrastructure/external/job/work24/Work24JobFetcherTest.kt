@@ -36,6 +36,7 @@ class Work24JobFetcherTest {
         region: String? = "서울특별시 강남구",
         jobsCd: String? = "304000",
         empTpCd: String? = "10",
+        minSal: String? = null,
         wantedInfoUrl: String? = "https://example.com/1",
     ) = Work24ApiResponse.WantedItem(
         wantedAuthNo = wantedAuthNo,
@@ -46,6 +47,7 @@ class Work24JobFetcherTest {
         region = region,
         jobsCd = jobsCd,
         empTpCd = empTpCd,
+        minSal = minSal,
         wantedInfoUrl = wantedInfoUrl,
     )
 
@@ -162,9 +164,12 @@ class Work24JobFetcherTest {
         fun `목록과 상세를 모두 조회하여 병합`() {
             every { spyFetcher["fetchListPage"](1) } returns Work24ApiResponse(
                 total = "1",
-                wanted = listOf(listItem())
+                wanted = listOf(listItem(closeDt = "20260718", minSal = "23350156"))
             )
-            every { spyFetcher["fetchDetail"]("K123456") } returns detailResponse(wantedTitle = "수간호사 채용")
+            every { spyFetcher["fetchDetail"]("K123456") } returns detailResponse(
+                wantedTitle = "수간호사 채용",
+                receiptCloseDt = "20260718",
+            )
 
             val results = spyFetcher.fetchAll()
 
@@ -178,6 +183,8 @@ class Work24JobFetcherTest {
             assertEquals("홍길동", result.company.reperNm)
             assertEquals(100L, result.company.totPsncnt)
             assertEquals("123-45-67890", result.company.businessNumber)
+            assertEquals(java.time.LocalDateTime.of(2026, 7, 18, 0, 0), result.detail.expiresAt)
+            assertEquals(23_350_156L, result.detail.salaryMin)
         }
 
         @Test

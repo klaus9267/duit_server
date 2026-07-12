@@ -97,6 +97,15 @@ object Work24CodeMapper {
         return if (value <= 0) null else value
     }
 
+    private val salaryAmountPattern = Regex("[0-9][0-9,]*")
+
+    fun parseSalaryAmount(description: String?): Long? = description
+        ?.let(salaryAmountPattern::find)
+        ?.value
+        ?.replace(",", "")
+        ?.toLongOrNull()
+        ?.takeIf { it > 0 }
+
     private val leadingNumberPattern = Regex("^-?\\d+")
     private val leadingPostalCodePattern = Regex("^\\s*(?:\\([^)]*\\)|\\d{5})\\s*")
 

@@ -223,9 +223,13 @@ class Work24JobFetcher(
             relJobsNm = info?.relJobsNm,
             jobCont = info?.jobCont,
             receiptCloseDt = receiptCloseDt,
+            expiresAt = Work24CodeMapper.parseDate(receiptCloseDt),
             empTpNm = info?.empTpNm,
             collectPsncnt = info?.collectPsncnt,
             salTpNm = info?.salTpNm ?: listItem.salTpNm,
+            salaryMin = Work24CodeMapper.parseSalary(listItem.minSal)
+                ?: Work24CodeMapper.parseSalary(listItem.sal)
+                ?: Work24CodeMapper.parseSalaryAmount(info?.salTpNm ?: listItem.salTpNm),
             enterTpNm = info?.enterTpNm,
             eduNm = info?.eduNm,
             forLang = info?.forLang,

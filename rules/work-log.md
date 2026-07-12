@@ -8,14 +8,32 @@
 
 > 매 작업 후 갱신. 새 세션 시작 시 이 섹션만 읽으면 전체 파악 가능.
 
- **마지막 작업일**: 2026-06-25
- **진행 중인 작업**: PR #147 GitHub Actions 실패 원인 확인 및 fork PR 권한 대응 완료. main 머지(간호조무사 직종코드 `307500` 제외 반영)와 충돌 해소 완료.
+ **마지막 작업일**: 2026-07-13
+ **진행 중인 작업**: 채용공고 목록 `CREATED_AT` / `EXPIRES_AT` / `SALARY` 정렬 복구 및 회귀 테스트 추가.
  **블로커**: 운영 DB에서 `scripts/sql/deduplicate_user_device_tokens.sql` 실행 후 `scripts/sql/add_user_device_tokens_unique_constraint.sql` 적용 필요 (이전 작업)
  **미수정 CRITICAL**: 1건 (배포된 비밀 노출 사고 후 실제 비밀 rotation / GHCR 정리 필요)
  **미수정 HIGH**: 6건 (CORS, 외부 API 타임아웃/재시도, FCM invalid token 정리, JWT Refresh Token, Discord fire-and-forget)
- **브랜치**: codex/fix-work24-job-filters
+ **브랜치**: codex/fix-job-posting-sort
  **신규 의존성**: 없음 (Flyway는 기존 build.gradle 활성화)
  **신규 env**: `application*.yml` 의 `ddl-auto: validate` + `flyway enabled`
+
+## 2026-07-13 (채용공고 목록 정렬 복구)
+
+**분류**: fix | test | db | docs
+
+### 작업 내용
+- 고용24 상세 모델 전환 과정에서 제거됐던 채용공고 목록 `field` 파라미터와 필드별 QueryDSL 정렬을 복구
+- `CREATED_AT`은 등록일 내림차순, `EXPIRES_AT`은 마감일 오름차순, `SALARY`는 최소 급여 내림차순으로 처리
+- 정렬값과 `id`를 함께 담는 필드별 커서를 복구해 두 번째 페이지에서도 중복·누락 없이 같은 정렬을 유지
+- 고용24 목록/상세 응답에서 마감일과 최소 급여를 정규화해 `expires_at`, `salary_min`에 저장하고 기존 데이터 backfill 및 정렬 인덱스를 추가하는 Flyway V3 마이그레이션 작성
+- 세 정렬 옵션과 `EXPIRES_AT` 커서 페이지 이동 통합 테스트 추가
+
+### 원인
+- 채용공고 모델을 고용24 상세 응답 중심으로 개편한 커밋에서 `JobPostingSortField`, DTO의 `field`, 필드별 커서/정렬 로직이 함께 삭제됨
+- Spring MVC는 미선언 쿼리 파라미터 `field`를 무시했고 저장소가 `id DESC`를 고정 적용해 모든 정렬 옵션이 최신순으로 응답됨
+
+### 검증
+- JDK 17에서 채용공고 통합 테스트, 고용24 매퍼/수집 테스트 및 전체 테스트 실행
 
 ## 2026-06-25 (PR #147 GitHub Actions 권한 실패 대응)
 

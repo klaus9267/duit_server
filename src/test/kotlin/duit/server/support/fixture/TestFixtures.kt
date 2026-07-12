@@ -168,8 +168,10 @@ object TestFixtures {
                     CloseType.ONGOING -> "상시"
                     CloseType.FIXED -> expiresAt?.toString()
                 },
+                expiresAt = expiresAt,
                 empTpNm = employmentType?.displayName,
                 salTpNm = salaryType?.displayName,
+                salaryMin = salaryMin,
                 enterTpNm = when {
                     careerMin == null && careerMax == null -> null
                     careerMin == 0 && careerMax == null -> "신입"

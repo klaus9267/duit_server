@@ -142,9 +142,10 @@ class Event(...) {
 - 고용24 상세 응답의 `corpInfo`는 `JobCompany` 엔티티로 분리하고, `JobPosting.company` `ManyToOne` 연관관계로 연결한다.
 - `JobCompany`는 목록 응답의 `busino`(사업자등록번호)를 `businessNumber`로 저장하고, 같은 사업자번호를 가진 공고들은 같은 회사를 공유하게 관리한다.
 - 고용24 상세 응답의 `wantedInfo` / `empchargeInfo`는 별도 embedded 객체로 감싸지 않고 `JobPosting` 필드에 평탄화한다.
-- `JobPosting`은 더 이상 `title`, `companyName`, `jobCategory`, `salaryMin` 같은 별도 정규화 필드를 기본 구조로 두지 않고, 고용24 상세 응답 필드(`wantedTitle`, `jobsNm`, `salTpNm`, `workRegion` 등)를 직접 저장한다.
+- `JobPosting`은 `title`, `companyName`, `jobCategory` 같은 별도 정규화 필드를 기본 구조로 두지 않고, 고용24 상세 응답 필드(`wantedTitle`, `jobsNm`, `salTpNm`, `workRegion` 등)를 직접 저장한다.
+- 목록 정렬에 필요한 `expiresAt`, `salaryMin`만 서비스 메타데이터로 정규화해 저장한다. 원문 표시는 각각 `receiptCloseDt`, `salTpNm`을 사용한다.
 - 식별자는 `wantedAuthNo` 단일 값으로 관리하고, `sourceType` / `externalId` 필드는 두지 않는다.
-- 서비스 메타데이터로는 `wantedAuthNo`, `isActive`, 감사 필드만 유지한다.
+- 서비스 메타데이터로는 `wantedAuthNo`, `isActive`, 정렬용 `expiresAt`/`salaryMin`, 감사 필드를 유지한다.
 - 이름이 축약된 고용24 필드는 엔티티 필드 위에 주석으로 의미를 남긴다. 예: `mltsvcExcHope`, `staAreaRegionCd`, `walkDistCd`
 - `job_postings`처럼 DB Structure 화면에서 바로 의미를 확인해야 하는 테이블은 Hibernate `@Comment`를 함께 선언해 컬럼 comment가 실제 DB에 보이도록 유지한다.
 - 배열 구조는 문자열 컬렉션으로 저장한다.

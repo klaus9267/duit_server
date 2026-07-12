@@ -512,6 +512,24 @@ class Work24CodeMapperTest {
     }
 
     @Nested
+    @DisplayName("parseSalaryAmount")
+    inner class ParseSalaryAmountTests {
+
+        @Test
+        fun `급여 설명의 첫 금액을 쉼표 없이 파싱`() {
+            assertEquals(
+                23_350_156L,
+                Work24CodeMapper.parseSalaryAmount("연봉23,350,156원 이상 ~ 30,000,000원 이하"),
+            )
+        }
+
+        @Test
+        fun `급여 설명에 숫자가 없으면 null 반환`() {
+            assertNull(Work24CodeMapper.parseSalaryAmount("회사 내규에 따름"))
+        }
+    }
+
+    @Nested
     @DisplayName("parseLongPrefix")
     inner class ParseLongPrefixTests {
 
