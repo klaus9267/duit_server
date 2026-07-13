@@ -13,6 +13,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
+import java.time.LocalDate
 import java.time.LocalDateTime
 
 @Component
@@ -216,6 +217,10 @@ class Work24JobFetcher(
 
         val receiptCloseDt = info?.receiptCloseDt ?: listItem.closeDt
         val isActive = determineIsActive(receiptCloseDt)
+        val salaryDescription = info?.salTpNm ?: listItem.salTpNm
+        val salaryAmount = Work24CodeMapper.parseSalary(listItem.minSal)
+            ?: Work24CodeMapper.parseSalary(listItem.sal)
+            ?: Work24CodeMapper.parseSalaryAmount(salaryDescription)
 
         val work24Detail = JobPostingWork24Detail(
             jobsNm = info?.jobsNm,
@@ -224,12 +229,11 @@ class Work24JobFetcher(
             jobCont = info?.jobCont,
             receiptCloseDt = receiptCloseDt,
             expiresAt = Work24CodeMapper.parseDate(receiptCloseDt),
+            postedAt = Work24CodeMapper.parseDate(listItem.regDt),
             empTpNm = info?.empTpNm,
             collectPsncnt = info?.collectPsncnt,
-            salTpNm = info?.salTpNm ?: listItem.salTpNm,
-            salaryMin = Work24CodeMapper.parseSalary(listItem.minSal)
-                ?: Work24CodeMapper.parseSalary(listItem.sal)
-                ?: Work24CodeMapper.parseSalaryAmount(info?.salTpNm ?: listItem.salTpNm),
+            salTpNm = salaryDescription,
+            salaryMin = Work24CodeMapper.annualizeSalary(salaryAmount, salaryDescription),
             enterTpNm = info?.enterTpNm,
             eduNm = info?.eduNm,
             forLang = info?.forLang,
@@ -295,6 +299,6 @@ class Work24JobFetcher(
         if (cleaned.isBlank()) return true
         if (cleaned.contains("채용시까지") || cleaned.contains("상시")) return true
         val parsed = Work24CodeMapper.parseDate(cleaned) ?: return true
-        return parsed.isAfter(LocalDateTime.now())
+        return !parsed.toLocalDate().isBefore(LocalDate.now())
     }
 }

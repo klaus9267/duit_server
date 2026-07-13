@@ -37,6 +37,8 @@ class Work24JobFetcherTest {
         jobsCd: String? = "304000",
         empTpCd: String? = "10",
         minSal: String? = null,
+        salTpNm: String? = null,
+        regDt: String? = null,
         wantedInfoUrl: String? = "https://example.com/1",
     ) = Work24ApiResponse.WantedItem(
         wantedAuthNo = wantedAuthNo,
@@ -48,6 +50,8 @@ class Work24JobFetcherTest {
         jobsCd = jobsCd,
         empTpCd = empTpCd,
         minSal = minSal,
+        salTpNm = salTpNm,
+        regDt = regDt,
         wantedInfoUrl = wantedInfoUrl,
     )
 
@@ -164,7 +168,14 @@ class Work24JobFetcherTest {
         fun `목록과 상세를 모두 조회하여 병합`() {
             every { spyFetcher["fetchListPage"](1) } returns Work24ApiResponse(
                 total = "1",
-                wanted = listOf(listItem(closeDt = "20260718", minSal = "23350156"))
+                wanted = listOf(
+                    listItem(
+                        closeDt = "20260718",
+                        minSal = "23350156",
+                        salTpNm = "연봉",
+                        regDt = "20260701",
+                    )
+                )
             )
             every { spyFetcher["fetchDetail"]("K123456") } returns detailResponse(
                 wantedTitle = "수간호사 채용",
@@ -184,6 +195,7 @@ class Work24JobFetcherTest {
             assertEquals(100L, result.company.totPsncnt)
             assertEquals("123-45-67890", result.company.businessNumber)
             assertEquals(java.time.LocalDateTime.of(2026, 7, 18, 0, 0), result.detail.expiresAt)
+            assertEquals(java.time.LocalDateTime.of(2026, 7, 1, 0, 0), result.detail.postedAt)
             assertEquals(23_350_156L, result.detail.salaryMin)
         }
 
@@ -263,6 +275,19 @@ class Work24JobFetcherTest {
             val results = spyFetcher.fetchAll()
 
             assertEquals(false, results[0].isActive)
+        }
+
+        @Test
+        fun `receiptCloseDt가 오늘이면 마감일까지 isActive true`() {
+            val today = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE)
+            every { spyFetcher["fetchListPage"](1) } returns Work24ApiResponse(
+                total = "1", wanted = listOf(listItem())
+            )
+            every { spyFetcher["fetchDetail"]("K123456") } returns detailResponse(receiptCloseDt = today)
+
+            val results = spyFetcher.fetchAll()
+
+            assertTrue(results[0].isActive)
         }
 
         @Test

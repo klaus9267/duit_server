@@ -35,6 +35,7 @@ object Work24CodeMapper {
             "연봉" -> SalaryType.ANNUAL
             "월급" -> SalaryType.MONTHLY
             "시급" -> SalaryType.HOURLY
+            "일급" -> SalaryType.DAILY
             else -> null
         }
     }
@@ -116,6 +117,17 @@ object Work24CodeMapper {
             else -> amount
         }
         return normalizedAmount?.takeIf { it > 0 }
+    }
+
+    fun annualizeSalary(amount: Long?, description: String?): Long? {
+        if (amount == null || amount <= 0) return null
+        val multiplier = when (mapSalaryType(salaryKeywordPattern.find(description.orEmpty())?.value)) {
+            SalaryType.ANNUAL, null -> 1L
+            SalaryType.MONTHLY -> 12L
+            SalaryType.HOURLY -> 2_508L
+            SalaryType.DAILY -> 261L
+        }
+        return runCatching { Math.multiplyExact(amount, multiplier) }.getOrNull()
     }
 
     private val leadingNumberPattern = Regex("^-?\\d+")

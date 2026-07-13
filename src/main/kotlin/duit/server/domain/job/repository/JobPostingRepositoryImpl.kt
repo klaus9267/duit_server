@@ -16,6 +16,7 @@ import duit.server.domain.job.entity.QJobBookmark
 import duit.server.domain.job.entity.QJobPosting
 import duit.server.domain.job.entity.WorkRegion
 import org.springframework.stereotype.Repository
+import java.time.LocalDate
 
 @Repository
 class JobPostingRepositoryImpl(
@@ -42,6 +43,8 @@ class JobPostingRepositoryImpl(
 
         val conditions = mutableListOf<BooleanExpression?>()
         conditions += jobPosting.isActive.isTrue
+        conditions += jobPosting.expiresAt.isNull
+            .or(jobPosting.expiresAt.goe(LocalDate.now().atStartOfDay()))
         conditions += jobPosting.jobsCd.`in`(JobPosting.NURSE_TARGET_JOB_CODES)
 
         if (!param.workRegions.isNullOrEmpty()) {
@@ -88,20 +91,21 @@ class JobPostingRepositoryImpl(
                 )
         }
 
-        conditions += when (param.field) {
-            JobPostingSortField.CREATED_AT -> null
-            JobPostingSortField.EXPIRES_AT -> jobPosting.expiresAt.isNotNull
-            JobPostingSortField.SALARY -> jobPosting.salaryMin.isNotNull
-        }
         conditions += buildCursorCondition(cursor)
 
         return query
             .where(*conditions.filterNotNull().toTypedArray())
             .orderBy(
                 *when (param.field) {
-                    JobPostingSortField.CREATED_AT -> arrayOf(jobPosting.createdAt.desc(), jobPosting.id.desc())
-                    JobPostingSortField.EXPIRES_AT -> arrayOf(jobPosting.expiresAt.asc(), jobPosting.id.desc())
-                    JobPostingSortField.SALARY -> arrayOf(jobPosting.salaryMin.desc(), jobPosting.id.desc())
+                    JobPostingSortField.CREATED_AT -> arrayOf(jobPosting.postedAt.desc(), jobPosting.id.desc())
+                    JobPostingSortField.EXPIRES_AT -> arrayOf(
+                        jobPosting.expiresAt.asc().nullsLast(),
+                        jobPosting.id.desc(),
+                    )
+                    JobPostingSortField.SALARY -> arrayOf(
+                        jobPosting.salaryMin.desc().nullsLast(),
+                        jobPosting.id.desc(),
+                    )
                 }
             )
             .limit(param.size.toLong() + 1)
@@ -146,15 +150,26 @@ class JobPostingRepositoryImpl(
         if (cursor == null) return null
 
         return when (cursor) {
-            is JobPostingCursor.CreatedAtCursor ->
-                jobPosting.createdAt.lt(cursor.createdAt)
-                    .or(jobPosting.createdAt.eq(cursor.createdAt).and(jobPosting.id.lt(cursor.id)))
-            is JobPostingCursor.ExpiresAtCursor ->
-                jobPosting.expiresAt.gt(cursor.expiresAt)
-                    .or(jobPosting.expiresAt.eq(cursor.expiresAt).and(jobPosting.id.lt(cursor.id)))
-            is JobPostingCursor.SalaryCursor ->
-                jobPosting.salaryMin.lt(cursor.salaryMin)
-                    .or(jobPosting.salaryMin.eq(cursor.salaryMin).and(jobPosting.id.lt(cursor.id)))
+            is JobPostingCursor.CreatedAtCursor -> {
+                val postedAt = cursor.postedAt ?: queryFactory
+                    .select(jobPosting.postedAt)
+                    .from(jobPosting)
+                    .where(jobPosting.id.eq(cursor.id))
+                    .fetchOne()
+                    ?: throw IllegalArgumentException("존재하지 않는 커서 기준 공고입니다")
+                jobPosting.postedAt.lt(postedAt)
+                    .or(jobPosting.postedAt.eq(postedAt).and(jobPosting.id.lt(cursor.id)))
+            }
+            is JobPostingCursor.ExpiresAtCursor -> cursor.expiresAt?.let { expiresAt ->
+                jobPosting.expiresAt.gt(expiresAt)
+                    .or(jobPosting.expiresAt.eq(expiresAt).and(jobPosting.id.lt(cursor.id)))
+                    .or(jobPosting.expiresAt.isNull)
+            } ?: jobPosting.expiresAt.isNull.and(jobPosting.id.lt(cursor.id))
+            is JobPostingCursor.SalaryCursor -> cursor.salaryMin?.let { salaryMin ->
+                jobPosting.salaryMin.lt(salaryMin)
+                    .or(jobPosting.salaryMin.eq(salaryMin).and(jobPosting.id.lt(cursor.id)))
+                    .or(jobPosting.salaryMin.isNull)
+            } ?: jobPosting.salaryMin.isNull.and(jobPosting.id.lt(cursor.id))
         }
     }
 }

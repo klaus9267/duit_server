@@ -27,6 +27,13 @@
 - 정렬값과 `id`를 함께 담는 필드별 커서를 복구해 두 번째 페이지에서도 중복·누락 없이 같은 정렬을 유지
 - 고용24 목록/상세 응답에서 마감일과 최소 급여를 정규화해 `expires_at`, `salary_min`에 저장하고 기존 데이터 backfill 및 정렬 인덱스를 추가하는 Flyway V3 마이그레이션 작성
 - PR 리뷰를 반영해 `salTpNm`의 `만원` 금액을 원 단위로 환산하고, SQL backfill과 JPA 인덱스 방향을 운영 스키마 정의에 맞춤
+- 운영 1,313건 전수 검증 후 마감순에서 채용시까지 공고가 사라지지 않도록 null-last cursor를 적용하고, 과거 마감 공고를 조회/migration 양쪽에서 제외
+- 연봉·월급·시급·일급 원금을 직접 비교하지 않고 연간 추정액으로 환산해 급여순 의미를 통일하고 `DAILY` 급여 필터 추가
+- 최신순 기준을 내부 적재 시각이 아닌 고용24 `regDt` 기반 `postedAt`으로 변경하고, 기존 id 전용 커서는 기본 정렬에서 호환
+- 마감 당일 자정부터 비활성화되던 날짜 경계를 당일 전체 포함으로 수정
+- Docker 사용 가능한 CI에서는 Testcontainers MySQL 8로 V3 CTE/정규식/오버플로 backfill을 실제 실행해 검증
+- 배포 직후 기존 `postedAt`은 `createdAt`으로 임시 backfill되며, `ApplicationReadyEvent` 전체 동기화 완료 후 고용24 `regDt`로 교정됨
+- null-last 정렬은 현재 운영 1,313건 규모에서 허용하며, 데이터 증가 시 MySQL 실행계획과 filesort 비용을 재검토
 - 세 정렬 옵션과 `EXPIRES_AT` 커서 페이지 이동 통합 테스트 추가
 
 ### 원인

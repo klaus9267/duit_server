@@ -23,8 +23,8 @@ data class JobPostingCursorPaginationParam(
     @get:Parameter(
         description = """정렬 필드
 - CREATED_AT: 최신 등록순 (기본값)
-- EXPIRES_AT: 마감 임박순
-- SALARY: 급여 높은순""",
+- EXPIRES_AT: 마감 임박순 (마감일 없는 공고는 마지막)
+- SALARY: 환산 연간 급여 높은순 (미공개 공고는 마지막)""",
         example = "CREATED_AT"
     )
     @get:Schema(defaultValue = "CREATED_AT")
@@ -72,7 +72,8 @@ data class JobPostingCursorPaginationParam(
     @get:Parameter(description = """급여 유형 필터 (단일 선택)
 - ANNUAL: 연봉
 - MONTHLY: 월급
-- HOURLY: 시급""")
+- HOURLY: 시급
+- DAILY: 일급""")
     val salaryType: SalaryType? = null,
 
     @get:Parameter(description = """마감 유형 필터 (다중 선택 가능)

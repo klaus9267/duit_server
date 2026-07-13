@@ -8,9 +8,9 @@ import java.time.LocalDateTime
 import java.util.Base64
 
 sealed interface JobPostingCursor {
-    data class CreatedAtCursor(val createdAt: LocalDateTime, val id: Long) : JobPostingCursor
-    data class ExpiresAtCursor(val expiresAt: LocalDateTime, val id: Long) : JobPostingCursor
-    data class SalaryCursor(val salaryMin: Long, val id: Long) : JobPostingCursor
+    data class CreatedAtCursor(val postedAt: LocalDateTime? = null, val id: Long) : JobPostingCursor
+    data class ExpiresAtCursor(val expiresAt: LocalDateTime?, val id: Long) : JobPostingCursor
+    data class SalaryCursor(val salaryMin: Long?, val id: Long) : JobPostingCursor
 
     companion object {
         internal val objectMapper = ObjectMapper()
@@ -34,17 +34,9 @@ sealed interface JobPostingCursor {
             val id = jobPosting.id ?: throw IllegalArgumentException("JobPosting ID must not be null")
 
             return when (field) {
-                JobPostingSortField.CREATED_AT -> CreatedAtCursor(jobPosting.createdAt, id)
-                JobPostingSortField.EXPIRES_AT -> ExpiresAtCursor(
-                    jobPosting.expiresAt
-                        ?: throw IllegalArgumentException("expiresAt must not be null for EXPIRES_AT sort"),
-                    id,
-                )
-                JobPostingSortField.SALARY -> SalaryCursor(
-                    jobPosting.salaryMin
-                        ?: throw IllegalArgumentException("salaryMin must not be null for SALARY sort"),
-                    id,
-                )
+                JobPostingSortField.CREATED_AT -> CreatedAtCursor(jobPosting.postedAt, id)
+                JobPostingSortField.EXPIRES_AT -> ExpiresAtCursor(jobPosting.expiresAt, id)
+                JobPostingSortField.SALARY -> SalaryCursor(jobPosting.salaryMin, id)
             }
         }
     }
