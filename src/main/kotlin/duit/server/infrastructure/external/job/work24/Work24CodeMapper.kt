@@ -97,14 +97,26 @@ object Work24CodeMapper {
         return if (value <= 0) null else value
     }
 
+    private val salaryKeywordPattern = Regex("연봉|월급|시급|일급|급여")
     private val salaryAmountPattern = Regex("[0-9][0-9,]*")
+    private val salaryUnitPattern = Regex("만\\s*원|원")
 
-    fun parseSalaryAmount(description: String?): Long? = description
-        ?.let(salaryAmountPattern::find)
-        ?.value
-        ?.replace(",", "")
-        ?.toLongOrNull()
-        ?.takeIf { it > 0 }
+    fun parseSalaryAmount(description: String?): Long? {
+        if (description == null) return null
+        val salarySegment = salaryKeywordPattern.find(description)
+            ?.let { description.substring(it.range.first) }
+            ?: description
+        val amountMatch = salaryAmountPattern.find(salarySegment) ?: return null
+        val amount = amountMatch.value.replace(",", "").toLongOrNull() ?: return null
+        val unit = salaryUnitPattern.find(salarySegment, amountMatch.range.last + 1)
+            ?.value
+            ?.filterNot(Char::isWhitespace)
+        val normalizedAmount = when (unit) {
+            "만원" -> runCatching { Math.multiplyExact(amount, 10_000L) }.getOrNull()
+            else -> amount
+        }
+        return normalizedAmount?.takeIf { it > 0 }
+    }
 
     private val leadingNumberPattern = Regex("^-?\\d+")
     private val leadingPostalCodePattern = Regex("^\\s*(?:\\([^)]*\\)|\\d{5})\\s*")

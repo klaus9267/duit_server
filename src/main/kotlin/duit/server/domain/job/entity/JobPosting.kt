@@ -13,9 +13,9 @@ import java.time.LocalDateTime
 @Table(
     name = "job_postings",
     indexes = [
-        Index(name = "idx_job_postings_active_created", columnList = "is_active, created_at, id"),
-        Index(name = "idx_job_postings_active_expires", columnList = "is_active, expires_at, id"),
-        Index(name = "idx_job_postings_active_salary", columnList = "is_active, salary_min, id"),
+        Index(name = "idx_job_postings_active_created", columnList = "is_active, created_at DESC, id DESC"),
+        Index(name = "idx_job_postings_active_expires", columnList = "is_active, expires_at ASC, id DESC"),
+        Index(name = "idx_job_postings_active_salary", columnList = "is_active, salary_min DESC, id DESC"),
     ],
 )
 class JobPosting(

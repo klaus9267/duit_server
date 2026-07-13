@@ -524,6 +524,45 @@ class Work24CodeMapperTest {
         }
 
         @Test
+        fun `급여 설명의 만원 금액을 원 단위로 환산`() {
+            assertEquals(
+                25_000_000L,
+                Work24CodeMapper.parseSalaryAmount("연봉 2,500만원 이상"),
+            )
+        }
+
+        @Test
+        fun `범위 마지막에만 만원 단위가 있어도 최소 금액에 적용`() {
+            assertEquals(
+                25_000_000L,
+                Work24CodeMapper.parseSalaryAmount("연봉 2,500 ~ 3,000만원"),
+            )
+        }
+
+        @Test
+        fun `급여 앞의 근무시간 숫자는 무시`() {
+            assertEquals(
+                2_500_000L,
+                Work24CodeMapper.parseSalaryAmount("주 40시간, 월급 250만원"),
+            )
+        }
+
+        @Test
+        fun `만 원 사이 공백이 있어도 원 단위로 환산`() {
+            assertEquals(
+                25_000_000L,
+                Work24CodeMapper.parseSalaryAmount("연봉 2,500만 원 이상"),
+            )
+        }
+
+        @Test
+        fun `만원 금액 환산이 Long 범위를 넘으면 null 반환`() {
+            assertNull(
+                Work24CodeMapper.parseSalaryAmount("연봉 999,999,999,999,999만원"),
+            )
+        }
+
+        @Test
         fun `급여 설명에 숫자가 없으면 null 반환`() {
             assertNull(Work24CodeMapper.parseSalaryAmount("회사 내규에 따름"))
         }
