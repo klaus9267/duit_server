@@ -21,7 +21,7 @@ class JobPostingRepositoryIntegrationTest : IntegrationTestSupport() {
         val alreadyInactive = jobPostingRepository.save(
             JobPosting(wantedAuthNo = "K-INACTIVE", isActive = false)
         )
-        val reconciledAt = LocalDateTime.now().plusMinutes(1)
+        val reconciledAt = LocalDateTime.now().plusMinutes(1).withNano(0)
 
         assertThat(
             jobPostingRepository.countMissingActivePostings(
@@ -53,7 +53,7 @@ class JobPostingRepositoryIntegrationTest : IntegrationTestSupport() {
         val concurrentlyUpdated = jobPostingRepository.save(JobPosting(wantedAuthNo = "K-UPDATED-NEWER"))
         entityManager.flush()
 
-        val snapshotStartedAt = LocalDateTime.now()
+        val snapshotStartedAt = LocalDateTime.now().withNano(0)
         val newerUpdatedAt = snapshotStartedAt.plusMinutes(1)
         entityManager.createQuery(
             "UPDATE JobPosting jobPosting SET jobPosting.updatedAt = :updatedAt WHERE jobPosting.id = :id"
