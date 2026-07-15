@@ -11,6 +11,7 @@ import duit.server.domain.job.repository.JobSyncStateRepository
 import duit.server.infrastructure.external.discord.DiscordService
 import duit.server.infrastructure.external.job.JobFetcher
 import duit.server.infrastructure.external.job.dto.CompanyFetchResult
+import duit.server.infrastructure.external.job.dto.JobFetchBatch
 import duit.server.infrastructure.external.job.dto.JobFetchResult
 import io.mockk.every
 import io.mockk.mockk
@@ -73,6 +74,12 @@ class JobSyncServiceTest {
         ),
     )
 
+    private fun createBatch(
+        vararg postings: JobFetchResult,
+        activeExternalIds: Set<String> = postings.mapTo(mutableSetOf(), JobFetchResult::externalId),
+        isCompleteSnapshot: Boolean = false,
+    ) = JobFetchBatch(postings.toList(), activeExternalIds, isCompleteSnapshot)
+
     private fun createJobPosting(
         id: Long? = 1L,
         wantedAuthNo: String = "K123456",
@@ -98,7 +105,7 @@ class JobSyncServiceTest {
 
         @Test
         fun `신규 공고는 wantedAuthNo 기준으로 저장된다`() {
-            every { fetcher.fetchAll() } returns listOf(createFetchResult())
+            every { fetcher.fetchAll() } returns createBatch(createFetchResult())
             every { repository.findByWantedAuthNo("K123456") } returns null
             every { repository.save(any()) } answers { firstArg() }
 
@@ -120,7 +127,7 @@ class JobSyncServiceTest {
                 corpNm = "기존병원",
             )
 
-            every { fetcher.fetchAll() } returns listOf(
+            every { fetcher.fetchAll() } returns createBatch(
                 createFetchResult(
                     companyName = "변경된병원명",
                     businessNumber = "123-45-67890",
@@ -140,7 +147,7 @@ class JobSyncServiceTest {
         @Test
         fun `기존 공고는 wantedAuthNo 기준으로 상세를 갱신한다`() {
             val existing = createJobPosting()
-            every { fetcher.fetchAll() } returns listOf(
+            every { fetcher.fetchAll() } returns createBatch(
                 createFetchResult(
                     externalId = "K123456",
                     title = "변경된 제목",
@@ -161,7 +168,7 @@ class JobSyncServiceTest {
         @Test
         fun `회사 상세 필드가 전달되면 반영된다`() {
             val newCompany = Company(businessNumber = "111-22-33333", corpNm = "새병원")
-            every { fetcher.fetchAll() } returns listOf(
+            every { fetcher.fetchAll() } returns createBatch(
                 createFetchResult(
                     externalId = "K1",
                     companyName = "새병원",
@@ -178,6 +185,79 @@ class JobSyncServiceTest {
             syncService.syncAll()
 
             assertEquals("홍길동", newCompany.reperNm)
+        }
+
+        @Test
+        fun `완전한 active snapshot에서 사라진 공고를 비활성화한다`() {
+            val result = createFetchResult(externalId = "K1")
+            every { fetcher.fetchAll() } returns createBatch(
+                result,
+                activeExternalIds = setOf("K1", "K2"),
+                isCompleteSnapshot = true,
+            )
+            every { repository.findByWantedAuthNo("K1") } returns createJobPosting(wantedAuthNo = "K1")
+            every { repository.countByIsActiveTrue() } returns 4
+            every { repository.countMissingActivePostings(setOf("K1", "K2"), any()) } returns 2
+            every { repository.deactivateMissingActivePostings(setOf("K1", "K2"), any()) } returns 3
+
+            syncService.syncAll()
+
+            verify(exactly = 1) {
+                repository.deactivateMissingActivePostings(setOf("K1", "K2"), any())
+            }
+        }
+
+        @Test
+        fun `active snapshot이 불완전하면 누락 공고를 비활성화하지 않는다`() {
+            every { fetcher.fetchAll() } returns createBatch(
+                createFetchResult(),
+                isCompleteSnapshot = false,
+            )
+            every { repository.findByWantedAuthNo("K123456") } returns createJobPosting()
+
+            syncService.syncAll()
+
+            verify(exactly = 0) { repository.deactivateMissingActivePostings(any(), any()) }
+        }
+
+        @Test
+        fun `완전한 snapshot이라도 active ID가 비어 있으면 비활성화하지 않는다`() {
+            every { fetcher.fetchAll() } returns createBatch(
+                activeExternalIds = emptySet(),
+                isCompleteSnapshot = true,
+            )
+
+            syncService.syncAll()
+
+            verify(exactly = 0) { repository.deactivateMissingActivePostings(any(), any()) }
+        }
+
+        @Test
+        fun `snapshot ID 교집합이 낮아 기존 활성 공고 절반 초과가 누락되면 비활성화를 건너뛰고 알린다`() {
+            val replacementIds = (1..700).mapTo(mutableSetOf()) { "NEW-$it" }
+            every { fetcher.fetchAll() } returns createBatch(
+                activeExternalIds = replacementIds,
+                isCompleteSnapshot = true,
+            )
+            every { repository.countByIsActiveTrue() } returns 1_354
+            every { repository.countMissingActivePostings(replacementIds, any()) } returns 1_354
+
+            syncService.syncAll()
+
+            verify(exactly = 0) { repository.deactivateMissingActivePostings(any(), any()) }
+            verify(exactly = 1) {
+                discordService.sendServerErrorNotification(
+                    errorCode = "JOB_SYNC_SNAPSHOT_DROP",
+                    message = match {
+                        it.contains("snapshot=700") &&
+                            it.contains("missingActive=1354") &&
+                            it.contains("currentActive=1354")
+                    },
+                    path = "JobSync/WORK24/active-snapshot",
+                    timestamp = any(),
+                    exception = any(),
+                )
+            }
         }
     }
 }

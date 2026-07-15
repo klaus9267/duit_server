@@ -6,6 +6,7 @@ import com.querydsl.jpa.JPAExpressions
 import com.querydsl.jpa.impl.JPAQueryFactory
 import duit.server.domain.job.dto.JobPostingCursor
 import duit.server.domain.job.dto.JobPostingCursorPaginationParam
+import duit.server.domain.job.dto.JobPostingSortField
 import duit.server.domain.job.entity.CloseType
 import duit.server.domain.job.entity.Company
 import duit.server.domain.job.entity.EmploymentType
@@ -15,6 +16,7 @@ import duit.server.domain.job.entity.QJobBookmark
 import duit.server.domain.job.entity.QJobPosting
 import duit.server.domain.job.entity.WorkRegion
 import org.springframework.stereotype.Repository
+import java.time.LocalDate
 
 @Repository
 class JobPostingRepositoryImpl(
@@ -27,9 +29,11 @@ class JobPostingRepositoryImpl(
     private val jobPostingCompany = Expressions.path(Company::class.java, jobPosting, "company")
     private val jobPostingCompanyId = Expressions.numberPath(Long::class.javaObjectType, jobPostingCompany, "id")
 
-    override fun findJobPostings(param: JobPostingCursorPaginationParam, currentUserId: Long?): List<JobPosting> {
-        val cursor = param.cursor?.let(JobPostingCursor::decode)
-
+    override fun findJobPostings(
+        param: JobPostingCursorPaginationParam,
+        currentUserId: Long?,
+        cursor: JobPostingCursor?,
+    ): List<JobPosting> {
         val query = queryFactory
             .selectFrom(jobPosting)
             .apply {
@@ -41,6 +45,8 @@ class JobPostingRepositoryImpl(
 
         val conditions = mutableListOf<BooleanExpression?>()
         conditions += jobPosting.isActive.isTrue
+        conditions += jobPosting.expiresAt.isNull
+            .or(jobPosting.expiresAt.goe(LocalDate.now().atStartOfDay()))
         conditions += jobPosting.jobsCd.`in`(JobPosting.NURSE_TARGET_JOB_CODES)
 
         if (!param.workRegions.isNullOrEmpty()) {
@@ -91,7 +97,19 @@ class JobPostingRepositoryImpl(
 
         return query
             .where(*conditions.filterNotNull().toTypedArray())
-            .orderBy(jobPosting.id.desc())
+            .orderBy(
+                *when (param.field) {
+                    JobPostingSortField.CREATED_AT -> arrayOf(jobPosting.postedAt.desc(), jobPosting.id.desc())
+                    JobPostingSortField.EXPIRES_AT -> arrayOf(
+                        jobPosting.expiresAt.asc().nullsLast(),
+                        jobPosting.id.desc(),
+                    )
+                    JobPostingSortField.SALARY -> arrayOf(
+                        jobPosting.salaryMin.desc().nullsLast(),
+                        jobPosting.id.desc(),
+                    )
+                }
+            )
             .limit(param.size.toLong() + 1)
             .fetch()
     }
@@ -133,7 +151,23 @@ class JobPostingRepositoryImpl(
     private fun buildCursorCondition(cursor: JobPostingCursor?): BooleanExpression? {
         if (cursor == null) return null
 
-        return jobPosting.id.lt(cursor.id)
+        return when (cursor) {
+            is JobPostingCursor.CreatedAtCursor -> {
+                val postedAt = requireNotNull(cursor.postedAt) { "CREATED_AT 커서에 postedAt이 필요합니다" }
+                jobPosting.postedAt.lt(postedAt)
+                    .or(jobPosting.postedAt.eq(postedAt).and(jobPosting.id.lt(cursor.id)))
+            }
+            is JobPostingCursor.ExpiresAtCursor -> cursor.expiresAt?.let { expiresAt ->
+                jobPosting.expiresAt.gt(expiresAt)
+                    .or(jobPosting.expiresAt.eq(expiresAt).and(jobPosting.id.lt(cursor.id)))
+                    .or(jobPosting.expiresAt.isNull)
+            } ?: jobPosting.expiresAt.isNull.and(jobPosting.id.lt(cursor.id))
+            is JobPostingCursor.SalaryCursor -> cursor.salaryMin?.let { salaryMin ->
+                jobPosting.salaryMin.lt(salaryMin)
+                    .or(jobPosting.salaryMin.eq(salaryMin).and(jobPosting.id.lt(cursor.id)))
+                    .or(jobPosting.salaryMin.isNull)
+            } ?: jobPosting.salaryMin.isNull.and(jobPosting.id.lt(cursor.id))
+        }
     }
 }
 

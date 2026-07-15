@@ -4,4 +4,5 @@ enum class SalaryType(val displayName: String) {
     ANNUAL("연봉"),
     MONTHLY("월급"),
     HOURLY("시급"),
+    DAILY("일급"),
 }

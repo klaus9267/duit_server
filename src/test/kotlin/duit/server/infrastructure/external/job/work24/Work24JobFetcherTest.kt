@@ -36,6 +36,9 @@ class Work24JobFetcherTest {
         region: String? = "서울특별시 강남구",
         jobsCd: String? = "304000",
         empTpCd: String? = "10",
+        minSal: String? = null,
+        salTpNm: String? = null,
+        regDt: String? = null,
         wantedInfoUrl: String? = "https://example.com/1",
     ) = Work24ApiResponse.WantedItem(
         wantedAuthNo = wantedAuthNo,
@@ -46,6 +49,9 @@ class Work24JobFetcherTest {
         region = region,
         jobsCd = jobsCd,
         empTpCd = empTpCd,
+        minSal = minSal,
+        salTpNm = salTpNm,
+        regDt = regDt,
         wantedInfoUrl = wantedInfoUrl,
     )
 
@@ -83,13 +89,16 @@ class Work24JobFetcherTest {
         @Test
         fun `authKey가 빈 문자열이면 fetchAll은 빈 리스트 반환`() {
             val blankFetcher = Work24JobFetcher(authKey = "", listPageLimit = 0, detailLimit = 0)
-            assertTrue(blankFetcher.fetchAll().isEmpty())
+            val batch = blankFetcher.fetchAll()
+
+            assertTrue(batch.postings.isEmpty())
+            assertEquals(false, batch.isCompleteSnapshot)
         }
 
         @Test
         fun `authKey가 공백이면 fetchAll은 빈 리스트 반환`() {
             val blankFetcher = Work24JobFetcher(authKey = "   ", listPageLimit = 0, detailLimit = 0)
-            assertTrue(blankFetcher.fetchAll().isEmpty())
+            assertTrue(blankFetcher.fetchAll().postings.isEmpty())
         }
 
         @Test
@@ -162,11 +171,22 @@ class Work24JobFetcherTest {
         fun `목록과 상세를 모두 조회하여 병합`() {
             every { spyFetcher["fetchListPage"](1) } returns Work24ApiResponse(
                 total = "1",
-                wanted = listOf(listItem())
+                wanted = listOf(
+                    listItem(
+                        closeDt = "20260718",
+                        minSal = "23350156",
+                        salTpNm = "연봉",
+                        regDt = "20260701",
+                    )
+                )
             )
-            every { spyFetcher["fetchDetail"]("K123456") } returns detailResponse(wantedTitle = "수간호사 채용")
+            every { spyFetcher["fetchDetail"]("K123456") } returns detailResponse(
+                wantedTitle = "수간호사 채용",
+                receiptCloseDt = "20260718",
+            )
 
-            val results = spyFetcher.fetchAll()
+            val batch = spyFetcher.fetchAll()
+            val results = batch.postings
 
             assertEquals(1, results.size)
             val result = results[0]
@@ -178,6 +198,11 @@ class Work24JobFetcherTest {
             assertEquals("홍길동", result.company.reperNm)
             assertEquals(100L, result.company.totPsncnt)
             assertEquals("123-45-67890", result.company.businessNumber)
+            assertEquals(java.time.LocalDateTime.of(2026, 7, 18, 0, 0), result.detail.expiresAt)
+            assertEquals(java.time.LocalDateTime.of(2026, 7, 1, 0, 0), result.detail.postedAt)
+            assertEquals(23_350_156L, result.detail.salaryMin)
+            assertEquals(setOf("K123456"), batch.activeExternalIds)
+            assertTrue(batch.isCompleteSnapshot)
         }
 
         @Test
@@ -192,10 +217,13 @@ class Work24JobFetcherTest {
             every { spyFetcher["fetchDetail"]("K1") } returns detailResponse()
             every { spyFetcher["fetchDetail"]("K2") } returns null
 
-            val results = spyFetcher.fetchAll()
+            val batch = spyFetcher.fetchAll()
+            val results = batch.postings
 
             assertEquals(1, results.size)
             assertEquals("K1", results[0].externalId)
+            assertEquals(setOf("K1", "K2"), batch.activeExternalIds)
+            assertTrue(batch.isCompleteSnapshot)
         }
 
         @Test
@@ -210,7 +238,7 @@ class Work24JobFetcherTest {
             every { spyFetcher["fetchDetail"]("K1") } throws RuntimeException("network error")
             every { spyFetcher["fetchDetail"]("K2") } returns detailResponse()
 
-            val results = spyFetcher.fetchAll()
+            val results = spyFetcher.fetchAll().postings
 
             assertEquals(1, results.size)
             assertEquals("K2", results[0].externalId)
@@ -220,18 +248,55 @@ class Work24JobFetcherTest {
         fun `빈 목록이면 detail을 조회하지 않고 빈 리스트 반환`() {
             every { spyFetcher["fetchListPage"](1) } returns Work24ApiResponse(total = "0", wanted = emptyList())
 
-            val results = spyFetcher.fetchAll()
+            val batch = spyFetcher.fetchAll()
+            val results = batch.postings
 
             assertTrue(results.isEmpty())
+            assertTrue(batch.isCompleteSnapshot)
+            assertTrue(batch.activeExternalIds.isEmpty())
         }
 
         @Test
         fun `fetchListPage가 null이면 빈 리스트 반환`() {
             every { spyFetcher["fetchListPage"](1) } returns null
 
-            val results = spyFetcher.fetchAll()
+            val batch = spyFetcher.fetchAll()
+            val results = batch.postings
 
             assertTrue(results.isEmpty())
+            assertEquals(false, batch.isCompleteSnapshot)
+        }
+
+        @Test
+        fun `페이지 사이 total이 바뀌면 active snapshot을 불완전하게 표시한다`() {
+            every { spyFetcher["fetchListPage"](1) } returns Work24ApiResponse(
+                total = "4",
+                wanted = listOf(listItem(wantedAuthNo = "K1"), listItem(wantedAuthNo = "K2")),
+            )
+            every { spyFetcher["fetchListPage"](2) } returns Work24ApiResponse(
+                total = "3",
+                wanted = listOf(listItem(wantedAuthNo = "K3")),
+            )
+            every { spyFetcher["fetchDetail"](any<String>()) } returns detailResponse()
+
+            val batch = spyFetcher.fetchAll()
+
+            assertEquals(setOf("K1", "K2", "K3"), batch.activeExternalIds)
+            assertEquals(false, batch.isCompleteSnapshot)
+        }
+
+        @Test
+        fun `목록에 중복 ID가 있으면 active snapshot을 불완전하게 표시한다`() {
+            every { spyFetcher["fetchListPage"](1) } returns Work24ApiResponse(
+                total = "2",
+                wanted = listOf(listItem(wantedAuthNo = "K1"), listItem(wantedAuthNo = "K1")),
+            )
+            every { spyFetcher["fetchDetail"]("K1") } returns detailResponse()
+
+            val batch = spyFetcher.fetchAll()
+
+            assertEquals(setOf("K1"), batch.activeExternalIds)
+            assertEquals(false, batch.isCompleteSnapshot)
         }
 
         @Test
@@ -241,7 +306,7 @@ class Work24JobFetcherTest {
             )
             every { spyFetcher["fetchDetail"]("K123456") } returns detailResponse(receiptCloseDt = "채용시까지")
 
-            val results = spyFetcher.fetchAll()
+            val results = spyFetcher.fetchAll().postings
 
             assertTrue(results[0].isActive)
         }
@@ -253,9 +318,22 @@ class Work24JobFetcherTest {
             )
             every { spyFetcher["fetchDetail"]("K123456") } returns detailResponse(receiptCloseDt = "2020-01-01")
 
-            val results = spyFetcher.fetchAll()
+            val results = spyFetcher.fetchAll().postings
 
             assertEquals(false, results[0].isActive)
+        }
+
+        @Test
+        fun `receiptCloseDt가 오늘이면 마감일까지 isActive true`() {
+            val today = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE)
+            every { spyFetcher["fetchListPage"](1) } returns Work24ApiResponse(
+                total = "1", wanted = listOf(listItem())
+            )
+            every { spyFetcher["fetchDetail"]("K123456") } returns detailResponse(receiptCloseDt = today)
+
+            val results = spyFetcher.fetchAll().postings
+
+            assertTrue(results[0].isActive)
         }
 
         @Test
@@ -273,10 +351,13 @@ class Work24JobFetcherTest {
                 jobsCd = "307500",
             )
 
-            val results = spyFetcher.fetchAll()
+            val batch = spyFetcher.fetchAll()
+            val results = batch.postings
 
             assertEquals(1, results.size)
             assertEquals("K1", results[0].externalId)
+            assertEquals(setOf("K1"), batch.activeExternalIds)
+            assertTrue(batch.isCompleteSnapshot)
         }
     }
 
@@ -295,9 +376,11 @@ class Work24JobFetcherTest {
             every { limited["fetchListPage"](1) } returns Work24ApiResponse(total = "200", wanted = page1)
             every { limited["fetchDetail"](any<String>()) } returns detailResponse()
 
-            val results = limited.fetchAll()
+            val batch = limited.fetchAll()
+            val results = batch.postings
 
             assertEquals(100, results.size)
+            assertEquals(false, batch.isCompleteSnapshot)
         }
 
         @Test
@@ -313,9 +396,12 @@ class Work24JobFetcherTest {
             every { limited["fetchListPage"](2) } returns Work24ApiResponse(total = "120", wanted = page2)
             every { limited["fetchDetail"](any<String>()) } returns detailResponse()
 
-            val results = limited.fetchAll()
+            val batch = limited.fetchAll()
+            val results = batch.postings
 
             assertEquals(100, results.size)
+            assertEquals(120, batch.activeExternalIds.size)
+            assertTrue(batch.isCompleteSnapshot)
         }
     }
 
@@ -344,10 +430,12 @@ class Work24JobFetcherTest {
             )
             every { spyFetcher["fetchDetail"]("K2") } returns detailResponse()
 
-            val results = spyFetcher.fetchAll()
+            val batch = spyFetcher.fetchAll()
+            val results = batch.postings
 
             assertEquals(1, results.size)
             assertEquals("K2", results[0].externalId)
+            assertEquals(false, batch.isCompleteSnapshot)
         }
 
         @Test
@@ -364,7 +452,7 @@ class Work24JobFetcherTest {
                 corpInfo = Work24DetailResponse.CorpInfo(corpNm = "상세 회사"),
             )
 
-            val result = spyFetcher.fetchAll()[0]
+            val result = spyFetcher.fetchAll().postings[0]
 
             assertEquals("상세 제목", result.detail.wantedTitle)
             assertEquals("304002", result.detail.jobsCd)
@@ -386,7 +474,7 @@ class Work24JobFetcherTest {
                 corpInfo = Work24DetailResponse.CorpInfo(),
             )
 
-            val result = spyFetcher.fetchAll()[0]
+            val result = spyFetcher.fetchAll().postings[0]
 
             assertEquals("목록 제목", result.detail.wantedTitle)
             assertEquals("서울", result.detail.workRegion)
@@ -407,7 +495,7 @@ class Work24JobFetcherTest {
                 wantedInfo = Work24DetailResponse.WantedInfo(),
             )
 
-            val result = spyFetcher.fetchAll()[0]
+            val result = spyFetcher.fetchAll().postings[0]
 
             assertNull(result.company.capitalAmt)
             assertEquals(100L, result.company.totPsncnt)
