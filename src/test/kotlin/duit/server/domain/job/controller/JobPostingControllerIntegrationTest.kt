@@ -197,6 +197,9 @@ class JobPostingControllerIntegrationTest : IntegrationTestSupport() {
                     .andExpect(jsonPath("$.content").isArray)
                     .andExpect(jsonPath("$.pageInfo.pageSize").isNumber)
                     .andExpect(jsonPath("$.content[0].wantedTitle").exists())
+                    .andExpect(jsonPath("$.content[0].postedAt").exists())
+                    .andExpect(jsonPath("$.content[0].expiresAt").exists())
+                    .andExpect(jsonPath("$.content[0].salaryMin").isNumber)
             }
 
             @Test
@@ -728,6 +731,20 @@ class JobPostingControllerIntegrationTest : IntegrationTestSupport() {
 
                 assertThat(responseTitles(secondPage.response.contentAsString))
                     .containsExactly("대전 정규직 간호사")
+            }
+
+            @Test
+            fun `기존 id 전용 커서를 다른 정렬에 사용하면 400을 반환한다`() {
+                val legacyCursor = Base64.getUrlEncoder().encodeToString(
+                    "{\"id\":1}".toByteArray(Charsets.UTF_8)
+                )
+
+                mockMvc.perform(
+                    get("/api/v1/job-postings")
+                        .param("field", "SALARY")
+                        .param("cursor", legacyCursor)
+                )
+                    .andExpect(status().isBadRequest)
             }
 
             @Test

@@ -42,6 +42,9 @@ data class JobPostingResponse(
     @Schema(description = "임금조건명", example = "연봉 5,000만원 이상")
     val salTpNm: String?,
 
+    @Schema(description = "정렬용 환산 연간 최소 급여(원)", example = "50000000")
+    val salaryMin: Long?,
+
     @Schema(description = "경력조건명", example = "경력")
     val enterTpNm: String?,
 
@@ -162,6 +165,12 @@ data class JobPostingResponse(
     @Schema(description = "현재 사용자의 북마크 여부", example = "false")
     val isBookmarked: Boolean,
 
+    @Schema(description = "고용24 공고 등록 시각", example = "2026-04-16T00:00:00")
+    val postedAt: LocalDateTime,
+
+    @Schema(description = "정렬용 접수 마감 시각. 채용시까지/상시 공고는 null", example = "2026-04-30T00:00:00")
+    val expiresAt: LocalDateTime?,
+
     @Schema(description = "생성 시각", example = "2026-04-16T10:00:00")
     val createdAt: LocalDateTime,
 
@@ -182,6 +191,7 @@ data class JobPostingResponse(
             empTpNm = jobPosting.empTpNm,
             collectPsncnt = jobPosting.collectPsncnt,
             salTpNm = jobPosting.salTpNm,
+            salaryMin = jobPosting.salaryMin,
             enterTpNm = jobPosting.enterTpNm,
             eduNm = jobPosting.eduNm,
             forLang = jobPosting.forLang,
@@ -222,6 +232,8 @@ data class JobPostingResponse(
             contactTelno = jobPosting.contactTelno,
             chargerFaxNo = jobPosting.chargerFaxNo,
             isBookmarked = isBookmarked,
+            postedAt = jobPosting.postedAt,
+            expiresAt = jobPosting.expiresAt,
             createdAt = jobPosting.createdAt,
             updatedAt = jobPosting.updatedAt,
         )

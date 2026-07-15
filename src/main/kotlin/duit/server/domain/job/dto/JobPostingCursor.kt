@@ -20,12 +20,17 @@ sealed interface JobPostingCursor {
         fun decode(encoded: String, field: JobPostingSortField): JobPostingCursor =
             try {
                 val decoded = String(Base64.getUrlDecoder().decode(encoded), Charsets.UTF_8)
+                val cursorNode = objectMapper.readTree(decoded)
                 val cursorType = when (field) {
                     JobPostingSortField.CREATED_AT -> CreatedAtCursor::class.java
-                    JobPostingSortField.EXPIRES_AT -> ExpiresAtCursor::class.java
-                    JobPostingSortField.SALARY -> SalaryCursor::class.java
+                    JobPostingSortField.EXPIRES_AT -> ExpiresAtCursor::class.java.also {
+                        require(cursorNode.has("expiresAt")) { "EXPIRES_AT 커서에 expiresAt이 필요합니다" }
+                    }
+                    JobPostingSortField.SALARY -> SalaryCursor::class.java.also {
+                        require(cursorNode.has("salaryMin")) { "SALARY 커서에 salaryMin이 필요합니다" }
+                    }
                 }
-                objectMapper.readValue(decoded, cursorType)
+                objectMapper.treeToValue(cursorNode, cursorType)
             } catch (e: Exception) {
                 throw IllegalArgumentException("유효하지 않은 커서입니다: ${e.message}", e)
             }

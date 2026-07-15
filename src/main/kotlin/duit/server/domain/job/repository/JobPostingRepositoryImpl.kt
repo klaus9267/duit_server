@@ -29,9 +29,11 @@ class JobPostingRepositoryImpl(
     private val jobPostingCompany = Expressions.path(Company::class.java, jobPosting, "company")
     private val jobPostingCompanyId = Expressions.numberPath(Long::class.javaObjectType, jobPostingCompany, "id")
 
-    override fun findJobPostings(param: JobPostingCursorPaginationParam, currentUserId: Long?): List<JobPosting> {
-        val cursor = param.cursor?.let { JobPostingCursor.decode(it, param.field) }
-
+    override fun findJobPostings(
+        param: JobPostingCursorPaginationParam,
+        currentUserId: Long?,
+        cursor: JobPostingCursor?,
+    ): List<JobPosting> {
         val query = queryFactory
             .selectFrom(jobPosting)
             .apply {
@@ -151,12 +153,7 @@ class JobPostingRepositoryImpl(
 
         return when (cursor) {
             is JobPostingCursor.CreatedAtCursor -> {
-                val postedAt = cursor.postedAt ?: queryFactory
-                    .select(jobPosting.postedAt)
-                    .from(jobPosting)
-                    .where(jobPosting.id.eq(cursor.id))
-                    .fetchOne()
-                    ?: throw IllegalArgumentException("존재하지 않는 커서 기준 공고입니다")
+                val postedAt = requireNotNull(cursor.postedAt) { "CREATED_AT 커서에 postedAt이 필요합니다" }
                 jobPosting.postedAt.lt(postedAt)
                     .or(jobPosting.postedAt.eq(postedAt).and(jobPosting.id.lt(cursor.id)))
             }
