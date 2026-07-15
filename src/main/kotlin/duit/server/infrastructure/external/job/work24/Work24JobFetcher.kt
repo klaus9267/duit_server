@@ -8,6 +8,7 @@ import duit.server.domain.job.entity.JobPostingWork24Detail
 import duit.server.domain.job.entity.SourceType
 import duit.server.infrastructure.external.job.JobFetcher
 import duit.server.infrastructure.external.job.dto.CompanyFetchResult
+import duit.server.infrastructure.external.job.dto.JobFetchBatch
 import duit.server.infrastructure.external.job.dto.JobFetchResult
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
@@ -41,19 +42,27 @@ class Work24JobFetcher(
         private const val LIST_DISPLAY = 100
     }
 
-    override fun fetchAll(): List<JobFetchResult> {
+    override fun fetchAll(): JobFetchBatch {
         if (authKey.isBlank()) {
             logger.warn("Work24 auth key is not configured. Skipping fetch.")
-            return emptyList()
+            return JobFetchBatch(emptyList(), emptySet(), isCompleteSnapshot = false)
         }
 
-        val listItems = fetchListAll()
-        if (listItems.isEmpty()) return emptyList()
+        val listSnapshot = fetchListAll()
+        val listItems = listSnapshot.items
+        if (listItems.isEmpty()) {
+            return JobFetchBatch(
+                postings = emptyList(),
+                activeExternalIds = listSnapshot.activeExternalIds,
+                isCompleteSnapshot = listSnapshot.isComplete,
+            )
+        }
 
         val targets = if (detailLimit > 0) listItems.take(detailLimit) else listItems
         logger.info("Work24 detail 조회 시작: {}/{}건", targets.size, listItems.size)
 
         val results = mutableListOf<JobFetchResult>()
+        val confirmedNonTargetIds = mutableSetOf<String>()
         var success = 0
         var skipped = 0
 
@@ -76,6 +85,7 @@ class Work24JobFetcher(
                     results.add(result)
                     success++
                 } else {
+                    confirmedNonTargetIds += authNo
                     skipped++
                 }
             }
@@ -87,32 +97,77 @@ class Work24JobFetcher(
         }
 
         logger.info("Work24 수집 완료: list={}, 요청={}, 성공={}, 스킵={}", listItems.size, targets.size, success, skipped)
-        return results
+        return JobFetchBatch(
+            postings = results,
+            activeExternalIds = listSnapshot.activeExternalIds - confirmedNonTargetIds,
+            isCompleteSnapshot = listSnapshot.isComplete,
+        )
     }
 
     private fun isNurseTarget(result: JobFetchResult): Boolean =
         result.detail.jobsCd?.let(JobPosting.NURSE_TARGET_JOB_CODES::contains) == true
 
-    private fun fetchListAll(): List<Work24ApiResponse.WantedItem> {
+    private data class Work24ListSnapshot(
+        val items: List<Work24ApiResponse.WantedItem>,
+        val activeExternalIds: Set<String>,
+        val isComplete: Boolean,
+    )
+
+    private fun fetchListAll(): Work24ListSnapshot {
         val results = mutableListOf<Work24ApiResponse.WantedItem>()
+        val observedTotals = mutableSetOf<Long>()
         val pageCap = if (listPageLimit > 0) listPageLimit else Int.MAX_VALUE
         var startPage = 1
-        var total = 0L
+        var fetchFailed = false
 
         while (startPage <= pageCap) {
-            val response = fetchPageWithRetry(startPage) ?: break
+            val response = fetchPageWithRetry(startPage)
+            if (response == null) {
+                fetchFailed = true
+                break
+            }
             val items = response.wanted ?: emptyList()
-            if (items.isEmpty()) break
+            val total = response.total?.toLongOrNull()?.takeIf { it >= 0 }
+            if (total == null) {
+                logger.warn("Work24 list page {} total 값이 유효하지 않음: {}", startPage, response.total)
+                fetchFailed = true
+            } else {
+                observedTotals += total
+            }
 
             results.addAll(items)
-            total = response.total?.toLongOrNull() ?: total
             val fetched = results.size.toLong()
             logger.info("Work24 list page {}: 누적={}, total={}", startPage, fetched, total)
 
-            if (total > 0 && fetched >= total) break
+            if (total != null && fetched >= total) break
+            if (items.isEmpty() || total == null) {
+                fetchFailed = true
+                break
+            }
             startPage++
         }
-        return results
+
+        val activeExternalIds = results.mapNotNull { item ->
+            item.wantedAuthNo?.takeIf(String::isNotBlank)
+        }.toSet()
+        val expectedTotal = observedTotals.singleOrNull()
+        val isComplete = !fetchFailed &&
+            expectedTotal != null &&
+            activeExternalIds.size == results.size &&
+            activeExternalIds.size.toLong() == expectedTotal
+
+        if (!isComplete) {
+            logger.warn(
+                "Work24 active snapshot 불완전: fetched={}, uniqueIds={}, totals={}, pageCap={}, fetchFailed={}",
+                results.size,
+                activeExternalIds.size,
+                observedTotals,
+                pageCap,
+                fetchFailed,
+            )
+        }
+
+        return Work24ListSnapshot(results, activeExternalIds, isComplete)
     }
 
     private fun fetchPageWithRetry(startPage: Int): Work24ApiResponse? =

@@ -8,14 +8,41 @@
 
 > 매 작업 후 갱신. 새 세션 시작 시 이 섹션만 읽으면 전체 파악 가능.
 
- **마지막 작업일**: 2026-07-13
- **진행 중인 작업**: 채용공고 목록 `CREATED_AT` / `EXPIRES_AT` / `SALARY` 정렬 복구 및 회귀 테스트 추가.
- **블로커**: 운영 DB에서 `scripts/sql/deduplicate_user_device_tokens.sql` 실행 후 `scripts/sql/add_user_device_tokens_unique_constraint.sql` 적용 필요 (이전 작업)
- **미수정 CRITICAL**: 1건 (배포된 비밀 노출 사고 후 실제 비밀 rotation / GHCR 정리 필요)
- **미수정 HIGH**: 6건 (CORS, 외부 API 타임아웃/재시도, FCM invalid token 정리, JWT Refresh Token, Discord fire-and-forget)
- **브랜치**: codex/fix-job-posting-sort
- **신규 의존성**: 없음 (Flyway는 기존 build.gradle 활성화)
- **신규 env**: `application*.yml` 의 `ddl-auto: validate` + `flyway enabled`
+**마지막 작업일**: 2026-07-15
+**진행 중인 작업**: PR #150 최종 검토 — 운영 데이터 기반 정렬/동기화 엣지 케이스 보완.
+**블로커**: 운영 DB에서 `scripts/sql/deduplicate_user_device_tokens.sql` 실행 후 `scripts/sql/add_user_device_tokens_unique_constraint.sql` 적용 필요 (이전 작업)
+**미수정 CRITICAL**: 1건 (배포된 비밀 노출 사고 후 실제 비밀 rotation / GHCR 정리 필요)
+**미수정 HIGH**: 6건 (CORS, 외부 API 타임아웃/재시도, FCM invalid token 정리, JWT Refresh Token, Discord fire-and-forget)
+**브랜치**: codex/fix-job-posting-sort
+**신규 의존성**: Testcontainers JUnit Jupiter/MySQL 1.21.3 (테스트 전용)
+**신규 env**: `application*.yml` 의 `ddl-auto: validate` + `flyway enabled`
+
+## 2026-07-15 (PR #150 운영 데이터 기반 최종 보완)
+
+**분류**: fix | test | docs
+
+### 작업 내용
+- 운영 API의 활성 공고 1,354건을 전수 확인해 고정 마감 319건(과거 마감 140건, 현재/미래 179건), 채용시까지 1,035건의 실제 분포를 검증
+- 장기간 `채용시까지`로 남은 공고 중 고용24에서는 이미 마감된 공고가 운영 목록에 계속 노출되는 원인을 확인: 동기화가 조회 결과만 upsert하고 원본 목록에서 사라진 공고를 비활성화하지 않았음
+- 고용24 목록의 전체 `wantedAuthNo`를 authoritative active snapshot으로 수집하고, 기존 활성 공고 중 snapshot에 없는 항목을 일괄 비활성화하도록 보완
+- total/수집 건수/고유 ID 수가 정확히 일치하는 완전한 비어 있지 않은 snapshot에서만 정합화를 수행하도록 fail-closed 보호 조건 추가
+- 상세 조회 실패 시에도 목록의 active ID는 유지해 일시적인 상세 API 장애로 정상 공고가 비활성화되지 않게 처리
+- 상세 조회에 성공해 비대상 직종으로 확정된 공고는 active ID에서 제거해 과거 대상 직종 데이터가 계속 노출되지 않도록 처리
+- 정렬 기준 필드 `postedAt`, `expiresAt`, `salaryMin`을 `JobPostingResponse`에 다시 노출해 클라이언트가 등록일과 정렬값을 확인할 수 있게 복구
+- 기존 `{id}` 전용 커서는 기본 `CREATED_AT`에서만 호환하고, 다른 정렬에 잘못 재사용하면 `400 BAD_REQUEST`로 거부
+- `SalaryType.DAILY` 문서 누락과 Testcontainers 테스트 의존성 기록을 보정
+
+### 안전성 결정
+- 목록 page 실패, total 누락/변경, 중복·빈 ID, 페이지 제한, 빈 snapshot에서는 누락 공고 비활성화를 전부 건너뛴다.
+- 동시 동기화에서 오래된 snapshot이 나중에 완료되는 경우를 대비해 snapshot 시작 이후 갱신된 행은 비활성화 대상에서 제외한다.
+- 내부적으로 일관된 upstream 축소·ID 교체 응답도 방어하기 위해, 동기화 전 DB 활성 공고 중 snapshot에 실제로 누락된 비율이 50%를 초과하면 적용을 중단하고 Discord 오류 알림을 보낸다. 운영에서 확인한 과거 마감 140건과 60일 초과 `채용시까지` 후보 514건을 모두 합쳐도 654/1,354(약 48.3%)이므로 최초 stale 정리는 허용한다.
+- 현재 공고 엔티티에 소스 구분 값이 없으므로 fetcher가 하나일 때만 일괄 정합화를 수행한다. 향후 복수 소스 도입 전에는 소스 식별자 추가가 선행되어야 한다.
+- `NOT IN` 일괄 갱신은 현재 1,354건 규모에서는 충분하며, 데이터가 크게 증가하면 임시 테이블/last-seen 방식과 실행계획을 재검토한다.
+
+### 검증
+- JDK 17에서 고용24 수집기, 동기화 서비스, 저장소 정합화 및 채용공고 API 통합 테스트 실행
+- JDK 17 `./gradlew test`: 576건 실행, 573건 통과, 3건 skip, 실패 0건
+- GitHub Actions 결과는 최종 커밋 push 후 확인
 
 ## 2026-07-13 (채용공고 목록 정렬 복구)
 

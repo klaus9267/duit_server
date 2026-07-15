@@ -133,7 +133,7 @@ class Event(...) {
 |------|---|-------|
 | CloseType | FIXED, ON_HIRE, ONGOING | JobPosting.closeType |
 | EmploymentType | FULL_TIME, CONTRACT, INTERN, PART_TIME, DISPATCH, ETC | JobPosting.employmentType |
-| SalaryType | ANNUAL, MONTHLY, HOURLY | JobPosting.salaryType |
+| SalaryType | ANNUAL, MONTHLY, HOURLY, DAILY | JobPosting.salaryType |
 | WorkRegion | SEOUL, BUSAN, ... (17개 광역자치단체) + ETC | JobPosting.workRegion |
 | EducationLevel | NONE, HIGH_SCHOOL, ASSOCIATE, BACHELOR, MASTER, DOCTOR | JobPosting.educationLevel |
 
@@ -147,6 +147,11 @@ class Event(...) {
 - `salaryMin`은 서로 다른 지급 주기를 비교할 수 있도록 연간 추정액으로 저장한다. 월급×12, 시급×2,508, 일급×261을 적용한다.
 - 식별자는 `wantedAuthNo` 단일 값으로 관리하고, `sourceType` / `externalId` 필드는 두지 않는다.
 - 서비스 메타데이터로는 `wantedAuthNo`, `isActive`, 정렬용 `postedAt`/`expiresAt`/`salaryMin`, 감사 필드를 유지한다.
+- 고용24 목록의 전체 `wantedAuthNo` 집합을 active snapshot으로 사용한다. 목록 total, 수집 건수, 고유 ID 수가 모두 일치한 완전한 비어 있지 않은 snapshot에서만 누락된 활성 공고를 비활성화한다.
+- 목록/total 누락, 페이지별 total 변경, 중복·빈 ID, 페이지 제한, 빈 snapshot 중 하나라도 있으면 비활성화를 건너뛴다. 상세 조회 실패는 해당 공고의 active ID를 제거하지 않고, 상세 조회에 성공해 비대상 직종으로 확정된 ID만 제거한다.
+- 완전한 snapshot이라도 동기화 전 DB 활성 공고 중 snapshot에 실제로 누락된 수가 50%를 초과하면 upstream 장애나 필터 이상으로 간주해 비활성화를 건너뛰고 오류 알림을 보낸다. snapshot 크기가 비슷해도 ID 교집합이 낮은 교체형 이상 응답을 같은 기준으로 차단한다.
+- 현재 `JobPosting`에는 소스 구분 컬럼이 없으므로 `JobFetcher`가 하나일 때만 snapshot 정합화를 수행한다. 복수 소스를 추가하려면 먼저 소스 식별자를 모델링한다.
+- 오래된 동기화가 나중에 끝나더라도 새 동기화 결과를 비활성화하지 않도록, snapshot 시작 시각 이후 갱신된 공고는 누락 공고 일괄 갱신에서 제외한다.
 - 이름이 축약된 고용24 필드는 엔티티 필드 위에 주석으로 의미를 남긴다. 예: `mltsvcExcHope`, `staAreaRegionCd`, `walkDistCd`
 - `job_postings`처럼 DB Structure 화면에서 바로 의미를 확인해야 하는 테이블은 Hibernate `@Comment`를 함께 선언해 컬럼 comment가 실제 DB에 보이도록 유지한다.
 - 배열 구조는 문자열 컬렉션으로 저장한다.
