@@ -155,9 +155,9 @@ class Work24CodeMapperTest {
         }
 
         @Test
-        fun `"일급"은 null로 반환`() {
+        fun `"일급"은 DAILY로 매핑`() {
             val result = Work24CodeMapper.mapSalaryType("일급")
-            assertNull(result)
+            assertEquals(SalaryType.DAILY, result)
         }
 
         @Test
@@ -508,6 +508,93 @@ class Work24CodeMapperTest {
         fun `소수점이 있는 경우 null로 반환`() {
             val result = Work24CodeMapper.parseSalary("3000.5")
             assertNull(result)
+        }
+    }
+
+    @Nested
+    @DisplayName("parseSalaryAmount")
+    inner class ParseSalaryAmountTests {
+
+        @Test
+        fun `급여 설명의 첫 금액을 쉼표 없이 파싱`() {
+            assertEquals(
+                23_350_156L,
+                Work24CodeMapper.parseSalaryAmount("연봉23,350,156원 이상 ~ 30,000,000원 이하"),
+            )
+        }
+
+        @Test
+        fun `급여 설명의 만원 금액을 원 단위로 환산`() {
+            assertEquals(
+                25_000_000L,
+                Work24CodeMapper.parseSalaryAmount("연봉 2,500만원 이상"),
+            )
+        }
+
+        @Test
+        fun `범위 마지막에만 만원 단위가 있어도 최소 금액에 적용`() {
+            assertEquals(
+                25_000_000L,
+                Work24CodeMapper.parseSalaryAmount("연봉 2,500 ~ 3,000만원"),
+            )
+        }
+
+        @Test
+        fun `급여 앞의 근무시간 숫자는 무시`() {
+            assertEquals(
+                2_500_000L,
+                Work24CodeMapper.parseSalaryAmount("주 40시간, 월급 250만원"),
+            )
+        }
+
+        @Test
+        fun `만 원 사이 공백이 있어도 원 단위로 환산`() {
+            assertEquals(
+                25_000_000L,
+                Work24CodeMapper.parseSalaryAmount("연봉 2,500만 원 이상"),
+            )
+        }
+
+        @Test
+        fun `만원 금액 환산이 Long 범위를 넘으면 null 반환`() {
+            assertNull(
+                Work24CodeMapper.parseSalaryAmount("연봉 999,999,999,999,999만원"),
+            )
+        }
+
+        @Test
+        fun `급여 설명에 숫자가 없으면 null 반환`() {
+            assertNull(Work24CodeMapper.parseSalaryAmount("회사 내규에 따름"))
+        }
+    }
+
+    @Nested
+    @DisplayName("annualizeSalary")
+    inner class AnnualizeSalaryTests {
+
+        @Test
+        fun `연봉은 원 금액을 유지`() {
+            assertEquals(36_000_000L, Work24CodeMapper.annualizeSalary(36_000_000L, "연봉"))
+        }
+
+        @Test
+        fun `월급은 12개월 기준 연간 급여로 환산`() {
+            assertEquals(42_000_000L, Work24CodeMapper.annualizeSalary(3_500_000L, "월급"))
+        }
+
+        @Test
+        fun `시급은 월 209시간 기준 연간 급여로 환산`() {
+            assertEquals(50_160_000L, Work24CodeMapper.annualizeSalary(20_000L, "시급"))
+        }
+
+        @Test
+        fun `일급은 연 261일 기준 연간 급여로 환산`() {
+            assertEquals(46_980_000L, Work24CodeMapper.annualizeSalary(180_000L, "일급"))
+        }
+
+        @Test
+        fun `연간 환산이 Long 범위를 넘으면 null 반환`() {
+            assertNull(Work24CodeMapper.annualizeSalary(Long.MAX_VALUE, "월급"))
         }
     }
 
