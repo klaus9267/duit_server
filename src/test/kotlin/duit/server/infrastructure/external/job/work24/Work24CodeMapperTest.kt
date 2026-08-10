@@ -190,6 +190,18 @@ class Work24CodeMapperTest {
         }
 
         @Test
+        fun `우편번호 괄호로 시작하는 고용24 주소도 지역으로 매핑`() {
+            val result = Work24CodeMapper.mapWorkRegion("(37560)  경상북도 포항시 북구 흥해읍 선린대길 30")
+            assertEquals(WorkRegion.GYEONGBUK, result)
+        }
+
+        @Test
+        fun `5자리 우편번호로 시작하는 고용24 주소도 지역으로 매핑`() {
+            val result = Work24CodeMapper.mapWorkRegion("07516 서울특별시 강서구 양천로 31")
+            assertEquals(WorkRegion.SEOUL, result)
+        }
+
+        @Test
         fun `"부산광역시"는 BUSAN으로 매핑`() {
             val result = Work24CodeMapper.mapWorkRegion("부산광역시")
             assertEquals(WorkRegion.BUSAN, result)
@@ -324,6 +336,12 @@ class Work24CodeMapperTest {
         fun `"서울특별시 강남구 역삼동"에서 "강남구 역삼동"을 추출`() {
             val result = Work24CodeMapper.extractDistrict("서울특별시 강남구 역삼동")
             assertEquals("강남구 역삼동", result)
+        }
+
+        @Test
+        fun `우편번호 괄호로 시작하는 주소에서 시도 이후 주소를 추출`() {
+            val result = Work24CodeMapper.extractDistrict("(07516)  서울특별시 강서구 양천로 31")
+            assertEquals("강서구 양천로 31", result)
         }
 
         @Test

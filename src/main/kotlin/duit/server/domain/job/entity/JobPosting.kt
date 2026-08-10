@@ -34,6 +34,10 @@ class JobPosting(
     @LastModifiedDate
     var updatedAt: LocalDateTime = LocalDateTime.now(),
 ) {
+    companion object {
+        val NURSE_TARGET_JOB_CODES = setOf("304000", "304001", "304002")
+    }
+
     @OneToMany(mappedBy = "jobPosting", cascade = [CascadeType.ALL], orphanRemoval = true)
     val bookmarks: List<JobBookmark> = emptyList()
 
@@ -240,6 +244,8 @@ class JobPosting(
     )
     @Column(name = "srch_keyword_nm")
     val keywordList: MutableList<String> = mutableListOf()
+
+    fun isNurseTarget(): Boolean = jobsCd?.let(NURSE_TARGET_JOB_CODES::contains) == true
 
     fun updateWork24Detail(
         detail: JobPostingWork24Detail,

@@ -8,14 +8,75 @@
 
 > 매 작업 후 갱신. 새 세션 시작 시 이 섹션만 읽으면 전체 파악 가능.
 
- **마지막 작업일**: 2026-05-09
- **진행 중인 작업**: 구독(Subscription) 도메인 + 알림 발송 시스템 신설 완료 (Phase 1-5). origin/dev 대비 dev 7 커밋 앞.
+ **마지막 작업일**: 2026-06-25
+ **진행 중인 작업**: PR #147 GitHub Actions 실패 원인 확인 및 fork PR 권한 대응 완료. main 머지(간호조무사 직종코드 `307500` 제외 반영)와 충돌 해소 완료.
  **블로커**: 운영 DB에서 `scripts/sql/deduplicate_user_device_tokens.sql` 실행 후 `scripts/sql/add_user_device_tokens_unique_constraint.sql` 적용 필요 (이전 작업)
  **미수정 CRITICAL**: 1건 (배포된 비밀 노출 사고 후 실제 비밀 rotation / GHCR 정리 필요)
  **미수정 HIGH**: 6건 (CORS, 외부 API 타임아웃/재시도, FCM invalid token 정리, JWT Refresh Token, Discord fire-and-forget)
- **브랜치**: dev
+ **브랜치**: codex/fix-work24-job-filters
  **신규 의존성**: 없음 (Flyway는 기존 build.gradle 활성화)
  **신규 env**: `application*.yml` 의 `ddl-auto: validate` + `flyway enabled`
+
+## 2026-06-25 (PR #147 GitHub Actions 권한 실패 대응)
+
+**분류**: ci | docs
+
+### 작업 내용
+- PR #147 실패 로그 확인 결과, 애플리케이션 테스트는 `540 tests run, 538 passed, 2 skipped, 0 failed`로 통과
+- 실패 원인은 fork PR에서 `GITHUB_TOKEN`이 read-only로 제한되어 `Post coverage comment`와 `mikepenz/action-junit-report`의 check 생성이 `Resource not accessible by integration`으로 실패한 것
+- fork PR에서는 쓰기 권한이 필요한 coverage comment / JUnit check 게시 단계를 건너뛰고, 같은 저장소 PR에서만 실행되도록 `.github/workflows/test.yml` 조건 추가
+
+### 테스트
+- 원격 로그 확인: `gh run view 28015475475 --repo klaus9267/duit_server --job 83214886548 --log`
+
+### 결정 사항
+- 테스트 실행 자체는 유지하고, 권한이 필요한 게시 단계만 조건부 실행한다. fork PR에서도 실제 테스트 실패는 `Run tests` 단계에서 그대로 실패로 드러난다.
+
+## 2026-06-24 (간호조무사 채용공고 노출 제외)
+
+**분류**: fix | test | docs
+
+### 작업 내용
+- 고용24 채용공고 수집 `occupation` 필터에서 간호조무사 직종코드 `307500`을 제거하고, 간호사 대상 코드 `304000|304001|304002`만 요청하도록 변경
+- 외부 API 응답에 비대상 직종이 섞여 들어올 경우를 대비해 `JobPosting.NURSE_TARGET_JOB_CODES` / `isNurseTarget()` 기준으로 수집 결과를 한 번 더 필터링
+- 기존 DB에 이미 저장된 `307500` 공고가 계속 노출되지 않도록 채용공고 목록 QueryDSL 조건에 허용 직종코드 필터 추가
+- 채용공고 통합 테스트 fixture에 `jobsCd` 입력을 분리하고, 간호조무사 직종코드 공고가 목록에서 제외되는 회귀 테스트 추가
+
+### 테스트
+- 통과: `./gradlew test --tests "duit.server.infrastructure.external.job.work24.Work24JobFetcherTest" --tests "duit.server.domain.job.controller.JobPostingControllerIntegrationTest"` (임시 JDK 17 사용)
+
+### 결정 사항
+- 수집 단계만 수정하면 기존 활성 `307500` 데이터가 목록에 남을 수 있어, 조회 단계에도 동일한 허용 코드 조건을 적용한다.
+
+## 2026-06-23 (고용24 채용공고 필터 원문 매칭 보정)
+
+**분류**: fix | test | docs
+
+### 작업 내용
+- 채용공고 조회의 `workRegions`, `employmentTypes` 필터가 고용24 원문 주소/고용형태에서도 매칭되도록 수정
+- 지역은 `regionCd` 시도 코드 prefix를 우선 사용하고, 코드가 없는 데이터만 원문 주소 별칭으로 fallback
+- 고용형태는 `empTpCd` 고용24 코드(`10/11`, `20/21`, `4`)를 우선 사용하고, 코드가 없는 데이터만 원문 고용형태 문구로 fallback
+- `Work24CodeMapper`가 우편번호 괄호 또는 5자리 우편번호 접두를 제거한 뒤 지역/구군을 파싱하도록 보강
+- 고용24 원문 형태와 코드/원문 불일치 케이스 회귀 테스트 추가
+
+### 테스트 결과
+- `JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home ./gradlew test --tests "duit.server.domain.job.controller.JobPostingControllerIntegrationTest"` 통과
+- `JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home ./gradlew test --tests "duit.server.infrastructure.external.job.work24.Work24CodeMapperTest"` 통과
+
+### 기술적 결정
+- 스키마 변경 없이 기존 `regionCd`, `empTpCd`, 원문 필드를 조합해 필터를 보정 → 즉시 배포 가능하고 기존 수집 데이터에도 적용됨
+- 강원/전북은 구 행정코드와 특별자치도 전환 후 코드를 모두 prefix로 허용
+- 고용24 지역/고용형태 코드는 원문 문자열보다 더 명확하므로, 코드가 있으면 코드만 authoritative하게 사용하고 원문 문자열은 코드가 비어 있을 때만 사용
+- 지역 원문 fallback은 주소 시작 또는 우편번호 직후 시작 지점만 매칭해 `경기도 광주시`가 `광주광역시` 필터에 걸리는 오탐을 방지
+
+### 영향 범위
+- 채용공고 조회 API `/api/v1/job-postings`
+- 고용24 코드 매퍼
+- DB 스키마 변경 없음
+
+### 발견한 제약 조건
+- 라이브 데이터의 `workRegion`은 `(07516) 서울특별시...`처럼 우편번호가 앞에 올 수 있음
+- 라이브 데이터의 `empTpNm`은 `정규직`/`계약직`이 아니라 `기간의 정함이 없는/있는 근로계약` 원문일 수 있음
 
 ## 2026-05-09 (구독 도메인 + 알림 발송 시스템 신설)
 

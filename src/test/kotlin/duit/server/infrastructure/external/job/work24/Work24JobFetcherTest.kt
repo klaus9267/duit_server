@@ -55,6 +55,7 @@ class Work24JobFetcherTest {
         corpNm: String = "테스트병원 상세",
         reperNm: String? = "홍길동",
         totPsncnt: String? = "100 명",
+        jobsCd: String? = "304000",
     ) = Work24DetailResponse(
         corpInfo = Work24DetailResponse.CorpInfo(
             corpNm = corpNm,
@@ -66,6 +67,7 @@ class Work24JobFetcherTest {
             wantedTitle = wantedTitle,
             receiptCloseDt = receiptCloseDt,
             jobsNm = "간호사",
+            jobsCd = jobsCd,
             empTpNm = "기간의 정함이 없는 근로계약",
             eduNm = "학력무관",
         ),
@@ -254,6 +256,27 @@ class Work24JobFetcherTest {
             val results = spyFetcher.fetchAll()
 
             assertEquals(false, results[0].isActive)
+        }
+
+        @Test
+        fun `간호조무사 직종코드는 수집 결과에서 제외`() {
+            every { spyFetcher["fetchListPage"](1) } returns Work24ApiResponse(
+                total = "2",
+                wanted = listOf(
+                    listItem(wantedAuthNo = "K1", jobsCd = "304002"),
+                    listItem(wantedAuthNo = "K2", title = "간호조무사 모집", jobsCd = "307500"),
+                )
+            )
+            every { spyFetcher["fetchDetail"]("K1") } returns detailResponse(jobsCd = "304002")
+            every { spyFetcher["fetchDetail"]("K2") } returns detailResponse(
+                wantedTitle = "간호조무사 모집",
+                jobsCd = "307500",
+            )
+
+            val results = spyFetcher.fetchAll()
+
+            assertEquals(1, results.size)
+            assertEquals("K1", results[0].externalId)
         }
     }
 

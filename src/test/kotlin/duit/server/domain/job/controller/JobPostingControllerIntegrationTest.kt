@@ -8,6 +8,7 @@ import duit.server.domain.job.entity.WorkRegion
 import duit.server.domain.user.entity.User
 import duit.server.support.IntegrationTestSupport
 import duit.server.support.fixture.TestFixtures
+import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -61,6 +62,8 @@ class JobPostingControllerIntegrationTest : IntegrationTestSupport() {
             TestFixtures.jobPosting(
                 title = "경기 파트타임 간호조무사",
                 companyName = "경기의원",
+                jobCategory = "간호조무사",
+                jobsCd = "307500",
                 workRegion = WorkRegion.GYEONGGI,
                 employmentType = EmploymentType.PART_TIME,
                 educationLevel = EducationLevel.HIGH_SCHOOL,
@@ -119,8 +122,8 @@ class JobPostingControllerIntegrationTest : IntegrationTestSupport() {
         )
         entityManager.persist(
             TestFixtures.jobPosting(
-                title = "광주 시급 간호조무사",
-                companyName = "광주의원",
+                title = "광주 시급 간호사",
+                companyName = "광주병원",
                 workRegion = WorkRegion.GWANGJU,
                 employmentType = EmploymentType.PART_TIME,
                 educationLevel = EducationLevel.HIGH_SCHOOL,
@@ -248,6 +251,110 @@ class JobPostingControllerIntegrationTest : IntegrationTestSupport() {
             }
 
             @Test
+            fun `지역 필터 - 고용24 지역 코드로 원문 주소 공고 매칭`() {
+                val posting = TestFixtures.jobPosting(
+                    title = "고용24 서울 원문 주소 공고",
+                    companyName = "서울원문병원",
+                    location = "(07516)  서울특별시 강서구 양천로 31",
+                    workRegion = null,
+                    employmentType = EmploymentType.FULL_TIME,
+                ).apply {
+                    regionCd = "11500"
+                    empTpCd = "10"
+                    empTpNm = "기간의 정함이 없는 근로계약/ 파견근로 비희망"
+                }
+                entityManager.persist(posting)
+                entityManager.flush()
+                entityManager.clear()
+
+                val result = mockMvc.perform(
+                    get("/api/v1/job-postings")
+                        .param("workRegions", "SEOUL")
+                )
+                    .andDo(print())
+                    .andExpect(status().isOk)
+                    .andExpect(jsonPath("$.content").isArray)
+                    .andReturn()
+
+                val titles = objectMapper.readTree(result.response.contentAsString)
+                    .get("content")
+                    .map { it.get("wantedTitle").asText() }
+                assertThat(titles).contains("고용24 서울 원문 주소 공고")
+            }
+
+            @Test
+            fun `지역 필터 - 지역 코드가 없으면 우편번호 주소 원문으로 fallback 매칭`() {
+                val posting = TestFixtures.jobPosting(
+                    title = "고용24 서울 원문 fallback 공고",
+                    companyName = "서울fallback병원",
+                    location = "(07516)  서울특별시 강서구 양천로 31",
+                    workRegion = null,
+                    employmentType = EmploymentType.FULL_TIME,
+                ).apply {
+                    regionCd = null
+                }
+                entityManager.persist(posting)
+                entityManager.flush()
+                entityManager.clear()
+
+                val result = mockMvc.perform(
+                    get("/api/v1/job-postings")
+                        .param("workRegions", "SEOUL")
+                )
+                    .andDo(print())
+                    .andExpect(status().isOk)
+                    .andExpect(jsonPath("$.content").isArray)
+                    .andReturn()
+
+                val titles = objectMapper.readTree(result.response.contentAsString)
+                    .get("content")
+                    .map { it.get("wantedTitle").asText() }
+                assertThat(titles).contains("고용24 서울 원문 fallback 공고")
+            }
+
+            @Test
+            fun `지역 필터 - 지역 코드가 있으면 원문 도시명보다 코드를 우선`() {
+                val posting = TestFixtures.jobPosting(
+                    title = "고용24 경기 광주시 공고",
+                    companyName = "경기광주병원",
+                    location = "(12760)  경기도 광주시 중앙로 1",
+                    workRegion = null,
+                    employmentType = EmploymentType.FULL_TIME,
+                ).apply {
+                    regionCd = "41610"
+                }
+                entityManager.persist(posting)
+                entityManager.flush()
+                entityManager.clear()
+
+                val gwangjuResult = mockMvc.perform(
+                    get("/api/v1/job-postings")
+                        .param("workRegions", "GWANGJU")
+                )
+                    .andDo(print())
+                    .andExpect(status().isOk)
+                    .andExpect(jsonPath("$.content").isArray)
+                    .andReturn()
+                val gwangjuTitles = objectMapper.readTree(gwangjuResult.response.contentAsString)
+                    .get("content")
+                    .map { it.get("wantedTitle").asText() }
+                assertThat(gwangjuTitles).doesNotContain("고용24 경기 광주시 공고")
+
+                val gyeonggiResult = mockMvc.perform(
+                    get("/api/v1/job-postings")
+                        .param("workRegions", "GYEONGGI")
+                )
+                    .andDo(print())
+                    .andExpect(status().isOk)
+                    .andExpect(jsonPath("$.content").isArray)
+                    .andReturn()
+                val gyeonggiTitles = objectMapper.readTree(gyeonggiResult.response.contentAsString)
+                    .get("content")
+                    .map { it.get("wantedTitle").asText() }
+                assertThat(gyeonggiTitles).contains("고용24 경기 광주시 공고")
+            }
+
+            @Test
             fun `고용형태 필터 - employmentTypes`() {
                 mockMvc.perform(
                     get("/api/v1/job-postings")
@@ -257,6 +364,76 @@ class JobPostingControllerIntegrationTest : IntegrationTestSupport() {
                     .andExpect(status().isOk)
                     .andExpect(jsonPath("$.content").isArray)
                     .andExpect(jsonPath("$.content.length()").value(2))
+            }
+
+            @Test
+            fun `고용형태 필터 - 고용24 근로계약 원문도 매칭`() {
+                val posting = TestFixtures.jobPosting(
+                    title = "고용24 계약직 원문 공고",
+                    companyName = "계약원문병원",
+                    employmentType = null,
+                ).apply {
+                    empTpCd = "20"
+                    empTpNm = "기간의 정함이 있는 근로계약12 개월/ 계약기간 만료 후 상용직전환검토"
+                }
+                entityManager.persist(posting)
+                entityManager.flush()
+                entityManager.clear()
+
+                val result = mockMvc.perform(
+                    get("/api/v1/job-postings")
+                        .param("employmentTypes", "CONTRACT")
+                )
+                    .andDo(print())
+                    .andExpect(status().isOk)
+                    .andExpect(jsonPath("$.content").isArray)
+                    .andReturn()
+
+                val titles = objectMapper.readTree(result.response.contentAsString)
+                    .get("content")
+                    .map { it.get("wantedTitle").asText() }
+                assertThat(titles).contains("고용24 계약직 원문 공고")
+            }
+
+            @Test
+            fun `고용형태 필터 - 고용형태 코드가 있으면 원문 문구보다 코드를 우선`() {
+                val posting = TestFixtures.jobPosting(
+                    title = "고용24 정규직 코드 우선 공고",
+                    companyName = "정규코드병원",
+                    employmentType = null,
+                ).apply {
+                    empTpCd = "10"
+                    empTpNm = "기간의 정함이 있는 근로계약12 개월/ 계약기간 만료 후 상용직전환검토"
+                }
+                entityManager.persist(posting)
+                entityManager.flush()
+                entityManager.clear()
+
+                val contractResult = mockMvc.perform(
+                    get("/api/v1/job-postings")
+                        .param("employmentTypes", "CONTRACT")
+                )
+                    .andDo(print())
+                    .andExpect(status().isOk)
+                    .andExpect(jsonPath("$.content").isArray)
+                    .andReturn()
+                val contractTitles = objectMapper.readTree(contractResult.response.contentAsString)
+                    .get("content")
+                    .map { it.get("wantedTitle").asText() }
+                assertThat(contractTitles).doesNotContain("고용24 정규직 코드 우선 공고")
+
+                val fullTimeResult = mockMvc.perform(
+                    get("/api/v1/job-postings")
+                        .param("employmentTypes", "FULL_TIME")
+                )
+                    .andDo(print())
+                    .andExpect(status().isOk)
+                    .andExpect(jsonPath("$.content").isArray)
+                    .andReturn()
+                val fullTimeTitles = objectMapper.readTree(fullTimeResult.response.contentAsString)
+                    .get("content")
+                    .map { it.get("wantedTitle").asText() }
+                assertThat(fullTimeTitles).contains("고용24 정규직 코드 우선 공고")
             }
 
             @Test
@@ -281,7 +458,7 @@ class JobPostingControllerIntegrationTest : IntegrationTestSupport() {
                     .andExpect(status().isOk)
                     .andExpect(jsonPath("$.content").isArray)
                     .andExpect(jsonPath("$.content.length()").value(1))
-                    .andExpect(jsonPath("$.content[0].company.corpNm").value("광주의원"))
+                    .andExpect(jsonPath("$.content[0].company.corpNm").value("광주병원"))
             }
 
             @Test
@@ -293,7 +470,19 @@ class JobPostingControllerIntegrationTest : IntegrationTestSupport() {
                     .andDo(print())
                     .andExpect(status().isOk)
                     .andExpect(jsonPath("$.content").isArray)
-                    .andExpect(jsonPath("$.content.length()").value(3))
+                    .andExpect(jsonPath("$.content.length()").value(2))
+            }
+
+            @Test
+            fun `간호조무사 직종코드 공고는 목록에서 제외`() {
+                mockMvc.perform(
+                    get("/api/v1/job-postings")
+                        .param("searchKeyword", "간호조무사")
+                )
+                    .andDo(print())
+                    .andExpect(status().isOk)
+                    .andExpect(jsonPath("$.content").isArray)
+                    .andExpect(jsonPath("$.content.length()").value(0))
             }
 
             @Test
