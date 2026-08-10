@@ -1,0 +1,19 @@
+-- alarms.type 을 MySQL 네이티브 ENUM → VARCHAR 로 전환
+--
+-- 배경:
+--   alarms 테이블은 Flyway 도입(V1) 이전 ddl-auto: update 시절에 Hibernate 가 만들었고,
+--   MySQL 에서 @Enumerated(STRING) 은 네이티브 ENUM 컬럼으로 생성된다.
+--     type ENUM('EVENT_START','RECRUITMENT_START','RECRUITMENT_END')
+--   이후 AlarmType 에 구독용 값 5개(EVENT_SUBSCRIPTION_*, JOB_SUBSCRIPTION_*)가 추가됐지만
+--   컬럼 정의는 그대로여서, 구독 알람 insert 가 MySQL 1265 (Data truncated for column 'type') 로 실패했다.
+--   → 행사 승인(PATCH /api/v1/events/{id}/approve) 이 500 + 트랜잭션 롤백.
+--
+-- 조치:
+--   V1 의 subscriptions.type 과 동일하게 VARCHAR 로 통일한다.
+--   앞으로 AlarmType 에 값이 추가돼도 마이그레이션 없이 동작한다.
+--   기존 ENUM 값은 라벨 문자열 그대로 보존된다 (EVENT_START → 'EVENT_START').
+--   길이 50: 현재 최장값 EVENT_SUBSCRIPTION_KEYWORD(26자) 기준 여유분.
+--
+-- 주의: type 은 UNIQUE (user_id, event_id, type) 구성 컬럼이라 MySQL 이 테이블 복사 방식으로 ALTER 한다.
+--   alarms 규모에서는 수 초 내 완료되지만, 그 동안 해당 테이블 쓰기는 대기한다.
+ALTER TABLE alarms MODIFY COLUMN type VARCHAR(50) NOT NULL;

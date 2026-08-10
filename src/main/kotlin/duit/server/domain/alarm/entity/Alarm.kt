@@ -45,7 +45,7 @@ class Alarm(
     val jobPosting: JobPosting? = null,
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, length = 50)
     val type: AlarmType,
 
     @Column(nullable = false)
