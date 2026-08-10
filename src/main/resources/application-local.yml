@@ -20,6 +20,12 @@ spring:
         web-allow-others: true
 
   flyway:
+    # ⚠️ local 은 SSH 터널(3308) 반대편이 "운영 MySQL" 이다.
+    #    Flyway 를 켜둔 채 앱을 띄우면 미적용 마이그레이션이 운영 스키마에 그대로 적용된다.
+    #    그래서 기본값 off. 마이그레이션 검증은 일회용 컨테이너로 할 것:
+    #      docker run -d --name mig-check -e MYSQL_ROOT_PASSWORD=root -e MYSQL_DATABASE=duit mysql:8.0
+    #    로컬 전용 DB 를 따로 띄운 경우에만 LOCAL_FLYWAY_ENABLED=true 로 켠다.
+    enabled: ${LOCAL_FLYWAY_ENABLED:false}
     # 로컬 개발 편의: 마이그레이션 실패 row 를 다음 기동 시 자동 정리. prod 에는 적용 X (수동 검토)
     repair-on-migrate: true
 

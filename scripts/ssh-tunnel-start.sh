@@ -77,6 +77,12 @@ if [ -n "$PORT_LISTENING" ]; then
     echo "✅ SSH 터널 연결 성공!"
     echo "   localhost:${LOCAL_PORT} → ${SERVER_IP} (${REMOTE_HOST}:${REMOTE_PORT})"
     echo ""
+    echo "⚠️  터널 반대편은 '운영 MySQL' 입니다. local 프로파일 = 운영 DB."
+    echo "   - 스키마를 바꾸는 작업(마이그레이션 검증 등)은 절대 여기서 하지 마세요."
+    echo "   - 새 Flyway 마이그레이션은 일회용 컨테이너에서 확인하세요:"
+    echo "       docker run -d --name mig-check -e MYSQL_ROOT_PASSWORD=root -e MYSQL_DATABASE=duit mysql:8.0"
+    echo "   - application-local.yml 에서 Flyway 는 기본 off 입니다 (LOCAL_FLYWAY_ENABLED 로 opt-in)."
+    echo ""
     echo "💡 종료하려면: ./ssh-tunnel-stop.sh"
 else
     echo "❌ SSH 터널 연결 실패"
