@@ -88,6 +88,12 @@ fun protectedEndpoint() = ...
 fun publicEndpoint() = ...
 ```
 
+### CORS 정책
+- 허용 origin은 `SecurityConfig.corsConfigurationSource()`에서 명시적으로 관리한다
+- 운영 웹 클라이언트는 `https://dutyit.net`, `https://www.dutyit.net`을 허용한다
+- origin에는 scheme과 host만 사용하며 trailing slash나 path를 포함하지 않는다
+- `allowedOriginPatterns`는 정규식이 아닌 origin pattern 문법이므로 일반 도메인의 점(`.`)을 escape하지 않는다
+
 ### 사용자 디바이스 토큰 엔드포인트
 - 기존 등록 엔드포인트는 `PATCH /api/v1/users/device/{token}`를 유지하되, 새 토큰을 **추가 등록**한다
 - 디바이스 토큰은 컨트롤러에서 `@NotBlank`, `@Pattern` 같은 표준 Bean Validation으로 선검증하고 서비스는 검증 완료 입력만 받는다

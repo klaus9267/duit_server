@@ -8,14 +8,36 @@
 
 > 매 작업 후 갱신. 새 세션 시작 시 이 섹션만 읽으면 전체 파악 가능.
 
- **마지막 작업일**: 2026-06-25
- **진행 중인 작업**: PR #147 GitHub Actions 실패 원인 확인 및 fork PR 권한 대응 완료. main 머지(간호조무사 직종코드 `307500` 제외 반영)와 충돌 해소 완료.
+**마지막 작업일**: 2026-09-04
+**진행 중인 작업**: 운영 웹 도메인(`dutyit.net`, `www.dutyit.net`) CORS 허용 및 회귀 테스트 완료.
  **블로커**: 운영 DB에서 `scripts/sql/deduplicate_user_device_tokens.sql` 실행 후 `scripts/sql/add_user_device_tokens_unique_constraint.sql` 적용 필요 (이전 작업)
  **미수정 CRITICAL**: 1건 (배포된 비밀 노출 사고 후 실제 비밀 rotation / GHCR 정리 필요)
  **미수정 HIGH**: 6건 (CORS, 외부 API 타임아웃/재시도, FCM invalid token 정리, JWT Refresh Token, Discord fire-and-forget)
- **브랜치**: codex/fix-work24-job-filters
+**브랜치**: codex/add-dutyit-cors-origins
  **신규 의존성**: 없음 (Flyway는 기존 build.gradle 활성화)
  **신규 env**: `application*.yml` 의 `ddl-auto: validate` + `flyway enabled`
+
+## 2026-09-04 (운영 웹 도메인 CORS 허용)
+
+**분류**: security | test | docs
+
+### 작업 내용
+- `SecurityConfig`의 CORS 허용 origin에 `https://dutyit.net`, `https://www.dutyit.net` 추가
+- 두 운영 웹 도메인이 허용되고 유사 도메인은 거부되는 회귀 테스트 추가
+- API 규칙 문서에 운영 웹 origin과 `allowedOriginPatterns` 작성 규칙 명시
+
+### 테스트 결과
+- `.\gradlew.bat test --tests "duit.server.application.config.SecurityConfigTest"` 통과
+
+### 기술적 결정
+- 운영 웹 서비스는 HTTPS origin만 허용해 평문 HTTP 접근을 허용 목록에 추가하지 않음
+- `allowedOriginPatterns`는 정규식이 아니므로 일반 도메인은 escape 없이 정확한 origin 문자열로 등록
+
+### 영향 범위
+- 보안 설정: `src/main/kotlin/duit/server/application/config/SecurityConfig.kt`
+- 회귀 테스트: `src/test/kotlin/duit/server/application/config/SecurityConfigTest.kt`
+- 문서: `rules/api-conventions.md`, `rules/work-log.md`
+- API 스키마 및 DB 스키마 변경 없음
 
 ## 2026-06-25 (PR #147 GitHub Actions 권한 실패 대응)
 
