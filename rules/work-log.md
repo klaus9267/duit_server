@@ -8,14 +8,36 @@
 
 > 매 작업 후 갱신. 새 세션 시작 시 이 섹션만 읽으면 전체 파악 가능.
 
- **마지막 작업일**: 2026-06-25
- **진행 중인 작업**: PR #147 GitHub Actions 실패 원인 확인 및 fork PR 권한 대응 완료. main 머지(간호조무사 직종코드 `307500` 제외 반영)와 충돌 해소 완료.
+ **마지막 작업일**: 2026-09-05
+ **진행 중인 작업**: 행사 V2 검색 키워드의 행사명·주최자명 통합 검색 및 회귀 테스트 완료.
  **블로커**: 운영 DB에서 `scripts/sql/deduplicate_user_device_tokens.sql` 실행 후 `scripts/sql/add_user_device_tokens_unique_constraint.sql` 적용 필요 (이전 작업)
  **미수정 CRITICAL**: 1건 (배포된 비밀 노출 사고 후 실제 비밀 rotation / GHCR 정리 필요)
  **미수정 HIGH**: 6건 (CORS, 외부 API 타임아웃/재시도, FCM invalid token 정리, JWT Refresh Token, Discord fire-and-forget)
- **브랜치**: codex/fix-work24-job-filters
+ **브랜치**: codex/event-search-host-name
  **신규 의존성**: 없음 (Flyway는 기존 build.gradle 활성화)
  **신규 env**: `application*.yml` 의 `ddl-auto: validate` + `flyway enabled`
+
+## 2026-09-05 (행사 V2 주최자명 검색 추가)
+
+**분류**: feature | performance | test | docs
+
+### 작업 내용
+- `GET /api/v2/events`의 `searchKeyword`가 행사 제목 또는 주최자명에 부분 일치하면 조회하도록 확장
+- 일반 QueryDSL 조회와 `VIEW_COUNT` 네이티브 SQL 조회에 동일한 검색 조건 적용
+- 행사명 검색 테스트의 빈 결과 허용 문제를 보정하고 주최자명 검색 회귀 테스트 추가
+- OpenAPI 파라미터 설명과 API 규칙 문서를 실제 검색 동작에 맞게 갱신
+
+### 테스트 결과
+- `.\gradlew.bat --no-daemon test --tests "duit.server.domain.event.controller.EventControllerV2IntegrationTest"` 통과 (44개, 실패 0)
+
+### 기술적 결정
+- 응답 생성에 이미 필요한 `hosts` 조인을 검색에도 재사용해 추가 DB 조회나 애플리케이션 메모리 필터링 없이 단일 쿼리를 유지
+- 기존 부분 일치 검색 의미와 커서 페이지네이션 구조를 보존
+- MySQL `FULLTEXT`의 `ngram` 인덱스는 스키마 및 검색 의미 변경이 필요한 별도 최적화이므로 이번 최소 변경 범위에서는 의도적으로 도입하지 않음
+
+### 영향 범위
+- 행사 목록 API `/api/v2/events`의 `searchKeyword` 검색 대상
+- DB 스키마 및 외부 의존성 변경 없음
 
 ## 2026-06-25 (PR #147 GitHub Actions 권한 실패 대응)
 

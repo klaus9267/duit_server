@@ -221,6 +221,7 @@ data class EventCursorPaginationParam(
 
 - 채용공고 목록 API는 별도 정렬 필드를 받지 않고 `id DESC` 고정 정렬을 사용한다
 - 채용공고 커서는 마지막 응답 항목의 `id`만 Base64로 인코딩해 사용한다
+- 행사 목록 API의 `searchKeyword`는 행사 제목 또는 주최자명 중 하나에 부분 일치하면 조회한다
 
 ### 정렬 옵션 (PaginationField)
 
