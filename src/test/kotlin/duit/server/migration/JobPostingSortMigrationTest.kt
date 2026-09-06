@@ -12,7 +12,7 @@ import java.sql.DriverManager
 class JobPostingSortMigrationTest {
 
     @Test
-    fun `V3 마이그레이션은 실제 MySQL에서 정렬 메타데이터를 안전하게 백필한다`() {
+    fun `V4 마이그레이션은 실제 MySQL에서 정렬 메타데이터를 안전하게 백필한다`() {
         connection().use { connection ->
             connection.createStatement().use { statement ->
                 statement.execute(
@@ -42,7 +42,7 @@ class JobPostingSortMigrationTest {
             .dataSource(mysql.jdbcUrl, mysql.username, mysql.password)
             .locations("classpath:db/migration")
             .baselineOnMigrate(true)
-            .baselineVersion("2")
+            .baselineVersion("3")
             .load()
             .migrate()
 

@@ -8,14 +8,36 @@
 
 > 매 작업 후 갱신. 새 세션 시작 시 이 섹션만 읽으면 전체 파악 가능.
 
-**마지막 작업일**: 2026-07-15
-**진행 중인 작업**: PR #150 최종 검토 — 운영 데이터 기반 정렬/동기화 엣지 케이스 보완.
-**블로커**: 운영 DB에서 `scripts/sql/deduplicate_user_device_tokens.sql` 실행 후 `scripts/sql/add_user_device_tokens_unique_constraint.sql` 적용 필요 (이전 작업)
-**미수정 CRITICAL**: 1건 (배포된 비밀 노출 사고 후 실제 비밀 rotation / GHCR 정리 필요)
-**미수정 HIGH**: 6건 (CORS, 외부 API 타임아웃/재시도, FCM invalid token 정리, JWT Refresh Token, Discord fire-and-forget)
-**브랜치**: codex/fix-job-posting-sort
-**신규 의존성**: Testcontainers JUnit Jupiter/MySQL 1.21.3 (테스트 전용)
-**신규 env**: `application*.yml` 의 `ddl-auto: validate` + `flyway enabled`
+**마지막 작업일**: 2026-09-04
+**진행 중인 작업**: 운영 웹 도메인(`dutyit.net`, `www.dutyit.net`) CORS 허용 및 회귀 테스트 완료.
+ **블로커**: 운영 DB에서 `scripts/sql/deduplicate_user_device_tokens.sql` 실행 후 `scripts/sql/add_user_device_tokens_unique_constraint.sql` 적용 필요 (이전 작업)
+ **미수정 CRITICAL**: 1건 (배포된 비밀 노출 사고 후 실제 비밀 rotation / GHCR 정리 필요)
+ **미수정 HIGH**: 6건 (CORS, 외부 API 타임아웃/재시도, FCM invalid token 정리, JWT Refresh Token, Discord fire-and-forget)
+**브랜치**: codex/add-dutyit-cors-origins
+ **신규 의존성**: Testcontainers JUnit Jupiter/MySQL 1.21.3 (테스트 전용, PR #150)
+ **신규 env**: `application*.yml` 의 `ddl-auto: validate` + `flyway enabled`
+
+## 2026-09-04 (운영 웹 도메인 CORS 허용)
+
+**분류**: security | test | docs
+
+### 작업 내용
+- `SecurityConfig`의 CORS 허용 origin에 `https://dutyit.net`, `https://www.dutyit.net` 추가
+- 두 운영 웹 도메인이 허용되고 유사 도메인은 거부되는 회귀 테스트 추가
+- API 규칙 문서에 운영 웹 origin과 `allowedOriginPatterns` 작성 규칙 명시
+
+### 테스트 결과
+- `.\gradlew.bat test --tests "duit.server.application.config.SecurityConfigTest"` 통과
+
+### 기술적 결정
+- 운영 웹 서비스는 HTTPS origin만 허용해 평문 HTTP 접근을 허용 목록에 추가하지 않음
+- `allowedOriginPatterns`는 정규식이 아니므로 일반 도메인은 escape 없이 정확한 origin 문자열로 등록
+
+### 영향 범위
+- 보안 설정: `src/main/kotlin/duit/server/application/config/SecurityConfig.kt`
+- 회귀 테스트: `src/test/kotlin/duit/server/application/config/SecurityConfigTest.kt`
+- 문서: `rules/api-conventions.md`, `rules/work-log.md`
+- API 스키마 및 DB 스키마 변경 없음
 
 ## 2026-07-15 (PR #150 운영 데이터 기반 최종 보완)
 
@@ -53,13 +75,13 @@
 - 고용24 상세 모델 전환 과정에서 제거됐던 채용공고 목록 `field` 파라미터와 필드별 QueryDSL 정렬을 복구
 - `CREATED_AT`은 등록일 내림차순, `EXPIRES_AT`은 마감일 오름차순, `SALARY`는 최소 급여 내림차순으로 처리
 - 정렬값과 `id`를 함께 담는 필드별 커서를 복구해 두 번째 페이지에서도 중복·누락 없이 같은 정렬을 유지
-- 고용24 목록/상세 응답에서 마감일과 최소 급여를 정규화해 `expires_at`, `salary_min`에 저장하고 기존 데이터 backfill 및 정렬 인덱스를 추가하는 Flyway V3 마이그레이션 작성
+- 고용24 목록/상세 응답에서 마감일과 최소 급여를 정규화해 `expires_at`, `salary_min`에 저장하고 기존 데이터 backfill 및 정렬 인덱스를 추가하는 Flyway V4 마이그레이션 작성
 - PR 리뷰를 반영해 `salTpNm`의 `만원` 금액을 원 단위로 환산하고, SQL backfill과 JPA 인덱스 방향을 운영 스키마 정의에 맞춤
 - 운영 1,313건 전수 검증 후 마감순에서 채용시까지 공고가 사라지지 않도록 null-last cursor를 적용하고, 과거 마감 공고를 조회/migration 양쪽에서 제외
 - 연봉·월급·시급·일급 원금을 직접 비교하지 않고 연간 추정액으로 환산해 급여순 의미를 통일하고 `DAILY` 급여 필터 추가
 - 최신순 기준을 내부 적재 시각이 아닌 고용24 `regDt` 기반 `postedAt`으로 변경하고, 기존 id 전용 커서는 기본 정렬에서 호환
 - 마감 당일 자정부터 비활성화되던 날짜 경계를 당일 전체 포함으로 수정
-- Docker 사용 가능한 CI에서는 Testcontainers MySQL 8로 V3 CTE/정규식/오버플로 backfill을 실제 실행해 검증
+- Docker 사용 가능한 CI에서는 Testcontainers MySQL 8로 V4 CTE/정규식/오버플로 backfill을 실제 실행해 검증
 - 배포 직후 기존 `postedAt`은 `createdAt`으로 임시 backfill되며, `ApplicationReadyEvent` 전체 동기화 완료 후 고용24 `regDt`로 교정됨
 - null-last 정렬은 현재 운영 1,313건 규모에서 허용하며, 데이터 증가 시 MySQL 실행계획과 filesort 비용을 재검토
 - 세 정렬 옵션과 `EXPIRES_AT` 커서 페이지 이동 통합 테스트 추가
