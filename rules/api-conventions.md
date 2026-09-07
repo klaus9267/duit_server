@@ -233,6 +233,7 @@ data class EventCursorPaginationParam(
 - 급여 연간 환산은 월급×12, 시급×2,508(월 209시간), 일급×261 기준을 사용한다
 - 채용공고 커서는 선택한 정렬값과 `id`를 함께 Base64로 인코딩한다. 다음 페이지 요청에는 첫 페이지와 같은 `field`를 전달해야 한다
 - 기존 `{id}` 전용 커서는 기본 `CREATED_AT` 정렬에서만 호환한다. `EXPIRES_AT`/`SALARY`에 정렬값이 없는 커서를 보내면 `400 BAD_REQUEST`를 반환한다
+- 행사 목록 API의 `searchKeyword`는 행사 제목 또는 주최자명 중 하나에 부분 일치하면 조회한다
 
 ### 정렬 옵션 (PaginationField)
 
