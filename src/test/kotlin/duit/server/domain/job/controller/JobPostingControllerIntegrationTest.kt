@@ -17,6 +17,7 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.result.MockMvcResultHandlers.print
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
+import java.util.Base64
 
 @DisplayName("채용공고 API 통합 테스트")
 class JobPostingControllerIntegrationTest : IntegrationTestSupport() {
@@ -35,8 +36,8 @@ class JobPostingControllerIntegrationTest : IntegrationTestSupport() {
                 workRegion = WorkRegion.SEOUL,
                 employmentType = EmploymentType.FULL_TIME,
                 educationLevel = EducationLevel.BACHELOR,
-                salaryMin = 5000,
-                salaryMax = 6000,
+                salaryMin = 50_000_000,
+                salaryMax = 60_000_000,
                 salaryType = SalaryType.ANNUAL,
                 closeType = CloseType.FIXED,
                 expiresAt = java.time.LocalDateTime.now().plusDays(5),
@@ -50,8 +51,8 @@ class JobPostingControllerIntegrationTest : IntegrationTestSupport() {
                 workRegion = WorkRegion.BUSAN,
                 employmentType = EmploymentType.CONTRACT,
                 educationLevel = EducationLevel.ASSOCIATE,
-                salaryMin = 3000,
-                salaryMax = 3500,
+                salaryMin = 30_000_000,
+                salaryMax = 35_000_000,
                 salaryType = SalaryType.ANNUAL,
                 closeType = CloseType.FIXED,
                 expiresAt = java.time.LocalDateTime.now().plusDays(10),
@@ -67,7 +68,7 @@ class JobPostingControllerIntegrationTest : IntegrationTestSupport() {
                 workRegion = WorkRegion.GYEONGGI,
                 employmentType = EmploymentType.PART_TIME,
                 educationLevel = EducationLevel.HIGH_SCHOOL,
-                salaryMin = 1500,
+                salaryMin = 18_000_000,
                 salaryMax = null,
                 salaryType = SalaryType.MONTHLY,
                 closeType = CloseType.ON_HIRE,
@@ -82,8 +83,8 @@ class JobPostingControllerIntegrationTest : IntegrationTestSupport() {
                 workRegion = WorkRegion.SEOUL,
                 employmentType = EmploymentType.FULL_TIME,
                 educationLevel = EducationLevel.ASSOCIATE,
-                salaryMin = 4000,
-                salaryMax = 4500,
+                salaryMin = 40_000_000,
+                salaryMax = 45_000_000,
                 salaryType = SalaryType.ANNUAL,
                 closeType = CloseType.ONGOING,
                 expiresAt = null,
@@ -97,8 +98,8 @@ class JobPostingControllerIntegrationTest : IntegrationTestSupport() {
                 workRegion = WorkRegion.DAEGU,
                 employmentType = EmploymentType.FULL_TIME,
                 educationLevel = EducationLevel.BACHELOR,
-                salaryMin = 4500,
-                salaryMax = 5500,
+                salaryMin = 45_000_000,
+                salaryMax = 55_000_000,
                 salaryType = SalaryType.ANNUAL,
                 closeType = CloseType.FIXED,
                 expiresAt = java.time.LocalDateTime.now().plusDays(20),
@@ -112,8 +113,8 @@ class JobPostingControllerIntegrationTest : IntegrationTestSupport() {
                 workRegion = WorkRegion.INCHEON,
                 employmentType = EmploymentType.CONTRACT,
                 educationLevel = EducationLevel.ASSOCIATE,
-                salaryMin = 3200,
-                salaryMax = 3800,
+                salaryMin = 32_000_000,
+                salaryMax = 38_000_000,
                 salaryType = SalaryType.ANNUAL,
                 closeType = CloseType.FIXED,
                 expiresAt = java.time.LocalDateTime.now().plusDays(15),
@@ -127,7 +128,7 @@ class JobPostingControllerIntegrationTest : IntegrationTestSupport() {
                 workRegion = WorkRegion.GWANGJU,
                 employmentType = EmploymentType.PART_TIME,
                 educationLevel = EducationLevel.HIGH_SCHOOL,
-                salaryMin = 12,
+                salaryMin = 30_096_000,
                 salaryMax = null,
                 salaryType = SalaryType.HOURLY,
                 closeType = CloseType.ON_HIRE,
@@ -152,8 +153,8 @@ class JobPostingControllerIntegrationTest : IntegrationTestSupport() {
                 workRegion = WorkRegion.DAEJEON,
                 employmentType = EmploymentType.FULL_TIME,
                 educationLevel = EducationLevel.BACHELOR,
-                salaryMin = 4800,
-                salaryMax = 5200,
+                salaryMin = 48_000_000,
+                salaryMax = 52_000_000,
                 salaryType = SalaryType.ANNUAL,
                 closeType = CloseType.FIXED,
                 expiresAt = java.time.LocalDateTime.now().plusDays(3),
@@ -167,8 +168,8 @@ class JobPostingControllerIntegrationTest : IntegrationTestSupport() {
                 workRegion = WorkRegion.ULSAN,
                 employmentType = EmploymentType.FULL_TIME,
                 educationLevel = EducationLevel.BACHELOR,
-                salaryMin = 5500,
-                salaryMax = 6500,
+                salaryMin = 55_000_000,
+                salaryMax = 65_000_000,
                 salaryType = SalaryType.ANNUAL,
                 closeType = CloseType.FIXED,
                 expiresAt = java.time.LocalDateTime.now().plusDays(25),
@@ -196,6 +197,9 @@ class JobPostingControllerIntegrationTest : IntegrationTestSupport() {
                     .andExpect(jsonPath("$.content").isArray)
                     .andExpect(jsonPath("$.pageInfo.pageSize").isNumber)
                     .andExpect(jsonPath("$.content[0].wantedTitle").exists())
+                    .andExpect(jsonPath("$.content[0].postedAt").exists())
+                    .andExpect(jsonPath("$.content[0].expiresAt").exists())
+                    .andExpect(jsonPath("$.content[0].salaryMin").isNumber)
             }
 
             @Test
@@ -511,7 +515,7 @@ class JobPostingControllerIntegrationTest : IntegrationTestSupport() {
             }
 
             @Test
-            fun `기본 정렬은 id 역순이다`() {
+            fun `기본 정렬은 고용24 최신 등록순이다`() {
                 mockMvc.perform(
                     get("/api/v1/job-postings")
                 )
@@ -519,6 +523,228 @@ class JobPostingControllerIntegrationTest : IntegrationTestSupport() {
                     .andExpect(status().isOk)
                     .andExpect(jsonPath("$.content").isArray)
                     .andExpect(jsonPath("$.content[0].company.corpNm").value("울산병원"))
+            }
+
+            @Test
+            fun `CREATED_AT은 최신 등록순으로 정렬한다`() {
+                val result = mockMvc.perform(
+                    get("/api/v1/job-postings")
+                        .param("field", "CREATED_AT")
+                        .param("size", "3")
+                )
+                    .andExpect(status().isOk)
+                    .andReturn()
+
+                assertThat(responseTitles(result.response.contentAsString))
+                    .containsExactly("울산 정규직 간호사", "대전 정규직 간호사", "광주 시급 간호사")
+            }
+
+            @Test
+            fun `EXPIRES_AT은 마감 임박순으로 정렬한다`() {
+                val result = mockMvc.perform(
+                    get("/api/v1/job-postings")
+                        .param("field", "EXPIRES_AT")
+                        .param("size", "3")
+                )
+                    .andExpect(status().isOk)
+                    .andReturn()
+
+                assertThat(responseTitles(result.response.contentAsString))
+                    .containsExactly("대전 정규직 간호사", "서울 정규직 간호사", "부산 계약직 간호사")
+            }
+
+            @Test
+            fun `SALARY는 급여 높은순으로 정렬한다`() {
+                val result = mockMvc.perform(
+                    get("/api/v1/job-postings")
+                        .param("field", "SALARY")
+                        .param("size", "3")
+                )
+                    .andExpect(status().isOk)
+                    .andReturn()
+
+                assertThat(responseTitles(result.response.contentAsString))
+                    .containsExactly("울산 정규직 간호사", "서울 정규직 간호사", "대전 정규직 간호사")
+            }
+
+            @Test
+            fun `EXPIRES_AT 커서는 다음 마감 공고부터 이어서 조회한다`() {
+                val firstPage = mockMvc.perform(
+                    get("/api/v1/job-postings")
+                        .param("field", "EXPIRES_AT")
+                        .param("size", "2")
+                )
+                    .andExpect(status().isOk)
+                    .andReturn()
+                val firstBody = objectMapper.readTree(firstPage.response.contentAsString)
+
+                val secondPage = mockMvc.perform(
+                    get("/api/v1/job-postings")
+                        .param("field", "EXPIRES_AT")
+                        .param("size", "2")
+                        .param("cursor", firstBody.get("pageInfo").get("nextCursor").asText())
+                )
+                    .andExpect(status().isOk)
+                    .andReturn()
+
+                assertThat(responseTitles(firstPage.response.contentAsString))
+                    .containsExactly("대전 정규직 간호사", "서울 정규직 간호사")
+                assertThat(responseTitles(secondPage.response.contentAsString))
+                    .containsExactly("부산 계약직 간호사", "인천 계약직 간호사")
+            }
+
+            @Test
+            fun `EXPIRES_AT은 마감일 없는 공고를 제거하지 않고 마지막에 배치한다`() {
+                entityManager.persist(
+                    TestFixtures.jobPosting(
+                        title = "마감보존 고정 공고",
+                        closeType = CloseType.FIXED,
+                        expiresAt = java.time.LocalDateTime.now().plusDays(1),
+                    )
+                )
+                entityManager.persist(
+                    TestFixtures.jobPosting(
+                        title = "마감보존 채용시 공고",
+                        closeType = CloseType.ON_HIRE,
+                        expiresAt = null,
+                    )
+                )
+                entityManager.flush()
+                entityManager.clear()
+
+                val pages = requestTwoSingleItemPages(field = "EXPIRES_AT", searchKeyword = "마감보존")
+
+                assertThat(responseTitles(pages.first)).containsExactly("마감보존 고정 공고")
+                assertThat(responseTitles(pages.second)).containsExactly("마감보존 채용시 공고")
+            }
+
+            @Test
+            fun `EXPIRES_AT 커서는 같은 마감일에도 id 역순으로 이어서 조회한다`() {
+                val expiresAt = java.time.LocalDateTime.now().plusDays(1)
+                listOf("동일마감 첫 공고", "동일마감 둘째 공고").forEach { title ->
+                    entityManager.persist(TestFixtures.jobPosting(title = title, expiresAt = expiresAt))
+                }
+                entityManager.flush()
+                entityManager.clear()
+
+                val pages = requestTwoSingleItemPages(field = "EXPIRES_AT", searchKeyword = "동일마감")
+
+                assertThat(responseTitles(pages.first)).containsExactly("동일마감 둘째 공고")
+                assertThat(responseTitles(pages.second)).containsExactly("동일마감 첫 공고")
+            }
+
+            @Test
+            fun `활성 상태가 남아 있어도 마감일이 지난 공고는 제외한다`() {
+                entityManager.persist(
+                    TestFixtures.jobPosting(
+                        title = "기한경과 활성 공고",
+                        expiresAt = java.time.LocalDateTime.now().minusDays(1),
+                        isActive = true,
+                    )
+                )
+                entityManager.flush()
+                entityManager.clear()
+
+                mockMvc.perform(
+                    get("/api/v1/job-postings")
+                        .param("searchKeyword", "기한경과")
+                )
+                    .andExpect(status().isOk)
+                    .andExpect(jsonPath("$.content.length()").value(0))
+            }
+
+            @Test
+            fun `CREATED_AT 커서는 등록 시각이 같아도 id 역순으로 이어서 조회한다`() {
+                val postedAt = java.time.LocalDateTime.of(2027, 1, 1, 0, 0)
+                val postings = listOf("동시등록 첫 공고", "동시등록 둘째 공고").map { title ->
+                    TestFixtures.jobPosting(title = title).also(entityManager::persist)
+                }
+                entityManager.flush()
+                entityManager.createNativeQuery(
+                    "UPDATE job_postings SET posted_at = :postedAt WHERE id IN (:ids)"
+                )
+                    .setParameter("postedAt", postedAt)
+                    .setParameter("ids", postings.map { it.id })
+                    .executeUpdate()
+                entityManager.clear()
+
+                val pages = requestTwoSingleItemPages(field = "CREATED_AT", searchKeyword = "동시등록")
+
+                assertThat(responseTitles(pages.first)).containsExactly("동시등록 둘째 공고")
+                assertThat(responseTitles(pages.second)).containsExactly("동시등록 첫 공고")
+            }
+
+            @Test
+            fun `SALARY 커서는 급여가 같아도 id 역순으로 이어서 조회한다`() {
+                listOf("동일급여 첫 공고", "동일급여 둘째 공고").forEach { title ->
+                    entityManager.persist(TestFixtures.jobPosting(title = title, salaryMin = 70_000_000))
+                }
+                entityManager.flush()
+                entityManager.clear()
+
+                val pages = requestTwoSingleItemPages(field = "SALARY", searchKeyword = "동일급여")
+
+                assertThat(responseTitles(pages.first)).containsExactly("동일급여 둘째 공고")
+                assertThat(responseTitles(pages.second)).containsExactly("동일급여 첫 공고")
+            }
+
+            @Test
+            fun `SALARY는 급여 미공개 공고를 제거하지 않고 마지막에 배치한다`() {
+                entityManager.persist(
+                    TestFixtures.jobPosting(title = "급여보존 공개 공고", salaryMin = 40_000_000)
+                )
+                entityManager.persist(
+                    TestFixtures.jobPosting(title = "급여보존 미공개 공고", salaryMin = null)
+                )
+                entityManager.flush()
+                entityManager.clear()
+
+                val pages = requestTwoSingleItemPages(field = "SALARY", searchKeyword = "급여보존")
+
+                assertThat(responseTitles(pages.first)).containsExactly("급여보존 공개 공고")
+                assertThat(responseTitles(pages.second)).containsExactly("급여보존 미공개 공고")
+            }
+
+            @Test
+            fun `기존 id 전용 커서는 기본 정렬에서 이어서 조회한다`() {
+                val firstPage = mockMvc.perform(
+                    get("/api/v1/job-postings")
+                        .param("field", "CREATED_AT")
+                        .param("size", "1")
+                )
+                    .andExpect(status().isOk)
+                    .andReturn()
+                val firstBody = objectMapper.readTree(firstPage.response.contentAsString)
+                val firstId = firstBody.get("content").first().get("id").asLong()
+                val legacyCursor = Base64.getUrlEncoder().encodeToString(
+                    "{\"id\":$firstId}".toByteArray(Charsets.UTF_8)
+                )
+
+                val secondPage = mockMvc.perform(
+                    get("/api/v1/job-postings")
+                        .param("field", "CREATED_AT")
+                        .param("size", "1")
+                        .param("cursor", legacyCursor)
+                )
+                    .andExpect(status().isOk)
+                    .andReturn()
+
+                assertThat(responseTitles(secondPage.response.contentAsString))
+                    .containsExactly("대전 정규직 간호사")
+            }
+
+            @Test
+            fun `기존 id 전용 커서를 다른 정렬에 사용하면 400을 반환한다`() {
+                val legacyCursor = Base64.getUrlEncoder().encodeToString(
+                    "{\"id\":1}".toByteArray(Charsets.UTF_8)
+                )
+
+                mockMvc.perform(
+                    get("/api/v1/job-postings")
+                        .param("field", "SALARY")
+                        .param("cursor", legacyCursor)
+                )
+                    .andExpect(status().isBadRequest)
             }
 
             @Test
@@ -533,6 +759,37 @@ class JobPostingControllerIntegrationTest : IntegrationTestSupport() {
                     .andExpect(jsonPath("$.content.length()").value(0))
             }
         }
+    }
+
+    private fun responseTitles(body: String): List<String> = objectMapper.readTree(body)
+        .get("content")
+        .map { it.get("wantedTitle").asText() }
+
+    private fun requestTwoSingleItemPages(field: String, searchKeyword: String): Pair<String, String> {
+        val firstPage = mockMvc.perform(
+            get("/api/v1/job-postings")
+                .param("field", field)
+                .param("searchKeyword", searchKeyword)
+                .param("size", "1")
+        )
+            .andExpect(status().isOk)
+            .andReturn()
+            .response
+            .contentAsString
+        val cursor = objectMapper.readTree(firstPage).get("pageInfo").get("nextCursor").asText()
+        val secondPage = mockMvc.perform(
+            get("/api/v1/job-postings")
+                .param("field", field)
+                .param("searchKeyword", searchKeyword)
+                .param("size", "1")
+                .param("cursor", cursor)
+        )
+            .andExpect(status().isOk)
+            .andReturn()
+            .response
+            .contentAsString
+
+        return firstPage to secondPage
     }
 
     @Nested

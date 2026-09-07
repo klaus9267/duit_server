@@ -2,6 +2,12 @@ package duit.server.infrastructure.external.job.dto
 
 import duit.server.domain.job.entity.JobPostingWork24Detail
 
+data class JobFetchBatch(
+    val postings: List<JobFetchResult>,
+    val activeExternalIds: Set<String>,
+    val isCompleteSnapshot: Boolean,
+)
+
 /** 외부 소스에서 수집한 공고 1건 */
 data class JobFetchResult(
     val externalId: String,
