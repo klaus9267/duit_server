@@ -88,6 +88,12 @@ fun protectedEndpoint() = ...
 fun publicEndpoint() = ...
 ```
 
+### CORS 정책
+- 허용 origin은 `SecurityConfig.corsConfigurationSource()`에서 명시적으로 관리한다
+- 운영 웹 클라이언트는 `https://dutyit.net`, `https://www.dutyit.net`을 허용한다
+- origin에는 scheme과 host만 사용하며 trailing slash나 path를 포함하지 않는다
+- `allowedOriginPatterns`는 정규식이 아닌 origin pattern 문법이므로 일반 도메인의 점(`.`)을 escape하지 않는다
+
 ### 사용자 디바이스 토큰 엔드포인트
 - 기존 등록 엔드포인트는 `PATCH /api/v1/users/device/{token}`를 유지하되, 새 토큰을 **추가 등록**한다
 - 디바이스 토큰은 컨트롤러에서 `@NotBlank`, `@Pattern` 같은 표준 Bean Validation으로 선검증하고 서비스는 검증 완료 입력만 받는다
@@ -100,7 +106,7 @@ fun publicEndpoint() = ...
 ### 채용공고 상세 응답 규칙
 - `GET /api/v1/job-postings/{jobPostingId}`는 목록 DTO 재사용 대신 상세 전용 DTO를 사용한다
 - 고용24 상세 응답은 DB에 저장된 구조화 필드 기준으로 만들고, `corpInfo`는 `company` 연관 엔티티에서 복원한다
-- 우리 서비스 메타 정보는 `id`, `wantedAuthNo`, `isBookmarked`, `createdAt`, `updatedAt`처럼 최소 필드만 루트에 둔다
+- 우리 서비스 메타 정보는 `id`, `wantedAuthNo`, `isBookmarked`, 정렬 기준인 `postedAt`/`expiresAt`/`salaryMin`, `createdAt`, `updatedAt`처럼 최소 필드만 루트에 둔다
 - 목록 API는 가벼운 summary DTO를 유지하고, 상세 API만 `wantedDtl` 기반 richer payload를 내려준다
 - 채용공고 목록 API는 간호사가 대상에 포함된 고용24 직종코드(`304000`, `304001`, `304002`)만 노출한다. 간호조무사 코드 `307500`은 제외한다
 - `JobPostingResponse`는 별도 이름 변환보다 `JobPosting` 엔티티 필드명을 최대한 그대로 따른다. 예: `wantedTitle`, `jobsNm`, `workRegion`, `empTpNm`
@@ -219,8 +225,14 @@ data class EventCursorPaginationParam(
 }
 ```
 
-- 채용공고 목록 API는 별도 정렬 필드를 받지 않고 `id DESC` 고정 정렬을 사용한다
-- 채용공고 커서는 마지막 응답 항목의 `id`만 Base64로 인코딩해 사용한다
+- 채용공고 목록 API는 `field=CREATED_AT|EXPIRES_AT|SALARY` 정렬을 지원한다
+  - `CREATED_AT`: 고용24 등록 시각 내림차순
+  - `EXPIRES_AT`: 미래 마감 시각 오름차순. 채용시까지/상시 공고는 고정 마감 공고 뒤에 배치
+  - `SALARY`: 지급 주기를 연간 추정액으로 환산한 최소 급여 내림차순. 미공개 공고는 마지막에 배치
+- 마감일이 지난 공고는 `isActive` 값이 갱신되지 않았더라도 모든 목록 조회에서 제외한다
+- 급여 연간 환산은 월급×12, 시급×2,508(월 209시간), 일급×261 기준을 사용한다
+- 채용공고 커서는 선택한 정렬값과 `id`를 함께 Base64로 인코딩한다. 다음 페이지 요청에는 첫 페이지와 같은 `field`를 전달해야 한다
+- 기존 `{id}` 전용 커서는 기본 `CREATED_AT` 정렬에서만 호환한다. `EXPIRES_AT`/`SALARY`에 정렬값이 없는 커서를 보내면 `400 BAD_REQUEST`를 반환한다
 - 행사 목록 API의 `searchKeyword`는 행사 제목 또는 주최자명 중 하나에 부분 일치하면 조회한다
 
 ### 정렬 옵션 (PaginationField)
