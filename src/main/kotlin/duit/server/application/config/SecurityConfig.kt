@@ -106,6 +106,8 @@ class SecurityConfig(
             "https://api.dutyit.net",
             "https://dutyit.net",
             "https://www.dutyit.net",
+            "https://dutyit.web.tossmini.com",
+            "https://dutyit.private-web.tossmini.com",
             "https://*.ba3a06dea2.us-east-1-01.gitpot.dev"
         )
         configuration.allowedMethods = listOf("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
