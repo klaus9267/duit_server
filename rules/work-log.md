@@ -24,8 +24,8 @@
 - 앱인토스 운영·테스트 WebView의 기존 공개 API 호출이 CORS 403으로 차단되는 문제를 해결한다.
 - `dutyit.web.tossmini.com`, `dutyit.private-web.tossmini.com` 두 HTTPS Origin만 추가한다. 다른 미니앱 전체를 허용하는 와일드카드는 사용하지 않는다.
 - 행사·채용 조회와 행사 조회수 PATCH에 기존 API를 직접 쓰며 새 API나 중간 서버는 만들지 않는다. 조회수 실제 변경 없이 OPTIONS 요청으로 검증한다.
-- GET/PATCH preflight 허용과 다른 미니앱·위장 Origin 거부를 회귀 테스트한다. 병합 후 서버 배포와 실제 두 Origin의 CORS 재확인이 필요하다.
-- 검증: JDK 17에서 `./gradlew test --tests 'duit.server.application.config.SecurityConfigCorsTest'` 6개 통과, 실패 0.
+- 허용 Origin 추가이므로 별도 CORS 테스트 클래스를 두지 않고 기존 `SecurityConfigTest`의 허용 도메인 목록을 확장한다. 병합 후 서버 배포와 실제 두 Origin의 CORS 재확인이 필요하다.
+- 검증: JDK 17에서 `./gradlew test --tests 'duit.server.application.config.SecurityConfigTest'` 2개 통과, 실패 0.
 
 ## 2026-09-05 (행사 V2 주최자명 검색 추가)
 
