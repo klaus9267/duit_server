@@ -8,14 +8,24 @@
 
 > 매 작업 후 갱신. 새 세션 시작 시 이 섹션만 읽으면 전체 파악 가능.
 
- **마지막 작업일**: 2026-09-05
- **진행 중인 작업**: 행사 V2 검색 키워드의 행사명·주최자명 통합 검색 및 회귀 테스트 완료.
+ **마지막 작업일**: 2026-09-11
+ **진행 중인 작업**: 듀잇 앱인토스 운영·테스트 Origin CORS 허용. 기존 공개 API 직접 연동을 위해 서버 배포 필요.
  **블로커**: 운영 DB에서 `scripts/sql/deduplicate_user_device_tokens.sql` 실행 후 `scripts/sql/add_user_device_tokens_unique_constraint.sql` 적용 필요 (이전 작업)
  **미수정 CRITICAL**: 1건 (배포된 비밀 노출 사고 후 실제 비밀 rotation / GHCR 정리 필요)
  **미수정 HIGH**: 6건 (CORS, 외부 API 타임아웃/재시도, FCM invalid token 정리, JWT Refresh Token, Discord fire-and-forget)
- **브랜치**: codex/event-search-host-name
- **신규 의존성**: Testcontainers JUnit Jupiter/MySQL 1.21.3 (테스트 전용, PR #150)
+ **브랜치**: codex/dutyit-toss-cors
+ **신규 의존성**: 없음
  **신규 env**: `application*.yml` 의 `ddl-auto: validate` + `flyway enabled`
+
+## 2026-09-11 (듀잇 앱인토스 CORS)
+
+**분류**: fix | test | docs
+
+- 앱인토스 운영·테스트 WebView의 기존 공개 API 호출이 CORS 403으로 차단되는 문제를 해결한다.
+- `dutyit.web.tossmini.com`, `dutyit.private-web.tossmini.com` 두 HTTPS Origin만 추가한다. 다른 미니앱 전체를 허용하는 와일드카드는 사용하지 않는다.
+- 행사·채용 조회와 행사 조회수 PATCH에 기존 API를 직접 쓰며 새 API나 중간 서버는 만들지 않는다. 조회수 실제 변경 없이 OPTIONS 요청으로 검증한다.
+- GET/PATCH preflight 허용과 다른 미니앱·위장 Origin 거부를 회귀 테스트한다. 병합 후 서버 배포와 실제 두 Origin의 CORS 재확인이 필요하다.
+- 검증: JDK 17에서 `./gradlew test --tests 'duit.server.application.config.SecurityConfigCorsTest'` 6개 통과, 실패 0.
 
 ## 2026-09-05 (행사 V2 주최자명 검색 추가)
 
