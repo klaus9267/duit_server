@@ -13,10 +13,12 @@ class SecurityConfigTest {
         .getCorsConfiguration(MockHttpServletRequest("GET", "/api/v2/events"))!!
 
     @Test
-    fun `운영 웹 도메인을 CORS origin으로 허용한다`() {
+    fun `듀잇 웹과 앱인토스 도메인을 CORS origin으로 허용한다`() {
         listOf(
             "https://dutyit.net",
-            "https://www.dutyit.net"
+            "https://www.dutyit.net",
+            "https://dutyit.web.tossmini.com",
+            "https://dutyit.private-web.tossmini.com"
         ).forEach { origin ->
             assertEquals(origin, corsConfiguration.checkOrigin(origin))
         }
