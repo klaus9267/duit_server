@@ -17,6 +17,8 @@ class SecurityConfigTest {
         listOf(
             "https://dutyit.net",
             "https://www.dutyit.net",
+            "https://dutyit.apps.tossmini.com",
+            "https://dutyit.private-apps.tossmini.com",
             "https://dutyit.web.tossmini.com",
             "https://dutyit.private-web.tossmini.com"
         ).forEach { origin ->
