@@ -1,7 +1,6 @@
 package duit.server.domain.admin.service
 
 import duit.server.application.security.JwtTokenProvider
-import duit.server.application.security.SecurityUtil
 import duit.server.domain.admin.dto.AdminLoginResponse
 import duit.server.domain.admin.dto.AdminRegisterRequest
 import duit.server.domain.admin.dto.AdminResponse
@@ -23,7 +22,6 @@ class AdminAuthService(
     private val userRepository: UserRepository,
     private val passwordEncoder: PasswordEncoder,
     private val jwtTokenProvider: JwtTokenProvider,
-    private val securityUtil: SecurityUtil
 ) {
 
     @Transactional
@@ -51,10 +49,11 @@ class AdminAuthService(
         require(!adminRepository.existsByAdminId(request.adminId)) {
             "이미 존재하는 관리자 ID입니다"
         }
+        require(!adminRepository.existsByUserId(request.userId)) {
+            "이미 관리자로 등록된 사용자입니다"
+        }
 
-        val currentUserId = securityUtil.getCurrentUserId()
-
-        return userRepository.findByIdOrThrow(currentUserId)
+        return userRepository.findByIdOrThrow(request.userId)
             .let { user ->
                 val admin = Admin(
                     user = user,

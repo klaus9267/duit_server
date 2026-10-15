@@ -1,6 +1,6 @@
 package duit.server.domain.admin.controller
 
-import duit.server.application.common.RequireAuth
+import duit.server.application.common.RequireAdmin
 import duit.server.domain.admin.dto.AdminLoginRequest
 import duit.server.domain.admin.dto.AdminLoginResponse
 import duit.server.domain.admin.dto.AdminRegisterRequest
@@ -32,8 +32,8 @@ class AdminAuthController(
     }
 
     @PostMapping("/register")
-    @Operation(summary = "관리자 등록", description = "새로운 관리자 계정을 등록합니다")
-    @RequireAuth
+    @Operation(summary = "관리자 등록", description = "기존 관리자가 지정한 사용자에게 관리자 계정을 발급합니다")
+    @RequireAdmin
     @ResponseStatus(HttpStatus.CREATED)
     fun register(
         @RequestBody @Valid request: AdminRegisterRequest

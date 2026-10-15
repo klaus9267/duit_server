@@ -4,6 +4,7 @@ import duit.server.domain.admin.entity.Admin
 import duit.server.domain.user.entity.User
 import duit.server.support.IntegrationTestSupport
 import duit.server.support.fixture.TestFixtures
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -170,22 +171,26 @@ class AdminAuthControllerIntegrationTest : IntegrationTestSupport() {
     @DisplayName("POST /api/v1/admin/auth/register - 관리자 등록")
     inner class RegisterTests {
 
+        private fun registerBody(
+            userId: Long = registerUser.id!!,
+            adminId: String = "newadmin",
+            password: String = "newpassword1234",
+        ) = objectMapper.writeValueAsString(
+            mapOf("userId" to userId, "adminId" to adminId, "password" to password)
+        )
+
         @Nested
         @DisplayName("성공")
         inner class Success {
 
             @Test
-            @DisplayName("새로운 관리자 계정을 등록한다")
+            @DisplayName("기존 관리자가 다른 사용자를 관리자로 등록한다")
             fun registerSuccess() {
-                val requestBody = objectMapper.writeValueAsString(
-                    mapOf("adminId" to "newadmin", "password" to "newpassword1234")
-                )
-
                 mockMvc.perform(
                     post("/api/v1/admin/auth/register")
-                        .header("Authorization", authHeader(registerUser.id!!))
+                        .header("Authorization", authHeader(adminUser.id!!))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody)
+                        .content(registerBody())
                 )
                     .andDo(print())
                     .andExpect(status().isCreated)
@@ -201,31 +206,55 @@ class AdminAuthControllerIntegrationTest : IntegrationTestSupport() {
             @Test
             @DisplayName("인증 없이 접근하면 401을 반환한다")
             fun unauthorized() {
-                val requestBody = objectMapper.writeValueAsString(
-                    mapOf("adminId" to "newadmin", "password" to "newpassword1234")
-                )
-
                 mockMvc.perform(
                     post("/api/v1/admin/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody)
+                        .content(registerBody())
                 )
                     .andDo(print())
                     .andExpect(status().isUnauthorized)
             }
 
             @Test
-            @DisplayName("이미 존재하는 adminId로 등록하면 에러를 반환한다")
-            fun duplicateAdminId() {
-                val requestBody = objectMapper.writeValueAsString(
-                    mapOf("adminId" to "testadmin", "password" to "newpassword1234")
-                )
-
+            @DisplayName("관리자가 아닌 회원이 자기 자신을 등록하면 403을 반환한다")
+            fun nonAdminSelfRegistration() {
                 mockMvc.perform(
                     post("/api/v1/admin/auth/register")
                         .header("Authorization", authHeader(registerUser.id!!))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody)
+                        .content(registerBody())
+                )
+                    .andDo(print())
+                    .andExpect(status().isForbidden)
+
+                val adminCount = entityManager
+                    .createQuery("SELECT COUNT(a) FROM Admin a WHERE a.user.id = :userId", Long::class.javaObjectType)
+                    .setParameter("userId", registerUser.id!!)
+                    .singleResult
+                assertEquals(0L, adminCount)
+            }
+
+            @Test
+            @DisplayName("이미 존재하는 adminId로 등록하면 에러를 반환한다")
+            fun duplicateAdminId() {
+                mockMvc.perform(
+                    post("/api/v1/admin/auth/register")
+                        .header("Authorization", authHeader(adminUser.id!!))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(registerBody(adminId = "testadmin"))
+                )
+                    .andDo(print())
+                    .andExpect(status().isBadRequest)
+            }
+
+            @Test
+            @DisplayName("이미 관리자인 사용자를 다시 등록하면 에러를 반환한다")
+            fun alreadyAdminUser() {
+                mockMvc.perform(
+                    post("/api/v1/admin/auth/register")
+                        .header("Authorization", authHeader(adminUser.id!!))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(registerBody(userId = adminUser.id!!))
                 )
                     .andDo(print())
                     .andExpect(status().isBadRequest)
@@ -234,15 +263,11 @@ class AdminAuthControllerIntegrationTest : IntegrationTestSupport() {
             @Test
             @DisplayName("adminId가 4자 미만이면 에러를 반환한다")
             fun adminIdTooShort() {
-                val requestBody = objectMapper.writeValueAsString(
-                    mapOf("adminId" to "ab", "password" to "newpassword1234")
-                )
-
                 mockMvc.perform(
                     post("/api/v1/admin/auth/register")
-                        .header("Authorization", authHeader(registerUser.id!!))
+                        .header("Authorization", authHeader(adminUser.id!!))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody)
+                        .content(registerBody(adminId = "ab"))
                 )
                     .andDo(print())
                     .andExpect(status().isBadRequest)
@@ -251,15 +276,11 @@ class AdminAuthControllerIntegrationTest : IntegrationTestSupport() {
             @Test
             @DisplayName("password가 8자 미만이면 에러를 반환한다")
             fun passwordTooShort() {
-                val requestBody = objectMapper.writeValueAsString(
-                    mapOf("adminId" to "newadmin", "password" to "short")
-                )
-
                 mockMvc.perform(
                     post("/api/v1/admin/auth/register")
-                        .header("Authorization", authHeader(registerUser.id!!))
+                        .header("Authorization", authHeader(adminUser.id!!))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody)
+                        .content(registerBody(password = "short"))
                 )
                     .andDo(print())
                     .andExpect(status().isBadRequest)

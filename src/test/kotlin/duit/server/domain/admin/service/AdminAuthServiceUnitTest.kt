@@ -1,7 +1,6 @@
 package duit.server.domain.admin.service
 
 import duit.server.application.security.JwtTokenProvider
-import duit.server.application.security.SecurityUtil
 import duit.server.domain.admin.dto.AdminRegisterRequest
 import duit.server.domain.admin.entity.Admin
 import duit.server.domain.admin.entity.BannedIp
@@ -28,7 +27,6 @@ class AdminAuthServiceUnitTest {
     private lateinit var userRepository: UserRepository
     private lateinit var passwordEncoder: PasswordEncoder
     private lateinit var jwtTokenProvider: JwtTokenProvider
-    private lateinit var securityUtil: SecurityUtil
     private lateinit var adminAuthService: AdminAuthService
 
     private lateinit var user: User
@@ -42,10 +40,9 @@ class AdminAuthServiceUnitTest {
         userRepository = mockk()
         passwordEncoder = mockk()
         jwtTokenProvider = mockk()
-        securityUtil = mockk()
         adminAuthService = AdminAuthService(
             adminRepository, bannedIpRepository, bannedIpService,
-            userRepository, passwordEncoder, jwtTokenProvider, securityUtil
+            userRepository, passwordEncoder, jwtTokenProvider
         )
 
         user = User(id = 1L, nickname = "관리자", providerId = "admin-p1")
@@ -125,21 +122,22 @@ class AdminAuthServiceUnitTest {
     inner class RegisterTests {
 
         @Test
-        @DisplayName("새로운 adminId로 등록하면 AdminResponse를 반환한다")
+        @DisplayName("지정한 사용자에게 새로운 adminId로 등록하면 AdminResponse를 반환한다")
         fun registerSuccess() {
+            val target = User(id = 2L, nickname = "신규관리자", providerId = "admin-p2")
             every { adminRepository.existsByAdminId("newadmin") } returns false
-            every { securityUtil.getCurrentUserId() } returns 1L
-            every { userRepository.findById(1L) } returns Optional.of(user)
+            every { adminRepository.existsByUserId(2L) } returns false
+            every { userRepository.findById(2L) } returns Optional.of(target)
             every { passwordEncoder.encode("password123") } returns "encoded-new-pw"
             every { adminRepository.save(any<Admin>()) } answers {
                 val arg = firstArg<Admin>()
                 Admin(id = 100L, user = arg.user, adminId = arg.adminId, password = arg.password)
             }
 
-            val result = adminAuthService.register(AdminRegisterRequest("newadmin", "password123"))
+            val result = adminAuthService.register(AdminRegisterRequest(2L, "newadmin", "password123"))
 
             assertEquals("newadmin", result.adminId)
-            assertEquals(1L, result.userId)
+            assertEquals(2L, result.userId)
         }
 
         @Test
@@ -148,8 +146,20 @@ class AdminAuthServiceUnitTest {
             every { adminRepository.existsByAdminId("testadmin") } returns true
 
             assertThrows<IllegalArgumentException> {
-                adminAuthService.register(AdminRegisterRequest("testadmin", "password123"))
+                adminAuthService.register(AdminRegisterRequest(2L, "testadmin", "password123"))
             }
+        }
+
+        @Test
+        @DisplayName("이미 관리자인 사용자를 등록하면 IllegalArgumentException이 발생한다")
+        fun throwsOnAlreadyAdminUser() {
+            every { adminRepository.existsByAdminId("newadmin") } returns false
+            every { adminRepository.existsByUserId(1L) } returns true
+
+            assertThrows<IllegalArgumentException> {
+                adminAuthService.register(AdminRegisterRequest(1L, "newadmin", "password123"))
+            }
+            verify(exactly = 0) { adminRepository.save(any<Admin>()) }
         }
     }
 }
