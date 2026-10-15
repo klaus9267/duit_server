@@ -13,8 +13,15 @@ sealed interface WageDefaulterCheckResult {
     /** listed = true 면 명단공개 대상 */
     data class Checked(val listed: Boolean) : WageDefaulterCheckResult
 
-    /** 연계 실패·오류 코드·파싱 실패 등으로 판정할 수 없는 경우 (기존 값 유지) */
-    data class Unknown(val reason: String, val errorCode: String? = null) : WageDefaulterCheckResult
+    /**
+     * 연계 실패·오류 코드·파싱 실패 등으로 판정할 수 없는 경우 (기존 값 유지).
+     * apiFailure 는 회사와 무관한 API 장애(요청 실패·오류 코드·비정상 응답)로, 이어서 조회해도 실패할 가능성이 높다.
+     */
+    data class Unknown(
+        val reason: String,
+        val errorCode: String? = null,
+        val apiFailure: Boolean = errorCode != null,
+    ) : WageDefaulterCheckResult
 }
 
 /**
@@ -49,14 +56,18 @@ class Work24WageDefaulterClient(
     fun check(businessNumber: String): WageDefaulterCheckResult =
         runCatching { fetchXml(businessNumber) }
             .fold(
-                onSuccess = { body -> body?.let(::parse) ?: WageDefaulterCheckResult.Unknown("빈 응답") },
+                onSuccess = { body ->
+                    body?.let(::parse) ?: WageDefaulterCheckResult.Unknown("빈 응답", apiFailure = true)
+                },
                 // 예외 메시지에 authKey 가 포함된 요청 URL 이 들어갈 수 있어 예외 종류만 남긴다
-                onFailure = { WageDefaulterCheckResult.Unknown("요청 실패: ${it.javaClass.simpleName}") },
+                onFailure = {
+                    WageDefaulterCheckResult.Unknown("요청 실패: ${it.javaClass.simpleName}", apiFailure = true)
+                },
             )
 
     fun parse(xml: String): WageDefaulterCheckResult {
         val root = runCatching { xmlMapper.readTree(xml) }.getOrNull()
-            ?: return WageDefaulterCheckResult.Unknown("응답 XML 파싱 실패")
+            ?: return WageDefaulterCheckResult.Unknown("응답 XML 파싱 실패", apiFailure = true)
         val item = root.get("jdgnList") ?: root
 
         val errorCode = item.textOf("errMsgCd")
@@ -65,6 +76,7 @@ class Work24WageDefaulterClient(
 
         return when {
             errorCode != null -> WageDefaulterCheckResult.Unknown("오류 응답: ${item.textOf("errMsg")}", errorCode)
+            linked == null -> WageDefaulterCheckResult.Unknown("응답 형식 오류: lnkSucsYn 없음", apiFailure = true)
             linked != "Y" -> WageDefaulterCheckResult.Unknown("연계 실패: lnkSucsYn=$linked")
             judgement == "Y" -> WageDefaulterCheckResult.Checked(listed = true)
             judgement == "N" -> WageDefaulterCheckResult.Checked(listed = false)

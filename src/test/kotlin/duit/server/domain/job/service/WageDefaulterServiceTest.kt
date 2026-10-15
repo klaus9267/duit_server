@@ -87,6 +87,39 @@ class WageDefaulterServiceTest {
     }
 
     @Test
+    fun `API 장애가 연속되면 남은 회사는 다음 실행으로 미룬다`() {
+        every { repository.findWageDefaulterCheckTargets(any()) } returns (1L..5L).map {
+            company(it, (1_000_000_000L + it).toString())
+        }
+        every { client.check(any()) } returns WageDefaulterCheckResult.Unknown("요청 실패", apiFailure = true)
+
+        service.refreshStaleCompanies(now)
+
+        verify(exactly = WageDefaulterService.MAX_CONSECUTIVE_API_FAILURES) { client.check(any()) }
+    }
+
+    @Test
+    fun `회사별 판정 불가나 중간 성공은 연속 장애로 세지 않는다`() {
+        every { repository.findWageDefaulterCheckTargets(any()) } returns (1L..6L).map {
+            company(it, (1_000_000_000L + it).toString())
+        }
+        val apiFailure = WageDefaulterCheckResult.Unknown("요청 실패", apiFailure = true)
+        every { client.check(any()) } returnsMany listOf(
+            apiFailure,
+            apiFailure,
+            WageDefaulterCheckResult.Unknown("연계 실패: lnkSucsYn=N"),
+            apiFailure,
+            apiFailure,
+            WageDefaulterCheckResult.Checked(listed = false),
+        )
+
+        service.refreshStaleCompanies(now)
+
+        verify(exactly = 6) { client.check(any()) }
+        verify(exactly = 1) { repository.updateWageDefaulter(6L, false, any()) }
+    }
+
+    @Test
     fun `사업자등록번호 형식이 맞지 않는 회사는 건너뛴다`() {
         every { repository.findWageDefaulterCheckTargets(any()) } returns listOf(
             company(1L, "12-34"),

@@ -53,22 +53,33 @@ class Work24WageDefaulterClientTest {
 
             assertTrue(result is WageDefaulterCheckResult.Unknown)
             assertEquals("ERR0001", (result as WageDefaulterCheckResult.Unknown).errorCode)
+            assertTrue(result.apiFailure)
         }
 
         @Test
         fun `연계에 실패하면 판정 값이 있어도 판정하지 않는다`() {
-            assertTrue(client.parse(response(lnkSucsYn = "N", judgReltYn = "Y")) is WageDefaulterCheckResult.Unknown)
+            val result = client.parse(response(lnkSucsYn = "N", judgReltYn = "Y"))
+
+            assertTrue(result is WageDefaulterCheckResult.Unknown)
+            assertFalse((result as WageDefaulterCheckResult.Unknown).apiFailure)
         }
 
         @Test
         fun `판정 값이 비어 있으면 판정하지 않는다`() {
-            assertTrue(client.parse(response(judgReltYn = "")) is WageDefaulterCheckResult.Unknown)
+            val result = client.parse(response(judgReltYn = ""))
+
+            assertTrue(result is WageDefaulterCheckResult.Unknown)
+            assertFalse((result as WageDefaulterCheckResult.Unknown).apiFailure)
         }
 
         @Test
-        fun `깨진 XML 이나 다른 형식의 응답은 판정하지 않는다`() {
+        fun `깨진 XML 이나 다른 형식의 응답은 API 장애로 보고 판정하지 않는다`() {
             listOf("<jdgnList><lnkSucsYn>Y</lnkSucsYn>", "not xml", "<html><body>점검 중</body></html>")
-                .forEach { body -> assertTrue(client.parse(body) is WageDefaulterCheckResult.Unknown, body) }
+                .forEach { body ->
+                    val result = client.parse(body)
+                    assertTrue(result is WageDefaulterCheckResult.Unknown, body)
+                    assertTrue((result as WageDefaulterCheckResult.Unknown).apiFailure, body)
+                }
         }
 
         @Test
@@ -96,7 +107,9 @@ class Work24WageDefaulterClientTest {
             val spyClient = spyk(client, recordPrivateCalls = true)
             every { spyClient["fetchXml"]("1234567890") } throws ResourceAccessException("timeout")
 
-            assertTrue(spyClient.check("1234567890") is WageDefaulterCheckResult.Unknown)
+            val result = spyClient.check("1234567890")
+            assertTrue(result is WageDefaulterCheckResult.Unknown)
+            assertTrue((result as WageDefaulterCheckResult.Unknown).apiFailure)
         }
     }
 
