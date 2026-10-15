@@ -21,6 +21,7 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
     properties = [
         "metrics.token=test-metrics-token",
         "management.endpoints.web.exposure.include=health,prometheus",
+        "management.endpoints.web.discovery.enabled=false",
         "management.health.redis.enabled=false",
     ]
 )
@@ -34,6 +35,7 @@ class ActuatorSecurityIntegrationTest : IntegrationTestSupport() {
         }.getObject()!!
 
         assertEquals("health,prometheus", properties.getProperty("management.endpoints.web.exposure.include"))
+        assertEquals("false", properties.getProperty("management.endpoints.web.discovery.enabled"))
         assertEquals("\${METRICS_TOKEN:}", properties.getProperty("metrics.token"))
     }
 
@@ -53,6 +55,15 @@ class ActuatorSecurityIntegrationTest : IntegrationTestSupport() {
             mockMvc.perform(get(path).header("Authorization", authHeader(user.id!!)))
                 .andExpect(status().isNotFound)
         }
+    }
+
+    @Test
+    fun `엔드포인트 목록 페이지는 회원에게도 노출하지 않는다`() {
+        val user = TestFixtures.user(providerId = "actuator-discovery-user").also(entityManager::persist)
+        entityManager.flush()
+
+        mockMvc.perform(get("/actuator").header("Authorization", authHeader(user.id!!)))
+            .andExpect(status().isNotFound)
     }
 
     @Test

@@ -42,6 +42,9 @@ management:
       exposure:
         # 헬스체크(배포 스크립트·docker)와 Prometheus 스크랩만 노출
         include: "health,prometheus"
+      # /actuator 엔드포인트 목록 페이지는 쓰지 않으므로 끈다
+      discovery:
+        enabled: false
   endpoint:
     health:
       show-details: never
