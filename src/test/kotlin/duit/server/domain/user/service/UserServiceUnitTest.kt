@@ -16,6 +16,7 @@ import io.mockk.*
 import jakarta.persistence.EntityNotFoundException
 import org.junit.jupiter.api.*
 import org.junit.jupiter.api.Assertions.*
+import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.util.*
 
 @DisplayName("UserService 단위 테스트")
@@ -402,6 +403,13 @@ class UserServiceUnitTest {
     @DisplayName("withdraw")
     inner class WithdrawTests {
 
+        @AfterEach
+        fun clearTransactionSynchronization() {
+            if (TransactionSynchronizationManager.isSynchronizationActive()) {
+                TransactionSynchronizationManager.clearSynchronization()
+            }
+        }
+
         @Test
         @DisplayName("소유 데이터를 먼저 지우고 사용자와 Firebase 계정을 삭제한다")
         fun deletesCurrentUser() {
@@ -421,6 +429,23 @@ class UserServiceUnitTest {
                 userRepository.flush()
                 firebaseUtil.deleteUserQuietly("firebase-uid-1")
             }
+        }
+
+        @Test
+        @DisplayName("트랜잭션 안에서는 커밋된 뒤에만 Firebase 계정을 삭제한다")
+        fun deletesFirebaseAccountAfterCommit() {
+            val user = createUser(providerId = "firebase-uid-1")
+            every { securityUtil.getCurrentUserId() } returns 1L
+            every { userRepository.findById(1L) } returns Optional.of(user)
+            every { userRepository.delete(user) } just runs
+            every { userRepository.flush() } just runs
+            TransactionSynchronizationManager.initSynchronization()
+
+            userService.withdraw()
+
+            verify(exactly = 0) { firebaseUtil.deleteUserQuietly(any()) }
+            TransactionSynchronizationManager.getSynchronizations().forEach { it.afterCommit() }
+            verify(exactly = 1) { firebaseUtil.deleteUserQuietly("firebase-uid-1") }
         }
 
         @Test

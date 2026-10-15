@@ -18,6 +18,8 @@ import duit.server.domain.user.repository.UserRepository
 import duit.server.infrastructure.external.firebase.FirebaseUtil
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionSynchronization
+import org.springframework.transaction.support.TransactionSynchronizationManager
 
 @Service
 @Transactional(readOnly = true)
@@ -148,7 +150,7 @@ class UserService(
      * 회원탈퇴
      * - User 에 매핑되지 않은 구독·채용공고 북마크·회사 북마크를 먼저 지운다 (FK 위반 방지)
      * - 행사 북마크·알림·디바이스 토큰·관리자 계정은 User cascade 로 함께 삭제된다
-     * - DB 삭제가 확정된 뒤 Firebase Auth 계정도 지운다 (실패해도 탈퇴는 완료)
+     * - 커밋으로 DB 삭제가 확정된 뒤 Firebase Auth 계정도 지운다 (실패해도 탈퇴는 완료)
      */
     @Transactional
     fun withdraw() {
@@ -161,7 +163,15 @@ class UserService(
         userRepository.delete(user)
         userRepository.flush()
 
-        user.providerId?.let(firebaseUtil::deleteUserQuietly)
+        user.providerId?.let { uid -> afterCommit { firebaseUtil.deleteUserQuietly(uid) } }
+    }
+
+    // 커밋이 실패하면 DB 회원은 남는데 Firebase 계정만 지워지는 일을 막는다
+    private fun afterCommit(action: () -> Unit) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) return action()
+        TransactionSynchronizationManager.registerSynchronization(object : TransactionSynchronization {
+            override fun afterCommit() = action()
+        })
     }
 
     /**
