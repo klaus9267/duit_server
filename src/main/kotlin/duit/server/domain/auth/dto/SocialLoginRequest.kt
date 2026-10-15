@@ -15,7 +15,7 @@ data class SocialLoginRequest(
     val agreedTermsVersion: String? = null,
 ) {
     init {
-        agreedTermsVersion?.let {
+        agreedTermsVersion?.takeIf { it.isNotBlank() }?.let {
             require(isoDatePattern.matches(it) && runCatching { LocalDate.parse(it) }.isSuccess) {
                 "약관 버전은 yyyy-MM-dd 형식이어야 합니다"
             }
@@ -40,6 +40,8 @@ data class SocialLoginRequest(
                     throw generateSequence(e) { it.cause }.filterIsInstance<IllegalArgumentException>().firstOrNull()
                         ?: IllegalArgumentException("소셜 로그인 요청 형식이 올바르지 않습니다")
                 }
+                // 빈 약관 버전은 보내지 않은 것으로 보고 동의 기록 없이 로그인시킨다
+                .let { if (it.agreedTermsVersion?.isBlank() == true) it.copy(agreedTermsVersion = null) else it }
         }
     }
 }

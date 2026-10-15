@@ -34,6 +34,16 @@ class SocialLoginRequestTest {
     }
 
     @Test
+    fun `빈 약관 버전은 보내지 않은 것으로 본다`() {
+        listOf("", "   ").forEach { version ->
+            val request = SocialLoginRequest.parse("""{"idToken":"token-1","agreedTermsVersion":"$version"}""")
+
+            assertEquals("token-1", request.idToken)
+            assertNull(request.agreedTermsVersion)
+        }
+    }
+
+    @Test
     fun `약관 버전이 yyyy-MM-dd 형식이 아니면 거부한다`() {
         listOf("20261015", "2026-13-01", "2026-02-30", "v2026-10-15", "2026-10-15-extra-long-version")
             .forEach { version ->
