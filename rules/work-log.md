@@ -8,14 +8,36 @@
 
 > 매 작업 후 갱신. 새 세션 시작 시 이 섹션만 읽으면 전체 파악 가능.
 
- **마지막 작업일**: 2026-09-11
- **진행 중인 작업**: 듀잇 앱인토스 운영·테스트 Origin CORS 허용. 기존 공개 API 직접 연동을 위해 서버 배포 필요.
+ **마지막 작업일**: 2026-10-15
+ **진행 중인 작업**: 법적 준수 점검 후속 조치(관리자 등록 권한, actuator 차단, 마케팅 opt-in, 약관 동의 기록, 탈퇴 FK, 임금체불 명단 표시, 최저임금 미달 공고 차단, Loki 보존 기간). 운영 반영 전 `METRICS_TOKEN`·임금체불 API 키 설정 필요
  **블로커**: 운영 DB에서 `scripts/sql/deduplicate_user_device_tokens.sql` 실행 후 `scripts/sql/add_user_device_tokens_unique_constraint.sql` 적용 필요 (이전 작업)
  **미수정 CRITICAL**: 1건 (배포된 비밀 노출 사고 후 실제 비밀 rotation / GHCR 정리 필요)
  **미수정 HIGH**: 6건 (CORS, 외부 API 타임아웃/재시도, FCM invalid token 정리, JWT Refresh Token, Discord fire-and-forget)
- **브랜치**: codex/dutyit-toss-cors
+ **브랜치**: claude/nifty-dijkstra-7mmdxd
  **신규 의존성**: 없음
- **신규 env**: `application*.yml` 의 `ddl-auto: validate` + `flyway enabled`
+ **신규 env**: `METRICS_TOKEN`(+ `docker/monitoring/metrics-token` 파일), `WORK24_WAGE_DEFAULTER_KEY`(없으면 `WORK24_KEY` 사용)
+
+## 2026-10-15 (법적 준수 점검 후속 조치)
+
+**분류**: security | fix | feature | ops | test | docs
+
+- 관리자 등록: `POST /api/v1/admin/auth/register`를 `@RequireAdmin`으로 막고 본문 `userId`로 대상 사용자를 지정한다. 일반 회원 자가 등록은 403.
+- actuator: 노출을 `health,prometheus`로 줄이고 `/actuator/health`만 공개. `/actuator/prometheus`는 `METRICS_TOKEN` Bearer 토큰(SHA-256 해시 상수 시간 비교, 빈 토큰이면 전부 거부). Prometheus 잡은 `credentials_file`로 토큰을 읽는다. 핸들러 없는 permitAll(webhooks, dummy, migrate-status, scheduler, POST alarms/test) 제거 — `dummy`는 local 전용 핸들러라 이제 개발용 JWT가 필요하다.
+- 테스트 푸시 API(`/api/v1/alarms/test/custom`, `/custom2`) 삭제.
+- 마케팅 수신 opt-in: 기본값 false, V5에서 기존 회원 전원 false 초기화 + `marketing_agreed_at` 추가. `UserResponse.marketingAgreedAt` 노출.
+- 약관 동의: `SocialLoginRequest.agreedTermsVersion`(yyyy-MM-dd) → `users.terms_version`/`terms_agreed_at`(V6). 앱·웹 구버전은 ID 토큰 원문을 본문으로 보내므로 원문/JSON 둘 다 허용한다.
+- 회원 탈퇴: 구독·채용공고 북마크·회사 북마크를 먼저 지워 FK 409 해결, DB 삭제 flush 후 Firebase Auth 계정 삭제(실패는 로그만).
+- 로그/Discord 경로의 FCM 토큰 마스킹(`RequestPathMasker`).
+- 임금체불 명단공개 사업주: 고용24 `callOpenApiSvcInfo210L41`(brno만 전송) 결과를 `companies.wage_defaulter`/`wage_defaulter_checked_at`(V7)에 저장. 공고 수집 직후 활성 공고 회사 중 미확인·24시간 경과분을 200ms 간격, 1회 300건까지 조회. 판정 불가면 기존 값 유지, ERR0001이면 실행 중단.
+- 최저임금 미달 공고: `MinimumWage`(2025 10,030 / 2026 10,320 / 2027 10,700원) 기준으로 수집 시 `job_postings.below_minimum_wage`(V8) 계산. 목록·북마크 목록 제외, 상세·북마크 추가 404, 신규 공고 구독 알림 미발송. 오탐 방지를 위해 근로시간·전일제 근거가 없는 월급/연봉, 시간제 일급은 판정하지 않는다.
+- Loki 3.x 보존 기간 1년(`retention_period: 8760h` + compactor retention).
+- 검증: `./gradlew test` 669개 통과, 실패 0 (Docker 없는 환경이라 MySQL Testcontainers 테스트 1개와 기존 비활성 2개 skip).
+
+### 기술적 결정
+- `src/test/resources/application.yml`이 main 설정을 가리므로 actuator 테스트는 운영 노출 값을 `@TestPropertySource`로 지정하고, main `application.yml` 값은 별도 테스트로 직접 읽어 검증한다.
+- Flyway 컬럼명은 `MigrationColumnMappingTest`로 Hibernate 매핑과 대조한다. `JobPostingSortMigrationTest`는 users 등 다른 테이블이 없으므로 `target("4")`로 고정했다.
+- 최저임금 판정은 저장된 연간 환산액(`salaryMin`)을 `SalaryType.annualMultiplier`로 되돌려 계산한다. 환산 배수와 임금형태 판별을 `SalaryType`으로 모아 `Work24CodeMapper`와 공유한다.
+- 기존 공고의 `below_minimum_wage`는 FALSE로 시작해 배포 직후 수집에서 활성 공고만 다시 판정된다. 이미 비활성인 과거 공고는 재판정되지 않는다.
 
 ## 2026-09-11 (듀잇 앱인토스 CORS)
 

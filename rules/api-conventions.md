@@ -28,10 +28,10 @@ api/v{version}/{resource}
 | UserController | `api/v1/users` | v1 | 8 | 대부분 |
 | AuthController | `api/v1/auth` | v1 | 1 | 없음 (공개) |
 | BookmarkController | `api/v1/bookmarks` | v1 | 2 | 전부 |
-| AlarmController | `api/v1/alarms` | v1 | 7 | 전부 |
+| AlarmController | `api/v1/alarms` | v1 | 5 | 전부 |
 | AlarmControllerV2 | `api/v2/alarms` | v2 | 1 | 전부 |
 | SubscriptionController | `api/v1/subscriptions` | v1 | 3 | 전부 |
-| AdminAuthController | `api/v1/admin/auth` | v1 | 2 | register만 |
+| AdminAuthController | `api/v1/admin/auth` | v1 | 2 | register만 (`@RequireAdmin`) |
 | ViewController | `api/v1/views` | v1 | 1 | 없음 (공개) |
 
 ---
@@ -102,6 +102,18 @@ fun publicEndpoint() = ...
 - 로그아웃 시 현재 기기 토큰 제거는 `DELETE /api/v1/users/device/{token}`로 처리한다
 - 삭제 엔드포인트는 토큰이 이미 없어도 `204 NO_CONTENT`로 idempotent 하게 처리한다
 - 디바이스 토큰은 path variable로 전달되므로, 서버/프록시 접근 로그 노출 여부를 운영에서 점검해야 한다
+- `GlobalExceptionHandler`는 로그·Discord·에러 응답의 경로를 `RequestPathMasker`로 `/api/v1/users/device/***` 처럼 가린다. 민감한 path variable 을 새로 만들면 마스킹 패턴도 추가한다
+
+### 보안·공개 경로 규칙
+- `permitAll`에는 실제 핸들러가 있는 경로만 둔다. 테스트·디버그용 API(예: 구 `POST /api/v1/alarms/test/**`)는 운영 코드에 남기지 않는다
+- actuator 는 `health`, `prometheus`만 웹에 노출한다. `/actuator/health`만 공개, `/actuator/prometheus`는 `METRICS_TOKEN` Bearer 토큰(`MetricsTokenAuthorizationManager`)으로만 허용하고 토큰이 비면 전부 거부한다
+- 관리자 계정 발급(`POST /api/v1/admin/auth/register`)은 기존 관리자만 호출하며 본문 `userId`로 대상 사용자를 지정한다
+
+### 회원·동의 규칙
+- `POST /api/v1/auth/social` 본문은 `SocialLoginRequest` JSON(`idToken`, 선택 `agreedTermsVersion` = `yyyy-MM-dd`)이다. 구버전 클라이언트 호환을 위해 ID 토큰 원문 본문도 계속 허용한다
+- 약관 버전이 저장된 값과 다를 때만 `users.terms_version`/`terms_agreed_at`을 갱신한다
+- `alarmSettings.marketing` 기본값은 `false`(opt-in). 동의로 바뀌면 `marketingAgreedAt`을 기록하고 철회하면 null 로 지운다
+- `DELETE /api/v1/users`(회원 탈퇴)는 User cascade 밖의 소유 데이터(구독, 채용공고 북마크, 회사 북마크)를 먼저 지우고, DB 삭제 확정 후 Firebase Auth 계정도 지운다 (실패해도 탈퇴는 완료)
 
 ### 채용공고 상세 응답 규칙
 - `GET /api/v1/job-postings/{jobPostingId}`는 목록 DTO 재사용 대신 상세 전용 DTO를 사용한다
@@ -111,6 +123,8 @@ fun publicEndpoint() = ...
 - 채용공고 목록 API는 간호사가 대상에 포함된 고용24 직종코드(`304000`, `304001`, `304002`)만 노출한다. 간호조무사 코드 `307500`은 제외한다
 - `JobPostingResponse`는 별도 이름 변환보다 `JobPosting` 엔티티 필드명을 최대한 그대로 따른다. 예: `wantedTitle`, `jobsNm`, `workRegion`, `empTpNm`
 - 응답 DTO에 축약 필드가 포함되면 `@Schema(description = ...)`로 의미를 반드시 명시한다. 예: `minEdubgIcd`, `staAreaRegionCd`, `mltsvcExcHope`
+- 기업 정보(`JobCompanyResponse`, 공고 목록·상세 임베딩 포함)는 `wageDefaulter`(true=임금체불 명단공개 사업주, false=미대상, null=미확인)와 `wageDefaulterCheckedAt`을 내려준다
+- `belowMinimumWage = true`(최저임금 미달) 공고는 목록·검색·북마크 목록에서 제외하고, 상세 조회·북마크 추가는 404, 신규 공고 구독 알림도 보내지 않는다. 단건 조회는 `findPublishableByIdOrThrow()`를 쓴다
 
 ---
 
