@@ -36,6 +36,9 @@ class GlobalExceptionHandler(
 ) {
 
     private val log = LoggerFactory.getLogger(GlobalExceptionHandler::class.java)
+
+    private val HttpServletRequest.maskedPath: String
+        get() = RequestPathMasker.mask(requestURI)
     
     @ExceptionHandler(EntityNotFoundException::class)
     fun handleEntityNotFoundException(
@@ -155,10 +158,10 @@ class GlobalExceptionHandler(
             message = ErrorCode.VALIDATION_FAILED.message,
             fieldErrors = fieldErrors,
             timestamp = LocalDateTime.now(),
-            path = request.requestURI,
+            path = request.maskedPath,
         )
         
-        log.warn("Validation failed for request: {} - {}", request.requestURI, ex.message)
+        log.warn("Validation failed for request: {} - {}", request.maskedPath, ex.message)
         return ResponseEntity.badRequest().body(errorResponse)
     }
     
@@ -190,10 +193,10 @@ class GlobalExceptionHandler(
             message = ErrorCode.VALIDATION_FAILED.message,
             fieldErrors = fieldErrors,
             timestamp = LocalDateTime.now(),
-            path = request.requestURI,
+            path = request.maskedPath,
         )
         
-        log.warn("Binding failed for request: {} - {}", request.requestURI, ex.message)
+        log.warn("Binding failed for request: {} - {}", request.maskedPath, ex.message)
         return ResponseEntity.badRequest().body(errorResponse)
     }
 
@@ -277,27 +280,28 @@ class GlobalExceptionHandler(
         request: HttpServletRequest,
         ex: Exception
     ): ResponseEntity<ErrorResponse> {
+        val path = request.maskedPath
         val errorResponse = ErrorResponse(
             code = errorCode.name,
             message = message ?: errorCode.message,
             fieldErrors = emptyList(),
             timestamp = LocalDateTime.now(),
-            path = request.requestURI,
+            path = path,
         )
         
         when (errorCode.httpStatus.value()) {
-            404 -> log.info("Not found: {}", request.requestURI)
-            401, 403 -> log.info("Access denied: {} - {}", request.requestURI, errorCode.name)
-            in 400..499 -> log.warn("Client error: {} - {}", request.requestURI, ex.message)
+            404 -> log.info("Not found: {}", path)
+            401, 403 -> log.info("Access denied: {} - {}", path, errorCode.name)
+            in 400..499 -> log.warn("Client error: {} - {}", path, ex.message)
             in 500..599 -> {
-                log.error("Server error: {} - {}", request.requestURI, ex.message, ex)
+                log.error("Server error: {} - {}", path, ex.message, ex)
 
                 // Discord 알림 전송 (prod 프로필에서만)
                 if (activeProfile == "prod") {
                     discordService.sendServerErrorNotification(
                         errorCode = errorCode.name,
                         message = errorResponse.message,
-                        path = request.requestURI,
+                        path = path,
                         timestamp = errorResponse.timestamp,
                         exception = ex
                     )
