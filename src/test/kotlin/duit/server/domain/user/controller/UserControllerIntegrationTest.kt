@@ -141,6 +141,19 @@ class UserControllerIntegrationTest : IntegrationTestSupport() {
                     .andExpect(jsonPath("$.nickname").value("테스트유저"))
                     .andExpect(jsonPath("$.email").value("test@example.com"))
             }
+
+            @Test
+            @DisplayName("신규 회원은 마케팅 수신 미동의 상태다")
+            fun marketingIsOptOutByDefault() {
+                mockMvc.perform(
+                    get("/api/v1/users/me")
+                        .header("Authorization", authHeader(user.id!!))
+                )
+                    .andDo(print())
+                    .andExpect(status().isOk)
+                    .andExpect(jsonPath("$.alarmSettings.marketing").value(false))
+                    .andExpect(jsonPath("$.marketingAgreedAt").doesNotExist())
+            }
         }
 
         @Nested
@@ -412,6 +425,40 @@ class UserControllerIntegrationTest : IntegrationTestSupport() {
                     .andExpect(jsonPath("$.autoAddBookmarkToCalendar").value(true))
                     .andExpect(jsonPath("$.alarmSettings.push").value(false))
                     .andExpect(jsonPath("$.alarmSettings.marketing").value(false))
+            }
+
+            @Test
+            @DisplayName("마케팅 수신에 동의하면 동의 시각을 기록하고 철회하면 지운다")
+            fun recordsMarketingConsentTime() {
+                fun settingsBody(marketing: Boolean) = objectMapper.writeValueAsString(
+                    mapOf(
+                        "autoAddBookmarkToCalendar" to false,
+                        "alarmSettings" to mapOf(
+                            "push" to true, "bookmark" to true,
+                            "calendar" to true, "marketing" to marketing
+                        )
+                    )
+                )
+
+                mockMvc.perform(
+                    patch("/api/v1/users/settings")
+                        .header("Authorization", authHeader(user.id!!))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(settingsBody(marketing = true))
+                )
+                    .andExpect(status().isOk)
+                    .andExpect(jsonPath("$.alarmSettings.marketing").value(true))
+                    .andExpect(jsonPath("$.marketingAgreedAt").isString)
+
+                mockMvc.perform(
+                    patch("/api/v1/users/settings")
+                        .header("Authorization", authHeader(user.id!!))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(settingsBody(marketing = false))
+                )
+                    .andExpect(status().isOk)
+                    .andExpect(jsonPath("$.alarmSettings.marketing").value(false))
+                    .andExpect(jsonPath("$.marketingAgreedAt").doesNotExist())
             }
         }
 

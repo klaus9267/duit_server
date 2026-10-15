@@ -52,6 +52,11 @@ class User(
     @OneToMany(mappedBy = "user", cascade = [CascadeType.ALL], orphanRemoval = true)
     var deviceTokens: MutableList<UserDeviceToken> = mutableListOf()
 
+    /** 마케팅(광고성 정보) 수신 동의 시각. 미동의면 null */
+    @Column(name = "marketing_agreed_at")
+    var marketingAgreedAt: LocalDateTime? = null
+        protected set
+
     /**
      * 닉네임 업데이트
      */
@@ -64,9 +69,15 @@ class User(
      * 사용자 설정 통합 업데이트 (알림 설정 + 캘린더 설정)
      */
     fun updateSettings(newAlarmSettings: AlarmSettings, autoAddBookmarkToCalendar: Boolean) {
+        val now = LocalDateTime.now()
+        this.marketingAgreedAt = when {
+            newAlarmSettings.marketing != true -> null
+            alarmSettings.marketing != true -> now
+            else -> marketingAgreedAt
+        }
         this.alarmSettings = newAlarmSettings
         this.autoAddBookmarkToCalendar = autoAddBookmarkToCalendar
-        this.updatedAt = LocalDateTime.now()
+        this.updatedAt = now
     }
 
     fun registerDeviceToken(token: String) {

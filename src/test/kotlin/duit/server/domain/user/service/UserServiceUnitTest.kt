@@ -336,6 +336,51 @@ class UserServiceUnitTest {
             assertEquals(false, result.alarmSettings.push)
             assertEquals(true, result.alarmSettings.bookmark)
         }
+
+        private fun settingsRequest(marketing: Boolean) = UpdateUserSettingsRequest(
+            autoAddBookmarkToCalendar = false,
+            alarmSettings = UpdateUserSettingsRequest.AlarmSettingsDto(
+                push = true, bookmark = true, calendar = true, marketing = marketing
+            )
+        )
+
+        @Test
+        @DisplayName("기본 알림 설정은 마케팅 수신 미동의다")
+        fun marketingDefaultsToFalse() {
+            val user = createUser()
+
+            assertEquals(false, user.alarmSettings.marketing)
+            assertEquals(null, user.marketingAgreedAt)
+        }
+
+        @Test
+        @DisplayName("마케팅 수신을 새로 동의하면 동의 시각을 기록하고, 동의를 유지하면 시각을 바꾸지 않는다")
+        fun recordsMarketingAgreedAt() {
+            val user = createUser()
+            every { securityUtil.getCurrentUserId() } returns 1L
+            every { userRepository.findById(1L) } returns Optional.of(user)
+
+            val agreed = userService.updateUserSettings(settingsRequest(marketing = true))
+            val agreedAt = agreed.marketingAgreedAt
+            assertTrue(agreedAt != null)
+
+            val kept = userService.updateUserSettings(settingsRequest(marketing = true))
+            assertEquals(agreedAt, kept.marketingAgreedAt)
+        }
+
+        @Test
+        @DisplayName("마케팅 수신 동의를 철회하면 동의 시각을 지운다")
+        fun clearsMarketingAgreedAt() {
+            val user = createUser()
+            every { securityUtil.getCurrentUserId() } returns 1L
+            every { userRepository.findById(1L) } returns Optional.of(user)
+
+            userService.updateUserSettings(settingsRequest(marketing = true))
+            val withdrawn = userService.updateUserSettings(settingsRequest(marketing = false))
+
+            assertEquals(false, withdrawn.alarmSettings.marketing)
+            assertEquals(null, withdrawn.marketingAgreedAt)
+        }
     }
 
     @Nested
