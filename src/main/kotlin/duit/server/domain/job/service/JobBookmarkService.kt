@@ -1,11 +1,11 @@
 package duit.server.domain.job.service
 
 import duit.server.application.security.SecurityUtil
-import duit.server.domain.common.extensions.findByIdOrThrow
 import duit.server.domain.job.dto.JobBookmarkToggleResponse
 import duit.server.domain.job.entity.JobBookmark
 import duit.server.domain.job.repository.JobBookmarkRepository
 import duit.server.domain.job.repository.JobPostingRepository
+import duit.server.domain.job.repository.findPublishableByIdOrThrow
 import duit.server.domain.user.service.UserService
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -27,7 +27,7 @@ class JobBookmarkService(
             jobBookmarkRepository.delete(existingBookmark)
             false
         } else {
-            val jobPosting = jobPostingRepository.findByIdOrThrow(jobPostingId)
+            val jobPosting = jobPostingRepository.findPublishableByIdOrThrow(jobPostingId)
             require(jobPosting.isActive) { "비활성 채용공고입니다" }
 
             val user = userService.findUserById(currentUserId)

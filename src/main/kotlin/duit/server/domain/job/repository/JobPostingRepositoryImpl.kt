@@ -45,6 +45,7 @@ class JobPostingRepositoryImpl(
 
         val conditions = mutableListOf<BooleanExpression?>()
         conditions += jobPosting.isActive.isTrue
+        conditions += jobPosting.belowMinimumWage.isFalse
         conditions += jobPosting.expiresAt.isNull
             .or(jobPosting.expiresAt.goe(LocalDate.now().atStartOfDay()))
         conditions += jobPosting.jobsCd.`in`(JobPosting.NURSE_TARGET_JOB_CODES)

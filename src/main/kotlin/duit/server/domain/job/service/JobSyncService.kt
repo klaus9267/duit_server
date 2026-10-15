@@ -160,7 +160,7 @@ class JobSyncService(
                     }
                 )
                 insertCount++
-                if (saved.isActive) {
+                if (saved.isActive && !saved.belowMinimumWage) {
                     subscriptionNotificationService.notifyOnJobPostingCreated(saved)
                 }
             }

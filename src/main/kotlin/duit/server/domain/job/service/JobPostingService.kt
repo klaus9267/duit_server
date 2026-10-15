@@ -3,13 +3,13 @@ package duit.server.domain.job.service
 import duit.server.application.security.SecurityUtil
 import duit.server.domain.common.dto.pagination.CursorPageInfo
 import duit.server.domain.common.dto.pagination.CursorPageResponse
-import duit.server.domain.common.extensions.findByIdOrThrow
 import duit.server.domain.job.dto.JobPostingCursor
 import duit.server.domain.job.dto.JobPostingCursorPaginationParam
 import duit.server.domain.job.dto.JobPostingResponse
 import duit.server.domain.job.dto.encode
 import duit.server.domain.job.repository.JobBookmarkRepository
 import duit.server.domain.job.repository.JobPostingRepository
+import duit.server.domain.job.repository.findPublishableByIdOrThrow
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -62,7 +62,7 @@ class JobPostingService(
     }
 
     fun getJobPostingDetail(jobPostingId: Long): JobPostingResponse {
-        val jobPosting = jobPostingRepository.findByIdOrThrow(jobPostingId)
+        val jobPosting = jobPostingRepository.findPublishableByIdOrThrow(jobPostingId)
         val currentUserId = securityUtil.getCurrentUserIdOrNull()
 
         val isBookmarked = currentUserId?.let {

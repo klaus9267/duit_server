@@ -8,6 +8,7 @@ import duit.server.domain.job.entity.SourceType
 import duit.server.domain.job.repository.JobCompanyRepository
 import duit.server.domain.job.repository.JobPostingRepository
 import duit.server.domain.job.repository.JobSyncStateRepository
+import duit.server.domain.subscription.service.SubscriptionNotificationService
 import duit.server.infrastructure.external.discord.DiscordService
 import duit.server.infrastructure.external.job.JobFetcher
 import duit.server.infrastructure.external.job.dto.CompanyFetchResult
@@ -32,6 +33,7 @@ class JobSyncServiceTest {
     private lateinit var repository: JobPostingRepository
     private lateinit var syncStateRepository: JobSyncStateRepository
     private lateinit var discordService: DiscordService
+    private lateinit var subscriptionNotificationService: SubscriptionNotificationService
     private lateinit var syncService: JobSyncService
 
     @BeforeEach
@@ -41,6 +43,7 @@ class JobSyncServiceTest {
         repository = mockk(relaxed = true)
         syncStateRepository = mockk(relaxed = true)
         discordService = mockk(relaxed = true)
+        subscriptionNotificationService = mockk(relaxed = true)
 
         every { fetcher.sourceType } returns SourceType.WORK24
         every { companyRepository.findByBusinessNumber(any()) } returns null
@@ -49,7 +52,9 @@ class JobSyncServiceTest {
         every { syncStateRepository.findById(any<SourceType>()) } returns Optional.empty()
         every { syncStateRepository.save(any<JobSyncState>()) } answers { firstArg() }
 
-        syncService = JobSyncService(listOf(fetcher), companyRepository, repository, syncStateRepository, discordService, mockk(relaxed = true))
+        syncService = JobSyncService(
+            listOf(fetcher), companyRepository, repository, syncStateRepository, discordService, subscriptionNotificationService
+        )
     }
 
     private fun createFetchResult(
@@ -59,6 +64,8 @@ class JobSyncServiceTest {
         businessNumber: String? = null,
         isActive: Boolean = true,
         reperNm: String? = null,
+        salTpNm: String? = null,
+        salaryMin: Long? = null,
     ) = JobFetchResult(
         externalId = externalId,
         isActive = isActive,
@@ -66,6 +73,8 @@ class JobSyncServiceTest {
             wantedTitle = title,
             jobsCd = "304000",
             workRegion = "서울특별시 강남구",
+            salTpNm = salTpNm,
+            salaryMin = salaryMin,
         ),
         company = CompanyFetchResult(
             businessNumber = businessNumber,
@@ -102,6 +111,41 @@ class JobSyncServiceTest {
     @Nested
     @DisplayName("syncAll()")
     inner class SyncAllTests {
+
+        @Test
+        fun `신규 활성 공고는 구독 알림을 보낸다`() {
+            every { fetcher.fetchAll() } returns createBatch(createFetchResult(salTpNm = "시급 12,000원", salaryMin = 12_000L * 2_508))
+            every { repository.findByWantedAuthNo("K123456") } returns null
+            every { repository.save(any()) } answers { firstArg() }
+
+            syncService.syncAll()
+
+            verify(exactly = 1) { subscriptionNotificationService.notifyOnJobPostingCreated(any()) }
+        }
+
+        @Test
+        fun `최저임금 미달 신규 공고는 저장하되 구독 알림을 보내지 않는다`() {
+            every { fetcher.fetchAll() } returns createBatch(createFetchResult(salTpNm = "시급 9,000원", salaryMin = 9_000L * 2_508))
+            every { repository.findByWantedAuthNo("K123456") } returns null
+            val saved = slot<JobPosting>()
+            every { repository.save(capture(saved)) } answers { saved.captured }
+
+            syncService.syncAll()
+
+            assertEquals(true, saved.captured.belowMinimumWage)
+            verify(exactly = 0) { subscriptionNotificationService.notifyOnJobPostingCreated(any()) }
+        }
+
+        @Test
+        fun `기존 공고 갱신 시 최저임금 미달 여부를 다시 판정한다`() {
+            val existing = createJobPosting()
+            every { fetcher.fetchAll() } returns createBatch(createFetchResult(salTpNm = "시급 9,000원", salaryMin = 9_000L * 2_508))
+            every { repository.findByWantedAuthNo("K123456") } returns existing
+
+            syncService.syncAll()
+
+            assertEquals(true, existing.belowMinimumWage)
+        }
 
         @Test
         fun `신규 공고는 wantedAuthNo 기준으로 저장된다`() {

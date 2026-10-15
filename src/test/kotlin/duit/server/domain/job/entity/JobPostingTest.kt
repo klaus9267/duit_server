@@ -101,4 +101,59 @@ class JobPostingTest {
             assertNull(posting.company)
         }
     }
+
+    @Nested
+    @DisplayName("refreshMinimumWageFlag()")
+    inner class MinimumWageFlagTests {
+
+        private val today = java.time.LocalDate.of(2026, 10, 15)
+
+        private fun postingWith(
+            salTpNm: String?,
+            annualizedSalary: Long?,
+            empTpCd: String? = "10",
+            workdayWorkhrCont: String? = null,
+        ) = createJobPosting().apply {
+            updateWork24Detail(
+                JobPostingWork24Detail(
+                    wantedTitle = "간호사 모집",
+                    salTpNm = salTpNm,
+                    salaryMin = annualizedSalary,
+                    empTpCd = empTpCd,
+                    workdayWorkhrCont = workdayWorkhrCont,
+                )
+            )
+            refreshMinimumWageFlag(today)
+        }
+
+        @Test
+        fun `연간 환산 급여를 임금형태 금액으로 되돌려 최저임금 미달을 판정한다`() {
+            assertEquals(true, postingWith("시급 10,000원", 10_000L * 2_508).belowMinimumWage)
+            assertEquals(false, postingWith("시급 10,320원", 10_320L * 2_508).belowMinimumWage)
+            assertEquals(true, postingWith("월급 200만원 이상", 2_000_000L * 12).belowMinimumWage)
+            assertEquals(false, postingWith("연봉 3,000만원", 30_000_000L).belowMinimumWage)
+        }
+
+        @Test
+        fun `임금 정보가 없거나 형태를 알 수 없으면 미달로 보지 않는다`() {
+            assertEquals(false, postingWith("회사내규에 따름", null).belowMinimumWage)
+            assertEquals(false, postingWith("급여 100만원", 1_000_000L).belowMinimumWage)
+            assertEquals(false, postingWith("월급 100만원", 1_000_000L * 12, empTpCd = "21").belowMinimumWage)
+        }
+
+        @Test
+        fun `고용24 상세 갱신 시 판정 결과도 함께 갱신된다`() {
+            val posting = createJobPosting()
+
+            posting.updateWork24Detail(
+                JobPostingWork24Detail(salTpNm = "시급 9,000원", salaryMin = 9_000L * 2_508, empTpCd = "10")
+            )
+            assertEquals(true, posting.belowMinimumWage)
+
+            posting.updateWork24Detail(
+                JobPostingWork24Detail(salTpNm = "시급 12,000원", salaryMin = 12_000L * 2_508, empTpCd = "10")
+            )
+            assertEquals(false, posting.belowMinimumWage)
+        }
+    }
 }

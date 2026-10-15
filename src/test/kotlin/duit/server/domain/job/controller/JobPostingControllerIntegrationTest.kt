@@ -14,6 +14,7 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.result.MockMvcResultHandlers.print
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
@@ -843,6 +844,78 @@ class JobPostingControllerIntegrationTest : IntegrationTestSupport() {
         @Test
         fun `존재하지 않는 ID 조회 시 404`() {
             mockMvc.perform(get("/api/v1/job-postings/{id}", 999999L))
+                .andDo(print())
+                .andExpect(status().isNotFound)
+        }
+    }
+
+    @Nested
+    @DisplayName("최저임금 미달 공고 게재 금지")
+    inner class BelowMinimumWageTests {
+
+        private fun persistBelowMinimumWagePosting() = TestFixtures.jobPosting(
+            title = "최저임금미달 간호사",
+            companyName = "미달병원",
+            salaryType = SalaryType.HOURLY,
+            salaryMin = 9_000L * SalaryType.HOURLY.annualMultiplier,
+            salaryMax = null,
+        ).also {
+            assertThat(it.belowMinimumWage).isTrue()
+            entityManager.persist(it)
+        }
+
+        @Test
+        fun `목록과 검색에서 제외된다`() {
+            persistBelowMinimumWagePosting()
+            entityManager.flush()
+            entityManager.clear()
+
+            mockMvc.perform(get("/api/v1/job-postings").param("searchKeyword", "최저임금미달"))
+                .andDo(print())
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.content.length()").value(0))
+
+            mockMvc.perform(get("/api/v1/job-postings").param("size", "100"))
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.content[?(@.wantedTitle == '최저임금미달 간호사')]").isEmpty)
+        }
+
+        @Test
+        fun `상세 조회는 404 를 반환한다`() {
+            val posting = persistBelowMinimumWagePosting()
+            entityManager.flush()
+            entityManager.clear()
+
+            mockMvc.perform(get("/api/v1/job-postings/{id}", posting.id!!))
+                .andDo(print())
+                .andExpect(status().isNotFound)
+        }
+
+        @Test
+        fun `북마크 목록에서 제외되고 새로 북마크할 수 없다`() {
+            val posting = persistBelowMinimumWagePosting()
+            entityManager.persist(TestFixtures.jobBookmark(user = user1, jobPosting = posting))
+            val other = TestFixtures.jobPosting(title = "정상 북마크 공고").also(entityManager::persist)
+            entityManager.persist(TestFixtures.jobBookmark(user = user1, jobPosting = other))
+            entityManager.flush()
+            entityManager.clear()
+
+            mockMvc.perform(
+                get("/api/v1/job-postings")
+                    .param("bookmarked", "true")
+                    .header("Authorization", authHeader(user1.id!!))
+            )
+                .andDo(print())
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.content[0].wantedTitle").value("정상 북마크 공고"))
+
+            val another = persistBelowMinimumWagePosting()
+            entityManager.flush()
+            mockMvc.perform(
+                post("/api/v1/job-bookmarks/{id}", another.id!!)
+                    .header("Authorization", authHeader(user1.id!!))
+            )
                 .andDo(print())
                 .andExpect(status().isNotFound)
         }

@@ -27,6 +27,11 @@ class MigrationColumnMappingTest : IntegrationTestSupport() {
         assertColumns("companies", "wage_defaulter", "wage_defaulter_checked_at")
     }
 
+    @Test
+    fun `V8 최저임금 미달 컬럼은 엔티티 매핑과 일치한다`() {
+        assertColumns("job_postings", "below_minimum_wage")
+    }
+
     private fun assertColumns(table: String, vararg columns: String) {
         @Suppress("UNCHECKED_CAST")
         val actual = (entityManager.createNativeQuery(

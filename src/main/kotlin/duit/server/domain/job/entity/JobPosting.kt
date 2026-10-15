@@ -5,6 +5,7 @@ import org.hibernate.annotations.Comment
 import org.springframework.data.annotation.CreatedDate
 import org.springframework.data.annotation.LastModifiedDate
 import org.springframework.data.jpa.domain.support.AuditingEntityListener
+import java.time.LocalDate
 import java.time.LocalDateTime
 
 @Entity
@@ -59,6 +60,11 @@ class JobPosting(
 
     @OneToMany(mappedBy = "jobPosting", cascade = [CascadeType.ALL], orphanRemoval = true)
     val bookmarks: List<JobBookmark> = emptyList()
+
+    @Comment("최저임금 미달 공고 여부 (true 면 모든 조회·알림에서 제외)")
+    @Column(name = "below_minimum_wage", nullable = false)
+    var belowMinimumWage: Boolean = false
+        protected set
 
     @Comment("연결된 기업 정보 ID")
     @ManyToOne(fetch = FetchType.LAZY, cascade = [CascadeType.PERSIST, CascadeType.MERGE])
@@ -329,6 +335,20 @@ class JobPosting(
         }
 
         this.company = company
+        refreshMinimumWageFlag()
+    }
+
+    /** salaryMin 은 연간 환산액이므로 임금형태 배수로 나눠 원래 금액으로 되돌린 뒤 판정한다 */
+    fun refreshMinimumWageFlag(today: LocalDate = LocalDate.now()) {
+        val salaryType = SalaryType.fromDescription(salTpNm)
+        belowMinimumWage = MinimumWage.isBelow(
+            salaryType = salaryType,
+            amount = salaryType?.let { salaryMin?.div(it.annualMultiplier) },
+            weeklyHours = MinimumWage.parseWeeklyHours(workdayWorkhrCont),
+            workPattern = MinimumWage.workPatternOf(empTpCd, empTpNm, workdayWorkhrCont, wantedTitle),
+            evaluationDate = today,
+            closeDate = expiresAt?.toLocalDate(),
+        )
     }
 
     fun changeCompany(company: Company?) {

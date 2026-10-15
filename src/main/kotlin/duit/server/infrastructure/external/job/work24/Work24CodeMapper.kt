@@ -121,12 +121,7 @@ object Work24CodeMapper {
 
     fun annualizeSalary(amount: Long?, description: String?): Long? {
         if (amount == null || amount <= 0) return null
-        val multiplier = when (mapSalaryType(salaryKeywordPattern.find(description.orEmpty())?.value)) {
-            SalaryType.ANNUAL, null -> 1L
-            SalaryType.MONTHLY -> 12L
-            SalaryType.HOURLY -> 2_508L
-            SalaryType.DAILY -> 261L
-        }
+        val multiplier = SalaryType.fromDescription(description)?.annualMultiplier ?: 1L
         return runCatching { Math.multiplyExact(amount, multiplier) }.getOrNull()
     }
 
