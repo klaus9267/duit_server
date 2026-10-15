@@ -16,6 +16,7 @@
  **브랜치**: claude/nifty-dijkstra-7mmdxd
  **신규 의존성**: 없음
  **신규 env**: `METRICS_TOKEN`(+ `docker/monitoring/metrics-token` 파일), `WORK24_WAGE_DEFAULTER_KEY`(없으면 `WORK24_KEY` 사용)
+ **배포 후 수동 작업**: README 운영 메모의 모니터링 컨테이너 재생성(포트 바인딩·토큰·Loki 보존), 마케팅 동의 정리 SQL 1회
 
 ## 2026-10-15 (법적 준수 점검 후속 조치)
 
@@ -33,9 +34,20 @@
 - Loki 3.x 보존 기간 1년(`retention_period: 8760h` + compactor retention).
 - 검증: `./gradlew test` 669개 통과, 실패 0 (Docker 없는 환경이라 MySQL Testcontainers 테스트 1개와 기존 비활성 2개 skip).
 
+### 리뷰 후속 (같은 날)
+- V2 알림 목록(`GET /api/v2/alarms`)이 알림 생성 뒤 최저임금 미달로 바뀐 공고를 그대로 노출 → `findPublishableByUserId(AndIsRead)`로 제외(개수 포함). 읽음·삭제 처리는 내용을 반환하지 않아 기존 조회 유지.
+- 모니터링 포트(9090·3000·3100·9100·8081)를 127.0.0.1 바인딩으로 제한. CD가 `prometheus.yml`·`loki.yml`도 서버에 복사. README에 모니터링 컨테이너 재생성·SSH 터널·배포 직후 마케팅 동의 정리 SQL 기록.
+- `ComplianceMigrationTest`(Testcontainers)로 V5~V8 을 실제 MySQL에서 실행해 컬럼 타입·기본값·데이터 확인. 로컬 MySQL 8.0 에서 base(d7d7373) 엔티티 스키마 + V5~V8 적용 후 `ddl-auto=validate` 기동 성공도 확인.
+- 회원 탈퇴의 Firebase 계정 삭제를 커밋 후(`TransactionSynchronization.afterCommit`)로 이동.
+- 임금체불 명단 조회: 회사와 무관한 API 장애 3회 연속이면 실행 중단(연계 실패 N·판정 값 누락은 회사별 결과일 수 있어 제외).
+- 급여 설명 파서가 "시급 1만 320원"을 1원으로 읽어 최저임금 미달로 오판하던 문제 수정(만·천 혼합 금액 합산).
+- 빈 `agreedTermsVersion`은 미전송으로 처리, actuator discovery 비활성화.
+- 검증: `./gradlew test` 679개 중 675개 통과, 실패 0 (MySQL Testcontainers 2개·기존 비활성 2개 skip).
+
 ### 기술적 결정
 - `src/test/resources/application.yml`이 main 설정을 가리므로 actuator 테스트는 운영 노출 값을 `@TestPropertySource`로 지정하고, main `application.yml` 값은 별도 테스트로 직접 읽어 검증한다.
-- Flyway 컬럼명은 `MigrationColumnMappingTest`로 Hibernate 매핑과 대조한다. `JobPostingSortMigrationTest`는 users 등 다른 테이블이 없으므로 `target("4")`로 고정했다.
+- Flyway 컬럼명은 `MigrationColumnMappingTest`로 Hibernate 매핑과 대조한다. `JobPostingSortMigrationTest`는 users 등 다른 테이블이 없으므로 `target("4")`로 고정하고, V5 이후는 최소 테이블을 직접 만드는 `ComplianceMigrationTest`가 검증한다.
+- 임금체불 조회 대상 쿼리에 LIMIT 을 두지 않는다. 사업자등록번호 형식 검사(숫자 10자리)는 조회 뒤에 하므로, LIMIT 을 두면 형식이 틀린 회사가 매번 앞자리를 차지해 정상 회사가 조회되지 않을 수 있다.
 - 최저임금 판정은 저장된 연간 환산액(`salaryMin`)을 `SalaryType.annualMultiplier`로 되돌려 계산한다. 환산 배수와 임금형태 판별을 `SalaryType`으로 모아 `Work24CodeMapper`와 공유한다.
 - 기존 공고의 `below_minimum_wage`는 FALSE로 시작해 배포 직후 수집에서 활성 공고만 다시 판정된다. 이미 비활성인 과거 공고는 재판정되지 않는다.
 

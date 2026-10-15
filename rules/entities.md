@@ -160,7 +160,7 @@ class Event(...) {
 - `wantedAuthNo` 고유성은 `@Column(unique = true)`로 선언하고, 테이블 재생성 시 스키마에 바로 반영되게 유지한다.
 - 회사 정보 전달용 `JobCompanySnapshot` 같은 중간 객체는 두지 않고, `JobCompany` 엔티티를 직접 조회/연결한다.
 - `JobPosting.belowMinimumWage`는 `updateWork24Detail()` 끝에서 `MinimumWage`로 다시 계산한다. `salaryMin`은 연간 환산액이라 `SalaryType.annualMultiplier`로 나눠 원래 임금형태 금액으로 비교한다. 최저임금 표는 `MinimumWage.HOURLY_BY_YEAR`에서 매년 갱신한다.
-- `Company.wageDefaulter`/`wageDefaulterCheckedAt`은 `WageDefaulterService`(공고 수집 직후)가 고용24 임금체불 명단 API 결과로만 갱신한다. 판정 불가 응답은 기존 값을 유지한다.
+- `Company.wageDefaulter`/`wageDefaulterCheckedAt`은 `WageDefaulterService`(공고 수집 직후)가 고용24 임금체불 명단 API 결과로만 갱신한다. 판정 불가 응답은 기존 값을 유지하고, API 키 오류(ERR0001)나 회사와 무관한 API 장애(요청 실패·오류 코드·비정상 응답) 3회 연속이면 그 실행을 멈춘다.
 
 ## Embeddable
 
