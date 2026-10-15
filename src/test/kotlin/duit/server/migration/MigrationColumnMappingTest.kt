@@ -22,6 +22,11 @@ class MigrationColumnMappingTest : IntegrationTestSupport() {
         assertColumns("users", "terms_version", "terms_agreed_at")
     }
 
+    @Test
+    fun `V7 임금체불 명단 컬럼은 엔티티 매핑과 일치한다`() {
+        assertColumns("companies", "wage_defaulter", "wage_defaulter_checked_at")
+    }
+
     private fun assertColumns(table: String, vararg columns: String) {
         @Suppress("UNCHECKED_CAST")
         val actual = (entityManager.createNativeQuery(

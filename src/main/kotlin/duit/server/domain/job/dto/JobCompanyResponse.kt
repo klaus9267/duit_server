@@ -39,6 +39,15 @@ data class JobCompanyResponse(
     @Schema(description = "회사규모")
     val busiSize: String?,
 
+    @Schema(
+        description = "고용노동부 임금체불 명단공개 사업주 여부 (true=명단공개 대상, false=확인 결과 미대상, null=미확인)",
+        example = "false",
+    )
+    val wageDefaulter: Boolean?,
+
+    @Schema(description = "임금체불 명단 확인 시각. 미확인이면 null", example = "2026-10-15T03:00:00")
+    val wageDefaulterCheckedAt: LocalDateTime?,
+
     @Schema(description = "현재 사용자의 회사 북마크 여부 (단독 회사 조회 시에만 정확. 채용공고 응답에 임베딩된 경우 항상 false)", example = "false")
     val isBookmarked: Boolean = false,
 
@@ -61,6 +70,8 @@ data class JobCompanyResponse(
             corpAddr = company.corpAddr,
             homePg = company.homePg,
             busiSize = company.busiSize,
+            wageDefaulter = company.wageDefaulter,
+            wageDefaulterCheckedAt = company.wageDefaulterCheckedAt,
             isBookmarked = isBookmarked,
             createdAt = company.createdAt,
             updatedAt = company.updatedAt,

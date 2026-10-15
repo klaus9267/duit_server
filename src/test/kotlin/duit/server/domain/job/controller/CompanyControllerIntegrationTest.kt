@@ -5,6 +5,7 @@ import duit.server.domain.user.entity.User
 import duit.server.support.IntegrationTestSupport
 import duit.server.support.fixture.TestFixtures
 import org.hamcrest.Matchers.hasSize
+import org.hamcrest.Matchers.nullValue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -55,6 +56,25 @@ class CompanyControllerIntegrationTest : IntegrationTestSupport() {
                     .andExpect(jsonPath("$.id").value(companyA.id!!.toInt()))
                     .andExpect(jsonPath("$.corpNm").value("병원A"))
                     .andExpect(jsonPath("$.isBookmarked").value(false))
+                    .andExpect(jsonPath("$.wageDefaulter").value(nullValue()))
+                    .andExpect(jsonPath("$.wageDefaulterCheckedAt").value(nullValue()))
+            }
+
+            @Test
+            @DisplayName("임금체불 명단공개 사업주 여부와 확인 시각을 반환한다")
+            fun wageDefaulterFields() {
+                entityManager.createQuery(
+                    "UPDATE Company c SET c.wageDefaulter = true, c.wageDefaulterCheckedAt = :checkedAt WHERE c.id = :id"
+                )
+                    .setParameter("checkedAt", java.time.LocalDateTime.of(2026, 10, 15, 3, 0))
+                    .setParameter("id", companyA.id!!)
+                    .executeUpdate()
+
+                mockMvc.perform(get("/api/v1/companies/{id}", companyA.id!!))
+                    .andDo(print())
+                    .andExpect(status().isOk)
+                    .andExpect(jsonPath("$.wageDefaulter").value(true))
+                    .andExpect(jsonPath("$.wageDefaulterCheckedAt").value("2026-10-15T03:00:00"))
             }
 
             @Test

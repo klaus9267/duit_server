@@ -17,6 +17,7 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.result.MockMvcResultHandlers.print
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
+import java.time.LocalDateTime
 import java.util.Base64
 
 @DisplayName("채용공고 API 통합 테스트")
@@ -813,6 +814,30 @@ class JobPostingControllerIntegrationTest : IntegrationTestSupport() {
                 .andExpect(jsonPath("$.wantedTitle").value("상세조회 테스트 공고"))
                 .andExpect(jsonPath("$.company.corpNm").value("상세조회병원"))
                 .andExpect(jsonPath("$.isBookmarked").value(false))
+        }
+
+        @Test
+        fun `목록과 상세의 기업 정보에 임금체불 명단공개 사업주 여부가 포함된다`() {
+            val posting = TestFixtures.jobPosting(title = "체불사업주 표시 공고", companyName = "체불표시병원")
+            posting.company!!.apply {
+                wageDefaulter = true
+                wageDefaulterCheckedAt = LocalDateTime.of(2026, 10, 15, 3, 0)
+            }
+            entityManager.persist(posting)
+            entityManager.flush()
+            entityManager.clear()
+
+            mockMvc.perform(get("/api/v1/job-postings/{id}", posting.id!!))
+                .andDo(print())
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.company.wageDefaulter").value(true))
+                .andExpect(jsonPath("$.company.wageDefaulterCheckedAt").value("2026-10-15T03:00:00"))
+
+            mockMvc.perform(get("/api/v1/job-postings").param("searchKeyword", "체불사업주 표시"))
+                .andDo(print())
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.content[0].company.wageDefaulter").value(true))
+                .andExpect(jsonPath("$.content[0].company.wageDefaulterCheckedAt").value("2026-10-15T03:00:00"))
         }
 
         @Test
