@@ -1,11 +1,11 @@
 package duit.server.domain.admin.dto
 
 import jakarta.validation.constraints.NotBlank
-import jakarta.validation.constraints.NotNull
+import jakarta.validation.constraints.Positive
 import jakarta.validation.constraints.Size
 
 data class AdminRegisterRequest(
-    @field:NotNull(message = "관리자로 등록할 사용자 ID는 필수입니다")
+    @field:Positive(message = "관리자로 등록할 사용자 ID는 필수입니다")
     val userId: Long,
 
     @field:NotBlank(message = "관리자 ID는 필수입니다")

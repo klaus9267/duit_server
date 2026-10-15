@@ -261,6 +261,19 @@ class AdminAuthControllerIntegrationTest : IntegrationTestSupport() {
             }
 
             @Test
+            @DisplayName("등록할 사용자 ID가 없으면 에러를 반환한다")
+            fun missingUserId() {
+                mockMvc.perform(
+                    post("/api/v1/admin/auth/register")
+                        .header("Authorization", authHeader(adminUser.id!!))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(mapOf("adminId" to "newadmin", "password" to "newpassword1234")))
+                )
+                    .andDo(print())
+                    .andExpect(status().isBadRequest)
+            }
+
+            @Test
             @DisplayName("adminId가 4자 미만이면 에러를 반환한다")
             fun adminIdTooShort() {
                 mockMvc.perform(
