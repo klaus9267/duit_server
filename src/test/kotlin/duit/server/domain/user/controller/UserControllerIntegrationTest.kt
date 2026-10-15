@@ -1,5 +1,7 @@
 package duit.server.domain.user.controller
 
+import duit.server.domain.subscription.entity.Subscription
+import duit.server.domain.subscription.entity.SubscriptionType
 import duit.server.domain.user.entity.User
 import duit.server.support.IntegrationTestSupport
 import duit.server.support.fixture.TestFixtures
@@ -507,6 +509,45 @@ class UserControllerIntegrationTest : IntegrationTestSupport() {
                 )
                     .andDo(print())
                     .andExpect(status().isNoContent)
+            }
+
+            @Test
+            @DisplayName("구독·채용공고 북마크·회사 북마크가 있는 회원도 탈퇴되고 소유 데이터가 모두 삭제된다")
+            fun withdrawWithOwnedRows() {
+                val company = TestFixtures.company(corpNm = "탈퇴테스트병원").also(entityManager::persist)
+                val jobPosting = TestFixtures.jobPosting(title = "탈퇴테스트 공고").also(entityManager::persist)
+                val host = TestFixtures.host(name = "탈퇴테스트주최").also(entityManager::persist)
+                val event = TestFixtures.event(host = host).also(entityManager::persist)
+                val member = TestFixtures.user(nickname = "탈퇴회원", providerId = "withdraw-provider", email = "withdraw@example.com")
+                    .also(entityManager::persist)
+
+                entityManager.persist(Subscription(user = member, type = SubscriptionType.JOB_COMPANY, company = company))
+                entityManager.persist(Subscription(user = member, type = SubscriptionType.JOB_KEYWORD, keyword = "간호사"))
+                entityManager.persist(TestFixtures.jobBookmark(user = member, jobPosting = jobPosting))
+                entityManager.persist(TestFixtures.companyBookmark(user = member, company = company))
+                entityManager.persist(TestFixtures.bookmark(user = member, event = event))
+                entityManager.persist(TestFixtures.alarm(user = member, event = event))
+                entityManager.flush()
+                entityManager.clear()
+                val memberId = member.id!!
+
+                mockMvc.perform(
+                    delete("/api/v1/users")
+                        .header("Authorization", authHeader(memberId))
+                )
+                    .andDo(print())
+                    .andExpect(status().isNoContent)
+
+                entityManager.flush()
+                entityManager.clear()
+                listOf("Subscription", "JobBookmark", "CompanyBookmark", "Bookmark", "Alarm").forEach { entity ->
+                    val remaining = entityManager
+                        .createQuery("SELECT COUNT(e) FROM $entity e WHERE e.user.id = :userId", Long::class.javaObjectType)
+                        .setParameter("userId", memberId)
+                        .singleResult
+                    assertEquals(0L, remaining, "$entity 가 남아 있습니다")
+                }
+                assertEquals(null, entityManager.find(User::class.java, memberId))
             }
         }
 

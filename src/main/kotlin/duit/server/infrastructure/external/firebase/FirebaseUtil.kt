@@ -1,6 +1,9 @@
 package duit.server.infrastructure.external.firebase
 
+import com.google.firebase.FirebaseApp
+import com.google.firebase.auth.AuthErrorCode
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseAuthException
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.HttpEntity
@@ -42,6 +45,20 @@ class FirebaseUtil(
             logger.error("Failed to create ID token for email: $uid", e)
             throw IllegalStateException("Firebase ID 토큰 생성 실패: ${e.message}", e)
         }
+    }
+
+    /**
+     * 회원 탈퇴 시 Firebase Auth 계정 삭제.
+     * 탈퇴를 막지 않도록 실패는 로그만 남기고, Firebase 가 초기화되지 않은 환경(테스트)에서는 건너뛴다.
+     */
+    fun deleteUserQuietly(uid: String) {
+        if (FirebaseApp.getApps().isEmpty()) return
+
+        runCatching { firebaseAuth.deleteUser(uid) }
+            .onFailure { e ->
+                if ((e as? FirebaseAuthException)?.authErrorCode == AuthErrorCode.USER_NOT_FOUND) return@onFailure
+                logger.warn("Firebase 사용자 삭제 실패 (탈퇴는 계속 진행): uid={}***", uid.take(4), e)
+            }
     }
 
     /**

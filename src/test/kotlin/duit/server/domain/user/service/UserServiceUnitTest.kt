@@ -1,6 +1,9 @@
 package duit.server.domain.user.service
 
 import duit.server.application.security.SecurityUtil
+import duit.server.domain.job.repository.CompanyBookmarkRepository
+import duit.server.domain.job.repository.JobBookmarkRepository
+import duit.server.domain.subscription.repository.SubscriptionRepository
 import duit.server.domain.user.dto.UpdateNicknameRequest
 import duit.server.domain.user.dto.UpdateUserSettingsRequest
 import duit.server.domain.user.entity.ProviderType
@@ -8,6 +11,7 @@ import duit.server.domain.user.entity.User
 import duit.server.domain.user.entity.UserDeviceToken
 import duit.server.domain.user.repository.UserDeviceTokenRepository
 import duit.server.domain.user.repository.UserRepository
+import duit.server.infrastructure.external.firebase.FirebaseUtil
 import io.mockk.*
 import jakarta.persistence.EntityNotFoundException
 import org.junit.jupiter.api.*
@@ -19,6 +23,10 @@ class UserServiceUnitTest {
 
     private lateinit var userRepository: UserRepository
     private lateinit var userDeviceTokenRepository: UserDeviceTokenRepository
+    private lateinit var subscriptionRepository: SubscriptionRepository
+    private lateinit var jobBookmarkRepository: JobBookmarkRepository
+    private lateinit var companyBookmarkRepository: CompanyBookmarkRepository
+    private lateinit var firebaseUtil: FirebaseUtil
     private lateinit var securityUtil: SecurityUtil
     private lateinit var userService: UserService
 
@@ -26,8 +34,15 @@ class UserServiceUnitTest {
     fun setUp() {
         userRepository = mockk()
         userDeviceTokenRepository = mockk()
+        subscriptionRepository = mockk(relaxed = true)
+        jobBookmarkRepository = mockk(relaxed = true)
+        companyBookmarkRepository = mockk(relaxed = true)
+        firebaseUtil = mockk(relaxed = true)
         securityUtil = mockk()
-        userService = UserService(userRepository, userDeviceTokenRepository, securityUtil)
+        userService = UserService(
+            userRepository, userDeviceTokenRepository, subscriptionRepository,
+            jobBookmarkRepository, companyBookmarkRepository, firebaseUtil, securityUtil
+        )
     }
 
     private fun createUser(
@@ -388,14 +403,38 @@ class UserServiceUnitTest {
     inner class WithdrawTests {
 
         @Test
-        @DisplayName("현재 사용자를 삭제한다")
+        @DisplayName("소유 데이터를 먼저 지우고 사용자와 Firebase 계정을 삭제한다")
         fun deletesCurrentUser() {
+            val user = createUser(providerId = "firebase-uid-1")
             every { securityUtil.getCurrentUserId() } returns 1L
-            every { userRepository.deleteById(1L) } just runs
+            every { userRepository.findById(1L) } returns Optional.of(user)
+            every { userRepository.delete(user) } just runs
+            every { userRepository.flush() } just runs
 
             userService.withdraw()
 
-            verify(exactly = 1) { userRepository.deleteById(1L) }
+            verifyOrder {
+                subscriptionRepository.deleteByUserId(1L)
+                jobBookmarkRepository.deleteByUserId(1L)
+                companyBookmarkRepository.deleteByUserId(1L)
+                userRepository.delete(user)
+                userRepository.flush()
+                firebaseUtil.deleteUserQuietly("firebase-uid-1")
+            }
+        }
+
+        @Test
+        @DisplayName("DB 삭제가 실패하면 Firebase 계정은 지우지 않는다")
+        fun keepsFirebaseAccountWhenDbDeleteFails() {
+            val user = createUser(providerId = "firebase-uid-1")
+            every { securityUtil.getCurrentUserId() } returns 1L
+            every { userRepository.findById(1L) } returns Optional.of(user)
+            every { userRepository.delete(user) } just runs
+            every { userRepository.flush() } throws IllegalStateException("FK 위반")
+
+            assertThrows(IllegalStateException::class.java) { userService.withdraw() }
+
+            verify(exactly = 0) { firebaseUtil.deleteUserQuietly(any()) }
         }
     }
 }

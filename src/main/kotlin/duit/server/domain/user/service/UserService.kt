@@ -4,6 +4,9 @@ import duit.server.application.security.SecurityUtil
 import duit.server.domain.common.dto.pagination.PageInfo
 import duit.server.domain.common.dto.pagination.PageResponse
 import duit.server.domain.common.extensions.findByIdOrThrow
+import duit.server.domain.job.repository.CompanyBookmarkRepository
+import duit.server.domain.job.repository.JobBookmarkRepository
+import duit.server.domain.subscription.repository.SubscriptionRepository
 import duit.server.domain.user.dto.UpdateNicknameRequest
 import duit.server.domain.user.dto.UpdateUserSettingsRequest
 import duit.server.domain.user.dto.UserPaginationParam
@@ -12,6 +15,7 @@ import duit.server.domain.user.entity.ProviderType
 import duit.server.domain.user.entity.User
 import duit.server.domain.user.repository.UserDeviceTokenRepository
 import duit.server.domain.user.repository.UserRepository
+import duit.server.infrastructure.external.firebase.FirebaseUtil
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -20,6 +24,10 @@ import org.springframework.transaction.annotation.Transactional
 class UserService(
     private val userRepository: UserRepository,
     private val userDeviceTokenRepository: UserDeviceTokenRepository,
+    private val subscriptionRepository: SubscriptionRepository,
+    private val jobBookmarkRepository: JobBookmarkRepository,
+    private val companyBookmarkRepository: CompanyBookmarkRepository,
+    private val firebaseUtil: FirebaseUtil,
     private val securityUtil: SecurityUtil
 ) {
 
@@ -137,12 +145,23 @@ class UserService(
     }
 
     /**
-     * 회원탈퇴 (기존 메서드 - 하드코딩 제거)
+     * 회원탈퇴
+     * - User 에 매핑되지 않은 구독·채용공고 북마크·회사 북마크를 먼저 지운다 (FK 위반 방지)
+     * - 행사 북마크·알림·디바이스 토큰·관리자 계정은 User cascade 로 함께 삭제된다
+     * - DB 삭제가 확정된 뒤 Firebase Auth 계정도 지운다 (실패해도 탈퇴는 완료)
      */
     @Transactional
     fun withdraw() {
-        val currentUserId = securityUtil.getCurrentUserId()
-        userRepository.deleteById(currentUserId)
+        val user = findUserById(securityUtil.getCurrentUserId())
+        val userId = user.id!!
+
+        subscriptionRepository.deleteByUserId(userId)
+        jobBookmarkRepository.deleteByUserId(userId)
+        companyBookmarkRepository.deleteByUserId(userId)
+        userRepository.delete(user)
+        userRepository.flush()
+
+        user.providerId?.let(firebaseUtil::deleteUserQuietly)
     }
 
     /**

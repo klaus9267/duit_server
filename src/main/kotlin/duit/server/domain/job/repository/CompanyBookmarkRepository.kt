@@ -3,6 +3,7 @@ package duit.server.domain.job.repository
 import duit.server.domain.job.entity.Company
 import duit.server.domain.job.entity.CompanyBookmark
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 
 interface CompanyBookmarkRepository : JpaRepository<CompanyBookmark, Long> {
@@ -20,4 +21,7 @@ interface CompanyBookmarkRepository : JpaRepository<CompanyBookmark, Long> {
         """
     )
     fun findBookmarkedCompaniesByUserId(userId: Long): List<Company>
+
+    @Modifying
+    fun deleteByUserId(userId: Long)
 }

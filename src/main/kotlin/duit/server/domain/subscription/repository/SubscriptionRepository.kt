@@ -4,6 +4,7 @@ import duit.server.domain.event.entity.EventType
 import duit.server.domain.subscription.entity.Subscription
 import duit.server.domain.subscription.entity.SubscriptionType
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Modifying
 
 interface SubscriptionRepository : JpaRepository<Subscription, Long> {
 
@@ -25,4 +26,8 @@ interface SubscriptionRepository : JpaRepository<Subscription, Long> {
     fun findAllByTypeAndEventType(type: SubscriptionType, eventType: EventType): List<Subscription>
     fun findAllByTypeAndCompanyId(type: SubscriptionType, companyId: Long): List<Subscription>
     fun findAllByType(type: SubscriptionType): List<Subscription>  // KEYWORD 매칭용 (앱에서 contains 검사)
+
+    // 회원 탈퇴 시 FK(fk_subscription_user) 위반 방지
+    @Modifying
+    fun deleteByUserId(userId: Long)
 }
