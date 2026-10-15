@@ -330,4 +330,31 @@ class AlarmControllerIntegrationTest : IntegrationTestSupport() {
             }
         }
     }
+
+    @Nested
+    @DisplayName("POST /api/v1/alarms/test/** - 제거된 테스트 푸시 API")
+    inner class RemovedTestPushTests {
+
+        @Test
+        @DisplayName("인증된 사용자도 테스트 푸시 API를 호출할 수 없다")
+        fun removedEndpoints() {
+            mockMvc.perform(
+                post("/api/v1/alarms/test/custom")
+                    .header("Authorization", authHeader(user.id!!))
+                    .param("title", "제목")
+                    .param("body", "내용")
+            )
+                .andDo(print())
+                .andExpect(status().isNotFound)
+
+            mockMvc.perform(
+                post("/api/v1/alarms/test/custom2")
+                    .header("Authorization", authHeader(user.id!!))
+                    .param("alarmType", AlarmType.EVENT_START.name)
+                    .param("eventId", event.id!!.toString())
+            )
+                .andDo(print())
+                .andExpect(status().isNotFound)
+        }
+    }
 }
