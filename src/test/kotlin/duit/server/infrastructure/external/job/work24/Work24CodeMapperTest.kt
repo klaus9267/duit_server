@@ -556,6 +556,19 @@ class Work24CodeMapperTest {
         }
 
         @Test
+        fun `만 단위 뒤에 이어지는 나머지 금액을 합산`() {
+            assertEquals(10_320L, Work24CodeMapper.parseSalaryAmount("시급 1만 320원"))
+            assertEquals(10_320L, Work24CodeMapper.parseSalaryAmount("시급 1만320원 이상"))
+            assertEquals(85_000L, Work24CodeMapper.parseSalaryAmount("일급 8만 5천원"))
+            assertEquals(155_000L, Work24CodeMapper.parseSalaryAmount("일급 15만 5,000원"))
+        }
+
+        @Test
+        fun `원 없이 만으로 끝나도 만 단위로 환산`() {
+            assertEquals(2_500_000L, Work24CodeMapper.parseSalaryAmount("월급 250만 이상"))
+        }
+
+        @Test
         fun `만원 금액 환산이 Long 범위를 넘으면 null 반환`() {
             assertNull(
                 Work24CodeMapper.parseSalaryAmount("연봉 999,999,999,999,999만원"),

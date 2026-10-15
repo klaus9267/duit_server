@@ -1,5 +1,6 @@
 package duit.server.domain.job.entity
 
+import duit.server.infrastructure.external.job.work24.Work24CodeMapper
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.DisplayName
@@ -139,6 +140,14 @@ class JobPostingTest {
             assertEquals(false, postingWith("회사내규에 따름", null).belowMinimumWage)
             assertEquals(false, postingWith("급여 100만원", 1_000_000L).belowMinimumWage)
             assertEquals(false, postingWith("월급 100만원", 1_000_000L * 12, empTpCd = "21").belowMinimumWage)
+        }
+
+        @Test
+        fun `급여 설명에서 읽은 만 단위 혼합 금액은 오탐하지 않는다`() {
+            val description = "시급 1만 320원"
+            val salaryMin = Work24CodeMapper.annualizeSalary(Work24CodeMapper.parseSalaryAmount(description), description)
+
+            assertEquals(false, postingWith(description, salaryMin).belowMinimumWage)
         }
 
         @Test

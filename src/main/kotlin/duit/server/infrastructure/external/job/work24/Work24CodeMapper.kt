@@ -101,6 +101,8 @@ object Work24CodeMapper {
     private val salaryKeywordPattern = Regex("연봉|월급|시급|일급|급여")
     private val salaryAmountPattern = Regex("[0-9][0-9,]*")
     private val salaryUnitPattern = Regex("만\\s*원|원")
+    // 금액 바로 뒤의 만 단위. "1만 320원", "8만 5천원"처럼 나머지 금액이 이어질 수 있다
+    private val tenThousandSuffixPattern = Regex("\\s*만(?:\\s*([0-9][0-9,]*)\\s*(천)?)?")
 
     fun parseSalaryAmount(description: String?): Long? {
         if (description == null) return null
@@ -108,16 +110,25 @@ object Work24CodeMapper {
             ?.let { description.substring(it.range.first) }
             ?: description
         val amountMatch = salaryAmountPattern.find(salarySegment) ?: return null
-        val amount = amountMatch.value.replace(",", "").toLongOrNull() ?: return null
-        val unit = salaryUnitPattern.find(salarySegment, amountMatch.range.last + 1)
+        val amount = amountMatch.value.toAmount() ?: return null
+        val afterAmount = amountMatch.range.last + 1
+        val tenThousandSuffix = tenThousandSuffixPattern.matchAt(salarySegment, afterAmount)
+        val unit = salaryUnitPattern.find(salarySegment, afterAmount)
             ?.value
             ?.filterNot(Char::isWhitespace)
-        val normalizedAmount = when (unit) {
-            "만원" -> runCatching { Math.multiplyExact(amount, 10_000L) }.getOrNull()
+        val normalizedAmount = when {
+            tenThousandSuffix != null -> runCatching {
+                val (rest, thousand) = tenThousandSuffix.destructured
+                val remainder = Math.multiplyExact(rest.toAmount() ?: 0L, if (thousand.isEmpty()) 1L else 1_000L)
+                Math.addExact(Math.multiplyExact(amount, 10_000L), remainder)
+            }.getOrNull()
+            unit == "만원" -> runCatching { Math.multiplyExact(amount, 10_000L) }.getOrNull()
             else -> amount
         }
         return normalizedAmount?.takeIf { it > 0 }
     }
+
+    private fun String.toAmount(): Long? = replace(",", "").toLongOrNull()
 
     fun annualizeSalary(amount: Long?, description: String?): Long? {
         if (amount == null || amount <= 0) return null
