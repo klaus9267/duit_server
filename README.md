@@ -160,7 +160,7 @@
 
 ## 🔐 운영 설정 메모
 
-CD 는 `deploy.sh`, `switch-traffic.sh`, `docker-compose.yml`, `monitoring/prometheus.yml`, `monitoring/loki.yml` 을 서버(`/home/vagom/duit-server`)에 복사하고 앱(blue/green)만 다시 띄웁니다. 모니터링 컨테이너는 아래 절차로 직접 반영합니다.
+CD 는 `deploy.sh`, `switch-traffic.sh`, `docker-compose.yml`, `monitoring/prometheus.yml`, `monitoring/loki.yml` 을 서버(`/home/vagom/duit-server`)에 복사하고 앱(blue/green)만 다시 띄웁니다. 모니터링 컨테이너와 DB 정리는 아래 절차로 직접 반영합니다.
 
 ### 모니터링 설정 반영 (최초 1회)
 
@@ -179,3 +179,15 @@ docker compose --profile monitoring up -d --force-recreate prometheus loki grafa
 - `monitoring/metrics-token` 파일이 없는 상태로 Prometheus 를 띄우면 Docker 가 같은 경로에 디렉터리를 만들어 스크랩이 실패하므로, 반드시 파일을 먼저 만든 뒤 재기동합니다. 앱은 다음 배포부터 새 토큰을 읽습니다.
 - 이후 `prometheus.yml`·`loki.yml` 이 바뀌면 배포 뒤 `docker compose --profile monitoring up -d --force-recreate prometheus loki` 로 다시 읽힙니다.
 - Grafana 등은 SSH 터널로 접속합니다: `ssh -p <SSH 포트> -N -L 3000:127.0.0.1:3000 -L 9090:127.0.0.1:9090 <사용자>@<서버>` 후 `http://localhost:3000`.
+
+### 마케팅 수신 동의 정리 (V5 배포 직후 1회)
+
+V5 마이그레이션은 새 컨테이너가 뜰 때 실행되지만 트래픽 전환 전까지는 이전 버전(마케팅 기본값 동의, 동의 시각 미기록)이 요청을 받습니다. 그 사이 가입하거나 마케팅을 켠 회원은 동의 시각 없이 `marketing = TRUE` 로 남으므로, 배포가 끝나 이전 컨테이너가 내려간 뒤 한 번 더 정리합니다. 새 버전은 동의 시각 없는 동의를 만들지 않으므로 나중에 다시 실행해도 안전합니다.
+
+```bash
+docker exec -it duit-mysql-prod mysql -u root -p <DB_NAME>
+```
+
+```sql
+UPDATE users SET marketing = FALSE WHERE marketing = TRUE AND marketing_agreed_at IS NULL;
+```
