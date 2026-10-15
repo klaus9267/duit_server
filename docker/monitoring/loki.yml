@@ -38,6 +38,8 @@ limits_config:
   ingestion_burst_size_mb: 32
   per_stream_rate_limit: 3MB
   per_stream_rate_limit_burst: 15MB
+  # 로그 보관 기간 1년 (개인정보 처리방침의 접속기록 보관 기간과 일치) — compactor 가 기간이 지난 청크를 삭제
+  retention_period: 8760h
 
 storage_config:
   tsdb_shipper:
@@ -46,3 +48,12 @@ storage_config:
     cache_ttl: 24h
   filesystem:
     directory: /loki/chunks
+
+# 보존 기간 삭제는 compactor 가 수행 (Loki 3.x: retention_enabled 시 delete_request_store 필수)
+compactor:
+  working_directory: /loki/compactor
+  compaction_interval: 10m
+  retention_enabled: true
+  retention_delete_delay: 2h
+  retention_delete_worker_count: 150
+  delete_request_store: filesystem
