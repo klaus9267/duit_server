@@ -160,9 +160,11 @@
 
 ## 🔐 운영 설정 메모
 
-### Prometheus 메트릭 토큰 (최초 1회)
+CD 는 `deploy.sh`, `switch-traffic.sh`, `docker-compose.yml`, `monitoring/prometheus.yml`, `monitoring/loki.yml` 을 서버(`/home/vagom/duit-server`)에 복사하고 앱(blue/green)만 다시 띄웁니다. 모니터링 컨테이너는 아래 절차로 직접 반영합니다.
 
-`/actuator` 는 `health`, `prometheus` 만 노출하며 `/actuator/prometheus` 는 `METRICS_TOKEN` Bearer 토큰이 있어야 응답합니다. 토큰이 비어 있으면 모든 스크랩이 거부됩니다.
+### 모니터링 설정 반영 (최초 1회)
+
+`/actuator` 는 `health`, `prometheus` 만 노출하며 `/actuator/prometheus` 는 `METRICS_TOKEN` Bearer 토큰이 있어야 응답합니다. 토큰이 비어 있으면 모든 스크랩이 거부됩니다. Loki 는 로그를 1년(8760h) 보관한 뒤 삭제하고, Prometheus·Grafana·Loki·node-exporter·cAdvisor 포트는 서버 내부(127.0.0.1)에만 열립니다.
 
 ```bash
 cd /home/vagom/duit-server                        # docker-compose.yml 위치 (저장소의 docker/ 디렉터리)
@@ -170,7 +172,10 @@ TOKEN=$(openssl rand -hex 32)
 echo "METRICS_TOKEN=$TOKEN" >> .env               # 앱 컨테이너(blue/green)에 전달
 printf '%s' "$TOKEN" > monitoring/metrics-token   # Prometheus credentials_file (git 미추적)
 sudo chown 65534:65534 monitoring/metrics-token && sudo chmod 400 monitoring/metrics-token
-docker compose --profile monitoring up -d prometheus
+# CD 전에 반영한다면 저장소의 docker/monitoring/prometheus.yml, loki.yml 을 monitoring/ 에 먼저 복사
+docker compose --profile monitoring up -d --force-recreate prometheus loki grafana node-exporter cadvisor
 ```
 
-`monitoring/metrics-token` 파일이 없는 상태로 Prometheus 를 띄우면 Docker 가 같은 경로에 디렉터리를 만들어 스크랩이 실패하므로, 반드시 파일을 먼저 만든 뒤 재기동합니다. 앱은 다음 배포부터 새 토큰을 읽습니다.
+- `monitoring/metrics-token` 파일이 없는 상태로 Prometheus 를 띄우면 Docker 가 같은 경로에 디렉터리를 만들어 스크랩이 실패하므로, 반드시 파일을 먼저 만든 뒤 재기동합니다. 앱은 다음 배포부터 새 토큰을 읽습니다.
+- 이후 `prometheus.yml`·`loki.yml` 이 바뀌면 배포 뒤 `docker compose --profile monitoring up -d --force-recreate prometheus loki` 로 다시 읽힙니다.
+- Grafana 등은 SSH 터널로 접속합니다: `ssh -p <SSH 포트> -N -L 3000:127.0.0.1:3000 -L 9090:127.0.0.1:9090 <사용자>@<서버>` 후 `http://localhost:3000`.

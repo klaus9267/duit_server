@@ -158,8 +158,9 @@ services:
     image: prom/prometheus:latest
     container_name: duit-prometheus-prod
     profiles: ["monitoring", "full"]
+    # 모니터링 도구는 서버 내부에서만 접근 (외부에서는 SSH 터널로 접속, README 참고)
     ports:
-      - "9090:9090"
+      - "127.0.0.1:9090:9090"
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
       - ./monitoring/metrics-token:/etc/prometheus/metrics-token:ro
@@ -173,7 +174,7 @@ services:
     container_name: duit-grafana-prod
     profiles: ["monitoring", "full"]
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     volumes:
       - grafana_data_prod:/var/lib/grafana
       - ./monitoring/grafana-datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml
@@ -194,7 +195,7 @@ services:
     container_name: duit-loki-prod
     profiles: ["monitoring", "full"]
     ports:
-      - "3100:3100"
+      - "127.0.0.1:3100:3100"
     volumes:
       - ./monitoring/loki.yml:/etc/loki/local-config.yaml
       - loki_data_prod:/loki
@@ -253,7 +254,7 @@ services:
       - /sys:/host/sys:ro
       - /:/host:ro
     ports:
-      - "9100:9100"
+      - "127.0.0.1:9100:9100"
     restart: unless-stopped
     networks:
       - duit-network-prod
@@ -263,7 +264,7 @@ services:
     container_name: duit-cadvisor-prod
     profiles: ["monitoring", "full"]
     ports:
-      - "8081:8080"
+      - "127.0.0.1:8081:8080"
     volumes:
       - /:/rootfs:ro
       - /var/run:/var/run:ro
