@@ -151,3 +151,26 @@
 
 <img width="2362" height="4030" alt="erd" src="https://github.com/user-attachments/assets/7a687cab-290f-4466-bad2-be41cdebc26c" />
 
+
+<br>
+
+---
+
+<br>
+
+## 🔐 운영 설정 메모
+
+### Prometheus 메트릭 토큰 (최초 1회)
+
+`/actuator` 는 `health`, `prometheus` 만 노출하며 `/actuator/prometheus` 는 `METRICS_TOKEN` Bearer 토큰이 있어야 응답합니다. 토큰이 비어 있으면 모든 스크랩이 거부됩니다.
+
+```bash
+cd /home/vagom/duit-server                        # docker-compose.yml 위치 (저장소의 docker/ 디렉터리)
+TOKEN=$(openssl rand -hex 32)
+echo "METRICS_TOKEN=$TOKEN" >> .env               # 앱 컨테이너(blue/green)에 전달
+printf '%s' "$TOKEN" > monitoring/metrics-token   # Prometheus credentials_file (git 미추적)
+sudo chown 65534:65534 monitoring/metrics-token && sudo chmod 400 monitoring/metrics-token
+docker compose --profile monitoring up -d prometheus
+```
+
+`monitoring/metrics-token` 파일이 없는 상태로 Prometheus 를 띄우면 Docker 가 같은 경로에 디렉터리를 만들어 스크랩이 실패하므로, 반드시 파일을 먼저 만든 뒤 재기동합니다. 앱은 다음 배포부터 새 토큰을 읽습니다.

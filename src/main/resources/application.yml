@@ -40,7 +40,8 @@ management:
   endpoints:
     web:
       exposure:
-        include: "*"
+        # 헬스체크(배포 스크립트·docker)와 Prometheus 스크랩만 노출
+        include: "health,prometheus"
   endpoint:
     health:
       show-details: never
@@ -48,6 +49,10 @@ management:
     distribution:
       percentiles-histogram:
         http.server.requests: true
+
+# Prometheus 스크랩용 Bearer 토큰 — 비어 있으면 /actuator/prometheus 요청을 모두 거부
+metrics:
+  token: ${METRICS_TOKEN:}
 
 # JWT 설정
 jwt:

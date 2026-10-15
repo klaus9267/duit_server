@@ -38,6 +38,7 @@ services:
       FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID}
       FIREBASE_KEY_JSON: ${FIREBASE_KEY_JSON}
       WORK24_KEY: ${WORK24_KEY}
+      METRICS_TOKEN: ${METRICS_TOKEN}
     restart: unless-stopped
     networks:
       - duit-network-prod
@@ -87,6 +88,7 @@ services:
       FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID}
       FIREBASE_KEY_JSON: ${FIREBASE_KEY_JSON}
       WORK24_KEY: ${WORK24_KEY}
+      METRICS_TOKEN: ${METRICS_TOKEN}
     restart: unless-stopped
     networks:
       - duit-network-prod
@@ -158,6 +160,7 @@ services:
       - "9090:9090"
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./monitoring/metrics-token:/etc/prometheus/metrics-token:ro
       - prometheus_data_prod:/prometheus
     restart: unless-stopped
     networks:

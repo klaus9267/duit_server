@@ -8,7 +8,7 @@ import org.springframework.mock.web.MockHttpServletRequest
 
 class SecurityConfigTest {
 
-    private val corsConfiguration = SecurityConfig(mockk(), mockk())
+    private val corsConfiguration = SecurityConfig(mockk(), mockk(), mockk())
         .corsConfigurationSource()
         .getCorsConfiguration(MockHttpServletRequest("GET", "/api/v2/events"))!!
 

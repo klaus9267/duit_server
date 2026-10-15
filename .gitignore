@@ -49,6 +49,7 @@ out/
 .env
 docker/.env.*
 !docker/.env.example
+docker/monitoring/metrics-token
 
 ### Firebase ###
 firebase-key.json

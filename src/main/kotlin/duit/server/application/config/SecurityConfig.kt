@@ -2,6 +2,7 @@ package duit.server.application.config
 
 import duit.server.application.security.JwtAuthenticationEntryPoint
 import duit.server.application.security.JwtAuthenticationFilter
+import duit.server.application.security.MetricsTokenAuthorizationManager
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.http.HttpMethod
@@ -20,7 +21,8 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource
 @EnableWebSecurity
 class SecurityConfig(
     private val jwtAuthenticationFilter: JwtAuthenticationFilter,
-    private val jwtAuthenticationEntryPoint: JwtAuthenticationEntryPoint
+    private val jwtAuthenticationEntryPoint: JwtAuthenticationEntryPoint,
+    private val metricsTokenAuthorizationManager: MetricsTokenAuthorizationManager,
 ) {
 
     @Bean
@@ -43,17 +45,15 @@ class SecurityConfig(
                         "/swagger-ui/**",
                         "/v3/api-docs/**",
                         "/swagger-resources/**",
-                        "/actuator/**",
+                        "/actuator/health",
+                        "/actuator/health/**",
                         "/api/v1/users/check-nickname",
-                        "/api/v1/webhooks/**",
-                        "/api/v1/dummy/**",
                         "/api/v2/events/count",
-                        "/api/v1/events/migrate-status",
-                        "/api/v1/scheduler/**",
                         "/api/v1/views/**",
-                        "/actuator/**",
                         "/uploads/**",
                     ).permitAll()
+                    // Prometheus 스크랩은 METRICS_TOKEN Bearer 토큰으로만 허용
+                    .requestMatchers("/actuator/prometheus").access(metricsTokenAuthorizationManager)
                     .requestMatchers(
                         HttpMethod.POST,
                         "/api/v1/auth/social",
@@ -61,7 +61,6 @@ class SecurityConfig(
                         "/api/v1/auth/id-token",
                         "/api/v1/events",
                         "/api/v1/admin/auth/login",
-                        "/api/v1/alarms/test"
                     ).permitAll()
                     // 회사 북마크 목록은 인증 필요 — `{companyId}` 와일드카드보다 먼저 평가되어야 함
                     .requestMatchers(HttpMethod.GET, "/api/v1/companies/bookmarked")

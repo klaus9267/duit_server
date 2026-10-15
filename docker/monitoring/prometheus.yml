@@ -11,6 +11,10 @@ scrape_configs:
       - targets: ['duit-server-blue:8080', 'duit-server-green:8080', 'host.docker.internal:8080']
     metrics_path: '/actuator/prometheus'
     scrape_interval: 5s
+    # 앱의 METRICS_TOKEN 과 같은 값을 담은 파일 (docker/monitoring/metrics-token, git 미추적)
+    authorization:
+      type: Bearer
+      credentials_file: /etc/prometheus/metrics-token
 
   - job_name: 'node-exporter'
     static_configs:
