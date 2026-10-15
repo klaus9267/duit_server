@@ -43,7 +43,7 @@ class JobPostingSortMigrationTest {
             .locations("classpath:db/migration")
             .baselineOnMigrate(true)
             .baselineVersion("3")
-            // 이후 마이그레이션은 이 테스트가 만들지 않은 테이블(users 등)을 다루므로 V4 까지만 적용
+            // 이후 마이그레이션은 이 테스트가 만들지 않은 테이블(users 등)을 다루므로 V4 까지만 적용 (V5~ 는 ComplianceMigrationTest)
             .target("4")
             .load()
             .migrate()
