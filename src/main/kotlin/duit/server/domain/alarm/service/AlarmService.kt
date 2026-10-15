@@ -52,13 +52,14 @@ class AlarmService(
 
     /**
      * 알람 목록 조회 (V2) — 이벤트 + 채용 알람 모두 폴리모픽 응답으로 반환.
+     * 최저임금 미달로 게재할 수 없는 공고의 알람은 제외한다.
      */
     fun getAlarmsV2(param: AlarmPaginationParam): PageResponse<AlarmResponseV2> {
         val currentUserId = securityUtil.getCurrentUserId()
         val alarms = if (param.isRead != null) {
-            alarmRepository.findByUserIdAndIsRead(currentUserId, param.isRead, param.toPageable())
+            alarmRepository.findPublishableByUserIdAndIsRead(currentUserId, param.isRead, param.toPageable())
         } else {
-            alarmRepository.findByUserId(currentUserId, param.toPageable())
+            alarmRepository.findPublishableByUserId(currentUserId, param.toPageable())
         }
         return PageResponse(
             content = alarms.content.map { AlarmResponseV2.from(it) },

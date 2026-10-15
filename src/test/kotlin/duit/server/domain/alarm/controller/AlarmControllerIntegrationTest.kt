@@ -6,9 +6,11 @@ import duit.server.domain.event.entity.Event
 import duit.server.domain.event.entity.EventStatus
 import duit.server.domain.event.entity.EventStatusGroup
 import duit.server.domain.host.entity.Host
+import duit.server.domain.job.entity.SalaryType
 import duit.server.domain.user.entity.User
 import duit.server.support.IntegrationTestSupport
 import duit.server.support.fixture.TestFixtures
+import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -328,6 +330,56 @@ class AlarmControllerIntegrationTest : IntegrationTestSupport() {
                     .andDo(print())
                     .andExpect(status().isUnauthorized)
             }
+        }
+    }
+
+    @Nested
+    @DisplayName("GET /api/v2/alarms - 알림 목록 조회 (V2)")
+    inner class GetAlarmsV2Tests {
+
+        @Test
+        @DisplayName("최저임금 미달로 바뀐 채용공고의 알람은 목록과 개수에서 제외한다")
+        fun excludesBelowMinimumWagePostingAlarms() {
+            val visiblePosting = TestFixtures.jobPosting(title = "알람 정상 공고").also(entityManager::persist)
+            val flaggedPosting = TestFixtures.jobPosting(
+                title = "알람 최저임금미달 공고",
+                salaryType = SalaryType.HOURLY,
+                salaryMin = 9_000L * SalaryType.HOURLY.annualMultiplier,
+                salaryMax = null,
+            ).also {
+                assertThat(it.belowMinimumWage).isTrue()
+                entityManager.persist(it)
+            }
+            val alarmUser = entityManager.getReference(User::class.java, user.id!!)
+            listOf(visiblePosting, flaggedPosting).forEach { posting ->
+                entityManager.persist(
+                    Alarm(user = alarmUser, jobPosting = posting, type = AlarmType.JOB_SUBSCRIPTION_KEYWORD)
+                )
+            }
+            entityManager.flush()
+            entityManager.clear()
+
+            mockMvc.perform(
+                get("/api/v2/alarms")
+                    .header("Authorization", authHeader(user.id!!))
+            )
+                .andDo(print())
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.content.length()").value(3))
+                .andExpect(jsonPath("$.pageInfo.totalElements").value(3))
+                .andExpect(jsonPath("$.content[?(@.target.jobPosting.wantedTitle == '알람 정상 공고')]").isNotEmpty)
+                .andExpect(jsonPath("$.content[?(@.target.jobPosting.wantedTitle == '알람 최저임금미달 공고')]").isEmpty)
+
+            mockMvc.perform(
+                get("/api/v2/alarms")
+                    .header("Authorization", authHeader(user.id!!))
+                    .param("isRead", "false")
+            )
+                .andDo(print())
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.content.length()").value(2))
+                .andExpect(jsonPath("$.pageInfo.totalElements").value(2))
+                .andExpect(jsonPath("$.content[?(@.target.jobPosting.wantedTitle == '알람 최저임금미달 공고')]").isEmpty)
         }
     }
 
