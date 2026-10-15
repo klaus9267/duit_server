@@ -57,6 +57,15 @@ class User(
     var marketingAgreedAt: LocalDateTime? = null
         protected set
 
+    /** 마지막으로 동의한 이용약관 버전 (예: 2026-10-15) */
+    @Column(name = "terms_version", length = 20)
+    var termsVersion: String? = null
+        protected set
+
+    @Column(name = "terms_agreed_at")
+    var termsAgreedAt: LocalDateTime? = null
+        protected set
+
     /**
      * 닉네임 업데이트
      */
@@ -78,6 +87,12 @@ class User(
         this.alarmSettings = newAlarmSettings
         this.autoAddBookmarkToCalendar = autoAddBookmarkToCalendar
         this.updatedAt = now
+    }
+
+    fun agreeToTerms(version: String) {
+        if (termsVersion == version) return
+        termsVersion = version
+        termsAgreedAt = LocalDateTime.now()
     }
 
     fun registerDeviceToken(token: String) {

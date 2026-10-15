@@ -17,6 +17,11 @@ class MigrationColumnMappingTest : IntegrationTestSupport() {
         assertColumns("users", "marketing", "marketing_agreed_at")
     }
 
+    @Test
+    fun `V6 약관 동의 컬럼은 엔티티 매핑과 일치한다`() {
+        assertColumns("users", "terms_version", "terms_agreed_at")
+    }
+
     private fun assertColumns(table: String, vararg columns: String) {
         @Suppress("UNCHECKED_CAST")
         val actual = (entityManager.createNativeQuery(

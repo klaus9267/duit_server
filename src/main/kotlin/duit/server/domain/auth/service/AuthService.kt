@@ -23,7 +23,7 @@ class AuthService(
     private val logger = LoggerFactory.getLogger(AuthService::class.java)
 
     @Transactional
-    fun socialLogin(idToken: String): AuthResponse {
+    fun socialLogin(idToken: String, agreedTermsVersion: String? = null): AuthResponse {
         val totalStart = System.currentTimeMillis()
         val trimmedToken = idToken.trim()
 
@@ -47,6 +47,7 @@ class AuthService(
             createUserElapsed = System.currentTimeMillis() - createStart
             newUser
         }
+        agreedTermsVersion?.let(user::agreeToTerms)
 
         val jwtStart = System.currentTimeMillis()
         val accessToken = jwtTokenProvider.createAccessToken(user.id!!)

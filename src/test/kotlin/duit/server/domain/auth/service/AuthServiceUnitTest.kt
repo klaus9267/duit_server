@@ -186,6 +186,76 @@ class AuthServiceUnitTest {
         }
 
         @Nested
+        @DisplayName("약관 동의 기록")
+        inner class TermsAgreementTests {
+
+            private lateinit var firebaseTokenVerifier: FirebaseTokenVerifier
+            private lateinit var jwtTokenProvider: JwtTokenProvider
+            private lateinit var userRepository: UserRepository
+            private lateinit var userService: UserService
+            private lateinit var authService: AuthService
+            private lateinit var user: User
+
+            @BeforeEach
+            fun setUp() {
+                firebaseTokenVerifier = mockk()
+                jwtTokenProvider = mockk()
+                userRepository = mockk()
+                userService = mockk()
+                authService = AuthService(firebaseTokenVerifier, jwtTokenProvider, userRepository, userService)
+                user = User(id = 3L, nickname = "약관유저", providerId = "terms-uid", providerType = ProviderType.GOOGLE)
+
+                every { firebaseTokenVerifier.verifyIdToken("valid-token") } returns FirebaseTokenClaims(
+                    uid = "terms-uid",
+                    email = null,
+                    name = null,
+                    claims = mapOf("firebase" to mapOf("sign_in_provider" to "google.com"))
+                )
+                every { userRepository.findByProviderId("terms-uid") } returns user
+                every { jwtTokenProvider.createAccessToken(3L) } returns "jwt"
+            }
+
+            @Test
+            @DisplayName("약관 버전을 보내면 버전과 동의 시각을 기록한다")
+            fun recordsTermsVersion() {
+                authService.socialLogin("valid-token", agreedTermsVersion = "2026-10-15")
+
+                assertEquals("2026-10-15", user.termsVersion)
+                assertTrue(user.termsAgreedAt != null)
+            }
+
+            @Test
+            @DisplayName("같은 버전에 다시 동의하면 처음 동의 시각을 유지한다")
+            fun keepsAgreedAtForSameVersion() {
+                authService.socialLogin("valid-token", agreedTermsVersion = "2026-10-15")
+                val firstAgreedAt = user.termsAgreedAt
+
+                authService.socialLogin("valid-token", agreedTermsVersion = "2026-10-15")
+
+                assertSame(firstAgreedAt, user.termsAgreedAt)
+            }
+
+            @Test
+            @DisplayName("새 약관 버전에 동의하면 버전을 갱신한다")
+            fun updatesToNewVersion() {
+                user.agreeToTerms("2026-01-01")
+
+                authService.socialLogin("valid-token", agreedTermsVersion = "2026-10-15")
+
+                assertEquals("2026-10-15", user.termsVersion)
+            }
+
+            @Test
+            @DisplayName("약관 버전을 보내지 않으면 기록을 바꾸지 않는다")
+            fun ignoresMissingVersion() {
+                authService.socialLogin("valid-token")
+
+                assertEquals(null, user.termsVersion)
+                assertEquals(null, user.termsAgreedAt)
+            }
+        }
+
+        @Nested
         @DisplayName("프로바이더 타입 결정")
         inner class ProviderTypeTests {
 

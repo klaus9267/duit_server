@@ -8,6 +8,8 @@ import duit.server.support.IntegrationTestSupport
 import duit.server.support.fixture.TestFixtures
 import io.mockk.clearMocks
 import io.mockk.every
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -135,8 +137,88 @@ class AuthControllerIntegrationTest : IntegrationTestSupport() {
         }
 
         @Nested
+        @DisplayName("성공 - 약관 동의 기록")
+        inner class TermsAgreementSuccess {
+
+            private fun termsOf(providerId: String) = entityManager
+                .createQuery(
+                    "SELECT u.termsVersion, u.termsAgreedAt FROM User u WHERE u.providerId = :providerId",
+                    Array<Any?>::class.java,
+                )
+                .setParameter("providerId", providerId)
+                .singleResult
+
+            @Test
+            @DisplayName("JSON 본문으로 약관 버전을 보내면 버전과 동의 시각을 저장한다")
+            fun recordsAgreedTermsVersion() {
+                stubFirebaseToken(uid = "terms-uid", provider = "google.com", name = "약관유저", email = "terms@example.com")
+
+                mockMvc.perform(
+                    post("/api/v1/auth/social")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(
+                            objectMapper.writeValueAsString(
+                                mapOf("idToken" to "terms-token", "agreedTermsVersion" to "2026-10-15")
+                            )
+                        )
+                )
+                    .andDo(print())
+                    .andExpect(status().isOk)
+                    .andExpect(jsonPath("$.isNewUser").value(true))
+                    .andExpect(jsonPath("$.user.providerId").value("terms-uid"))
+
+                entityManager.flush()
+                entityManager.clear()
+                val (version, agreedAt) = termsOf("terms-uid")
+                assertEquals("2026-10-15", version)
+                assertNotNull(agreedAt)
+            }
+
+            @Test
+            @DisplayName("약관 버전 없이 로그인하면 기존 동의 기록을 유지한다")
+            fun keepsTermsWhenVersionMissing() {
+                val user = TestFixtures.user(providerId = "terms-keep-uid").apply { agreeToTerms("2026-10-15") }
+                entityManager.persist(user)
+                entityManager.flush()
+                entityManager.clear()
+                stubFirebaseToken(uid = "terms-keep-uid", provider = "google.com")
+
+                mockMvc.perform(
+                    post("/api/v1/auth/social")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(mapOf("idToken" to "terms-token")))
+                )
+                    .andDo(print())
+                    .andExpect(status().isOk)
+                    .andExpect(jsonPath("$.isNewUser").value(false))
+
+                entityManager.flush()
+                entityManager.clear()
+                assertEquals("2026-10-15", termsOf("terms-keep-uid")[0])
+            }
+        }
+
+        @Nested
         @DisplayName("실패")
         inner class Failure {
+
+            @Test
+            @DisplayName("약관 버전 형식이 잘못되면 400을 반환한다")
+            fun invalidTermsVersion() {
+                stubFirebaseToken(uid = "invalid-terms-uid", provider = "google.com")
+
+                mockMvc.perform(
+                    post("/api/v1/auth/social")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(
+                            objectMapper.writeValueAsString(
+                                mapOf("idToken" to "terms-token", "agreedTermsVersion" to "latest")
+                            )
+                        )
+                )
+                    .andDo(print())
+                    .andExpect(status().isBadRequest)
+            }
 
             @Test
             @DisplayName("유효하지 않은 Firebase 토큰이면 에러를 반환한다")
