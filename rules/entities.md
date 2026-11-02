@@ -55,13 +55,15 @@ var status: EventStatus = EventStatus.PENDING
 
 ### 관계 매핑
 ```kotlin
-// 소유 측 (FK를 가진 쪽)
-@ManyToOne(fetch = FetchType.LAZY)
-val host: Host
+// 소유 측 (FK를 가진 쪽) — EventHost
+@ManyToOne(fetch = FetchType.LAZY, optional = false)
+@JoinColumn(name = "event_id", nullable = false)
+val event: Event
 
-// 반대 측
-@OneToMany(mappedBy = "host", cascade = [CascadeType.ALL], orphanRemoval = true)
-val events: List<Event> = emptyList()
+// 반대 측 — Event
+@OneToMany(mappedBy = "event", cascade = [CascadeType.ALL], orphanRemoval = true)
+@OrderBy("sortOrder ASC")
+private val eventHosts: MutableList<EventHost> = mutableListOf()
 ```
 - **기본 FetchType.LAZY** — EAGER 절대 금지
 - N+1 방지: `@EntityGraph` 또는 `JOIN FETCH` 사용
@@ -108,10 +110,11 @@ class Event(...) {
 
 | 엔티티 | 테이블 | 감사 필드 | 도메인 로직 | 관계 |
 |--------|-------|----------|------------|------|
-| Event | events | O (created, updated) | updateStatus(), update() | ManyToOne(Host), OneToOne(View), OneToMany(Bookmark, Alarm) |
+| Event | events | O (created, updated) | updateStatus(), update(), replaceHosts() | OneToMany(EventHost), ManyToOne(Host — `host_id` 레거시 미러), OneToOne(View), OneToMany(Bookmark, Alarm) |
+| EventHost | event_hosts | X | 없음 (Event.replaceHosts 가 관리) | ManyToOne(Event, Host). `sort_order` = 주최 순서, UNIQUE(event_id, host_id) |
 | User | users | O (created, updated) | updateNickname(), updateSettings(), registerDeviceToken(), unregisterDeviceToken() | OneToMany(Bookmark, Alarm, UserDeviceToken), OneToOne(Admin) |
 | UserDeviceToken | user_device_tokens | O (created, updated) | 없음 | ManyToOne(User) |
-| Host | hosts | **X (미구현)** | 없음 | OneToMany(Event) |
+| Host | hosts | **X (미구현)** | 없음 | OneToMany(EventHost) |
 | View | views | **X (미구현)** | 없음 | OneToOne(Event) |
 | Bookmark | bookmarks | O (created, updated) | 없음 | ManyToOne(User, Event) |
 | Alarm | alarms | O (created만) | XOR invariant in init (event ⊕ jobPosting) | ManyToOne(User), ManyToOne(Event?), ManyToOne(JobPosting?) |
@@ -211,15 +214,14 @@ class Event(
     @Column(nullable = false)
     var status: EventStatus = EventStatus.PENDING,
     
-    @ManyToOne(fetch = FetchType.LAZY)
-    var host: Host,
+    hosts: List<Host>,  // 영속 프로퍼티가 아닌 생성자 파라미터 → 아래 createdAt 은 var 여야 함 (안티패턴 5)
     
     @OneToMany(mappedBy = "event", cascade = [CascadeType.ALL], orphanRemoval = true)
     val bookmarks: List<Bookmark> = emptyList(),
     
     @CreatedDate
     @Column(nullable = false, updatable = false)
-    val createdAt: LocalDateTime = LocalDateTime.now(),
+    var createdAt: LocalDateTime = LocalDateTime.now(),
     
     @LastModifiedDate
     var updatedAt: LocalDateTime = LocalDateTime.now(),
@@ -278,7 +280,18 @@ val createdAt: LocalDateTime = LocalDateTime.now()
 var updatedAt: LocalDateTime = LocalDateTime.now()
 ```
 
-### 5. 엔티티를 직접 API 응답으로 반환
+### 5. 영속 프로퍼티가 아닌 생성자 파라미터 + `val` 감사 필드
+```kotlin
+// BAD — Spring Data auditing 이 val createdAt 을 쓰려고 primary constructor 로 재인스턴스화하다
+//        "Required property hosts not found for class Event" 로 persist 실패
+class Event(hosts: List<Host>, @CreatedDate val createdAt: LocalDateTime = LocalDateTime.now())
+
+// GOOD
+class Event(hosts: List<Host>, @CreatedDate var createdAt: LocalDateTime = LocalDateTime.now())
+```
+- 생성자에 `val`/`var` 가 아닌 파라미터를 두는 엔티티는 `@CreatedDate`/`@LastModifiedDate` 필드를 `var` 로 선언할 것
+
+### 6. 엔티티를 직접 API 응답으로 반환
 ```kotlin
 // BAD
 @GetMapping("{id}")

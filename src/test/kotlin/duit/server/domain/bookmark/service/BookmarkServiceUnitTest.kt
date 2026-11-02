@@ -49,7 +49,7 @@ class BookmarkServiceUnitTest {
             id = 10L, title = "승인 행사", startAt = LocalDateTime.now().plusDays(7),
             endAt = null, recruitmentStartAt = null, recruitmentEndAt = null,
             uri = "https://example.com", thumbnail = null,
-            eventType = EventType.CONFERENCE, host = host,
+            eventType = EventType.CONFERENCE, hosts = listOf(host),
             status = EventStatus.ACTIVE, statusGroup = EventStatusGroup.ACTIVE
         )
     }
@@ -149,7 +149,7 @@ class BookmarkServiceUnitTest {
         id = this.id, title = this.title, startAt = this.startAt, endAt = this.endAt,
         recruitmentStartAt = this.recruitmentStartAt, recruitmentEndAt = this.recruitmentEndAt,
         uri = this.uri, thumbnail = this.thumbnail,
-        eventType = this.eventType, host = this.host,
+        eventType = this.eventType, hosts = this.hosts,
         status = status, statusGroup = statusGroup
     )
 }

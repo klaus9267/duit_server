@@ -53,7 +53,7 @@ class EventServiceCacheTest {
         eventCacheEvictService = mockk(relaxed = true)
         eventService = EventService(
             eventRepository, securityUtil, discordService,
-            hostService, fileStorageService, eventQueryService, eventCacheEvictService,
+            EventHostResolver(hostService, fileStorageService), fileStorageService, eventQueryService, eventCacheEvictService,
             mockk(relaxed = true)
         )
     }
@@ -66,7 +66,7 @@ class EventServiceCacheTest {
         endAt = LocalDateTime.now().plusDays(8),
         recruitmentStartAt = null, recruitmentEndAt = null,
         uri = "https://example.com/$id", thumbnail = null,
-        eventType = EventType.CONFERENCE, host = host,
+        eventType = EventType.CONFERENCE, hosts = listOf(host),
         status = EventStatus.RECRUITING, statusGroup = EventStatusGroup.ACTIVE
     )
 

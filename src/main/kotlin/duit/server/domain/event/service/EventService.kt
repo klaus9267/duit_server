@@ -20,8 +20,6 @@ import duit.server.domain.event.entity.Event
 import duit.server.domain.event.entity.EventStatus
 import duit.server.domain.event.entity.EventStatusGroup
 import duit.server.domain.event.repository.EventRepository
-import duit.server.domain.host.dto.HostRequest
-import duit.server.domain.host.service.HostService
 import duit.server.domain.subscription.service.SubscriptionNotificationService
 import duit.server.infrastructure.external.discord.DiscordService
 import duit.server.infrastructure.external.file.FileStorageService
@@ -37,7 +35,7 @@ class EventService(
     private val eventRepository: EventRepository,
     private val securityUtil: SecurityUtil,
     private val discordService: DiscordService,
-    private val hostService: HostService,
+    private val eventHostResolver: EventHostResolver,
     private val fileStorageService: FileStorageService,
     private val eventQueryService: EventQueryService,
     private val eventCacheEvictService: EventCacheEvictService,
@@ -48,21 +46,13 @@ class EventService(
         eventRequest: EventCreateRequest,
         eventThumbnail: MultipartFile?,
         hostThumbnail: MultipartFile?,
-        autoApprove: Boolean
+        autoApprove: Boolean,
+        hostThumbnails: List<MultipartFile> = emptyList(),
     ): EventResponseV2 {
+        val hosts = eventHostResolver.resolve(eventRequest, hostThumbnail, hostThumbnails)
         val eventThumbnailUrl = eventThumbnail?.let { fileStorageService.uploadFile(it, "events") }
-        val hostThumbnailUrl = hostThumbnail?.let { fileStorageService.uploadFile(it, "hosts") }
 
-        val host = when {
-            eventRequest.hostId != null -> hostService.getHost(eventRequest.hostId)
-            eventRequest.hostName != null -> hostService.findOrCreateHost(
-                HostRequest(name = eventRequest.hostName, thumbnail = hostThumbnailUrl)
-            )
-
-            else -> throw IllegalArgumentException("hostId 또는 hostName 중 하나는 필수입니다")
-        }
-
-        val event = eventRequest.toEntity(host).apply {
+        val event = eventRequest.toEntity(hosts).apply {
             thumbnail = eventThumbnailUrl
 
             if (autoApprove) {
@@ -240,8 +230,19 @@ class EventService(
         eventId: Long,
         updateRequest: EventUpdateRequest,
         eventThumbnail: MultipartFile?,
-        hostThumbnail: MultipartFile?
+        hostThumbnail: MultipartFile?,
+        hostThumbnails: List<MultipartFile> = emptyList(),
     ): EventResponse = getEvent(eventId).let { event ->
+        require(updateRequest.hosts == null || !updateRequest.deleteHostThumbnail) {
+            "hosts 사용 시 deleteHostThumbnail 은 지원하지 않습니다. 주최 로고 삭제는 PUT /api/v1/hosts/{hostId} 를 사용하세요"
+        }
+        val hosts = eventHostResolver.resolve(
+            source = updateRequest,
+            hostThumbnail = hostThumbnail.takeUnless { updateRequest.deleteHostThumbnail },
+            hostThumbnails = hostThumbnails,
+            legacyThumbnailFallback = event.hosts.first().thumbnail.takeUnless { updateRequest.deleteHostThumbnail },
+        )
+
         // 행사 썸네일 처리
         val eventThumbnailUrl = when {
             updateRequest.deleteEventThumbnail -> {
@@ -257,25 +258,7 @@ class EventService(
             else -> event.thumbnail
         }
 
-        // Host 처리: hostId가 있으면 기존 사용, 없으면 생성/수정
-        val host = when {
-            updateRequest.hostId != null -> hostService.getHost(updateRequest.hostId)
-            updateRequest.hostName != null -> {
-                // Host 썸네일 처리
-                val hostThumbnailUrl = when {
-                    updateRequest.deleteHostThumbnail -> null
-                    hostThumbnail != null -> fileStorageService.uploadFile(hostThumbnail, "hosts")
-                    else -> event.host.thumbnail
-                }
-                hostService.findOrCreateHost(
-                    HostRequest(name = updateRequest.hostName, thumbnail = hostThumbnailUrl)
-                )
-            }
-
-            else -> throw IllegalArgumentException("hostId 또는 hostName 중 하나는 필수입니다")
-        }
-
-        event.update(updateRequest, eventThumbnailUrl, host)
+        event.update(updateRequest, eventThumbnailUrl, hosts)
         val saved = eventRepository.save(event)
 
         // 캐시 무효화

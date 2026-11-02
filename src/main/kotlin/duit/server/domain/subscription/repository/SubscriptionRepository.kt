@@ -21,7 +21,7 @@ interface SubscriptionRepository : JpaRepository<Subscription, Long> {
     fun existsByUserIdAndTypeAndCompanyId(userId: Long, type: SubscriptionType, companyId: Long): Boolean
 
     // 매칭 (행사/채용 등록 시 구독자 찾기 — Phase 4 Matcher 에서 사용)
-    fun findAllByTypeAndHostId(type: SubscriptionType, hostId: Long): List<Subscription>
+    fun findAllByTypeAndHostIdIn(type: SubscriptionType, hostIds: Collection<Long>): List<Subscription>
     fun findAllByTypeAndEventType(type: SubscriptionType, eventType: EventType): List<Subscription>
     fun findAllByTypeAndCompanyId(type: SubscriptionType, companyId: Long): List<Subscription>
     fun findAllByType(type: SubscriptionType): List<Subscription>  // KEYWORD 매칭용 (앱에서 contains 검사)

@@ -4,8 +4,10 @@ import duit.server.domain.event.entity.Event
 import duit.server.domain.event.entity.EventType
 import duit.server.domain.host.entity.Host
 import io.swagger.v3.oas.annotations.media.Schema
+import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.NotNull
+import jakarta.validation.constraints.Size
 import java.time.LocalDateTime
 
 @ValidDateRange
@@ -35,13 +37,19 @@ data class EventCreateRequest(
     @field:Schema(description = "행사 종류", example = "CONFERENCE")
     val eventType: EventType,
 
-    @field:Schema(description = "주최 기관 ID (기존 기관 사용 시)", example = "1")
-    val hostId: Long? = null,
+    @field:Valid
+    @field:Size(min = 1, max = MAX_EVENT_HOSTS, message = "주최는 1개 이상 {max}개 이하로 입력해야 합니다")
+    @field:Schema(description = "주최 목록 (순서 유지, 첫 번째 주최가 응답의 host 로 사용됨). hostId/hostName 과 함께 사용 불가")
+    override val hosts: List<EventHostRequest>? = null,
 
-    @field:Schema(description = "주최 기관명 (신규 기관 생성 시)", example = "단국대학교 IT 대학")
-    val hostName: String? = null
-) {
-    fun toEntity(host: Host): Event = Event(
+    // TODO(P-15): 모든 클라이언트가 hosts 로 전환되면 hostId/hostName 제거
+    @field:Schema(description = "[Deprecated: hosts 사용] 주최 기관 ID (기존 기관 사용 시)", example = "1", deprecated = true)
+    override val hostId: Long? = null,
+
+    @field:Schema(description = "[Deprecated: hosts 사용] 주최 기관명 (신규 기관 생성 시)", example = "단국대학교 IT 대학", deprecated = true)
+    override val hostName: String? = null
+) : EventHostSource {
+    fun toEntity(hosts: List<Host>): Event = Event(
         title = title,
         startAt = startAt,
         endAt = endAt,
@@ -50,6 +58,6 @@ data class EventCreateRequest(
         uri = uri,
         thumbnail = null,
         eventType = eventType,
-        host = host
+        hosts = hosts
     )
 }
