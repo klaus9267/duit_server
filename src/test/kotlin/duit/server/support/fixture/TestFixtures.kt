@@ -147,8 +147,8 @@ object TestFixtures {
         careerMin: Int? = null,
         careerMax: Int? = null,
         educationLevel: EducationLevel? = EducationLevel.ASSOCIATE,
-        salaryMin: Long? = 3500,
-        salaryMax: Long? = 4500,
+        salaryMin: Long? = 35_000_000,
+        salaryMax: Long? = 45_000_000,
         salaryType: SalaryType? = SalaryType.ANNUAL,
         postingUrl: String = "https://example.com/job",
         postedAt: LocalDateTime? = LocalDateTime.now().minusDays(1),
@@ -169,8 +169,11 @@ object TestFixtures {
                     CloseType.ONGOING -> "상시"
                     CloseType.FIXED -> expiresAt?.toString()
                 },
+                expiresAt = expiresAt,
+                postedAt = postedAt,
                 empTpNm = employmentType?.displayName,
                 salTpNm = salaryType?.displayName,
+                salaryMin = salaryMin,
                 enterTpNm = when {
                     careerMin == null && careerMax == null -> null
                     careerMin == 0 && careerMax == null -> "신입"

@@ -111,19 +111,17 @@ class EventRepositoryImpl(
         // eventType 필터
         conditions.add(inEventTypes(param.types))
 
-        // 검색 키워드 필터 (행사 제목)
+        // 검색 키워드 필터 (행사 제목 또는 주최자명 — 여러 주최 중 하나라도 일치)
         param.searchKeyword?.let { keyword ->
-            conditions.add(event.title.containsIgnoreCase(keyword))
+            conditions.add(
+                event.title.containsIgnoreCase(keyword)
+                    .or(hasHostMatching(eventHost.host().name.containsIgnoreCase(keyword)))
+            )
         }
 
         // 주최자 ID 필터 (여러 주최 중 하나라도 일치)
         param.hostId?.let { hostId ->
-            conditions.add(
-                JPAExpressions.selectOne()
-                    .from(eventHost)
-                    .where(eventHost.event().eq(event), eventHost.host().id.eq(hostId))
-                    .exists()
-            )
+            conditions.add(hasHostMatching(eventHost.host().id.eq(hostId)))
         }
 
         val now = LocalDateTime.now()
@@ -157,6 +155,12 @@ class EventRepositoryImpl(
 
         return this.where(*conditions.filterNotNull().toTypedArray())
     }
+
+    private fun hasHostMatching(condition: BooleanExpression): BooleanExpression =
+        JPAExpressions.selectOne()
+            .from(eventHost)
+            .where(eventHost.event().eq(event), condition)
+            .exists()
 
     private fun buildCursorCondition(cursor: EventCursor?, param: EventCursorPaginationParam): BooleanExpression? {
         if (cursor == null) return null
@@ -261,7 +265,15 @@ class EventRepositoryImpl(
         }
 
         val searchCondition = if (param.searchKeyword != null) {
-            "AND e.title LIKE CONCAT('%', :searchKeyword, '%')"
+            """
+            AND (
+                e.title LIKE CONCAT('%', :searchKeyword, '%')
+                OR EXISTS (
+                    SELECT 1 FROM event_hosts eh JOIN hosts h ON h.id = eh.host_id
+                    WHERE eh.event_id = e.id AND h.name LIKE CONCAT('%', :searchKeyword, '%')
+                )
+            )
+            """
         } else ""
 
         val hostCondition = if (param.hostId != null) {

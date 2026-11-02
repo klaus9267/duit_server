@@ -604,17 +604,35 @@ class EventControllerV2IntegrationTest : IntegrationTestSupport() {
             inner class OtherFilterTests {
 
                 @Test
-                @DisplayName("searchKeyword 필터링")
-                fun filterBySearchKeywordTest() {
+                @DisplayName("searchKeyword 행사명 필터링")
+                fun filterByTitleSearchKeywordTest() {
                     mockMvc.perform(
                         get("/api/v2/events")
                             .param("searchKeyword", "개발")
+                            .param("statusGroup", "PENDING")
                             .param("size", "10")
                     )
                         .andDo(print())
                         .andExpect(status().isOk)
                         .andExpect(jsonPath("$.content").isArray)
+                        .andExpect(jsonPath("$.content.length()").value(1))
                         .andExpect(jsonPath("$.content[*].title").value(everyItem(containsString("개발"))))
+                }
+
+                @Test
+                @DisplayName("searchKeyword 주최자명 필터링")
+                fun filterByHostNameSearchKeywordTest() {
+                    mockMvc.perform(
+                        get("/api/v2/events")
+                            .param("searchKeyword", "테크")
+                            .param("statusGroup", "ACTIVE")
+                            .param("size", "100")
+                    )
+                        .andDo(print())
+                        .andExpect(status().isOk)
+                        .andExpect(jsonPath("$.content").isArray)
+                        .andExpect(jsonPath("$.content.length()").value(greaterThan(0)))
+                        .andExpect(jsonPath("$.content[*].host.name").value(everyItem(equalTo(host1.name))))
                 }
 
                 @Test
@@ -1020,6 +1038,19 @@ class EventControllerV2IntegrationTest : IntegrationTestSupport() {
                 .andExpect(jsonPath("$.content.length()").value(1))
                 .andExpect(jsonPath("$.content[0].hosts[*].id").value(contains(host2.id!!.toInt(), host1.id!!.toInt())))
                 .andExpect(jsonPath("$.content[0].host.id").value(host2.id!!.toInt()))
+        }
+
+        @Test
+        @DisplayName("searchKeyword 로 두 번째 주최 이름을 검색해도 공동 주최 행사가 한 번 조회된다")
+        fun searchBySecondaryHostName() {
+            mockMvc.perform(
+                get("/api/v2/events")
+                    .param("searchKeyword", host1.name)
+                    .param("size", "100")
+            )
+                .andDo(print())
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.content[?(@.title == '공동주최전용행사')]", hasSize<Any>(1)))
         }
 
         @Test

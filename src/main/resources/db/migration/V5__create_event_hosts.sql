@@ -7,7 +7,7 @@
 --   구 서버가 같은 DB 로 계속 요청을 처리한다. 구 서버는 events.host_id 를 직접 읽고 쓰므로
 --   새 서버도 첫 번째 주최 id 를 events.host_id 에 계속 기록한다 (Event.host 미러 필드).
 --
--- TODO(event-hosts): 구 서버가 모두 내려간 뒤 V5 에서 아래를 순서대로 수행
+-- TODO(event-hosts): 구 서버가 모두 내려간 뒤 V6 에서 아래를 순서대로 수행
 --   1) 전환 구간에 구 서버가 기록한 행 백필 (event_hosts 행이 없는 행사)
 --        INSERT INTO event_hosts (event_id, host_id, sort_order)
 --        SELECT e.id, e.host_id, 0 FROM events e

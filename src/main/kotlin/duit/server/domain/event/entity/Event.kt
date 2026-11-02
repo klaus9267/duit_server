@@ -81,13 +81,13 @@ class Event(
     private val eventHosts: MutableList<EventHost> = mutableListOf()
 
     // TODO(event-hosts): events.host_id 는 blue-green 배포 중 구 서버·롤백 호환을 위해 첫 번째 주최를 미러링만 한다.
-    //  읽기는 항상 hosts 를 사용할 것. 구 서버가 모두 내려간 뒤 events.host_id 컬럼(V5 마이그레이션)과 함께 이 필드를 제거.
+    //  읽기는 항상 hosts 를 사용할 것. 구 서버가 모두 내려간 뒤 events.host_id 컬럼(V6 마이그레이션)과 함께 이 필드를 제거.
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "host_id")
     var host: Host = requireNotNull(hosts.firstOrNull()) { "주최는 최소 1개 이상이어야 합니다" }
         protected set
 
-    // TODO(event-hosts): ifEmpty fallback 은 전환 구간에 구 서버가 event_hosts 없이 기록한 행 대응. V5 백필 후 제거
+    // TODO(event-hosts): ifEmpty fallback 은 전환 구간에 구 서버가 event_hosts 없이 기록한 행 대응. V6 백필 후 제거
     val hosts: List<Host>
         get() = eventHosts.sortedBy { it.sortOrder }.map { it.host }.ifEmpty { listOf(host) }
 
