@@ -112,9 +112,12 @@ class EventRepositoryImpl(
         // eventType 필터
         conditions.add(inEventTypes(param.types))
 
-        // 검색 키워드 필터 (행사 제목)
+        // 검색 키워드 필터 (행사 제목 또는 주최자명)
         param.searchKeyword?.let { keyword ->
-            conditions.add(event.title.containsIgnoreCase(keyword))
+            conditions.add(
+                event.title.containsIgnoreCase(keyword)
+                    .or(host.name.containsIgnoreCase(keyword))
+            )
         }
 
         // 주최자 ID 필터
@@ -257,7 +260,7 @@ class EventRepositoryImpl(
         }
 
         val searchCondition = if (param.searchKeyword != null) {
-            "AND e.title LIKE CONCAT('%', :searchKeyword, '%')"
+            "AND (e.title LIKE CONCAT('%', :searchKeyword, '%') OR h.name LIKE CONCAT('%', :searchKeyword, '%'))"
         } else ""
 
         val hostCondition = if (param.hostId != null) {

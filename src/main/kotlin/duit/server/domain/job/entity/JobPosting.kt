@@ -10,7 +10,14 @@ import java.time.LocalDateTime
 @Entity
 @EntityListeners(AuditingEntityListener::class)
 @Comment("채용공고")
-@Table(name = "job_postings")
+@Table(
+    name = "job_postings",
+    indexes = [
+        Index(name = "idx_job_postings_active_created", columnList = "is_active, posted_at DESC, id DESC"),
+        Index(name = "idx_job_postings_active_expires", columnList = "is_active, expires_at ASC, id DESC"),
+        Index(name = "idx_job_postings_active_salary", columnList = "is_active, salary_min DESC, id DESC"),
+    ],
+)
 class JobPosting(
     @Comment("채용공고 ID")
     @Id
@@ -33,6 +40,18 @@ class JobPosting(
     @Comment("수정 시각")
     @LastModifiedDate
     var updatedAt: LocalDateTime = LocalDateTime.now(),
+
+    @Comment("고용24 등록 시각")
+    @Column(name = "posted_at", nullable = false)
+    var postedAt: LocalDateTime = createdAt,
+
+    @Comment("정렬용 마감 시각")
+    @Column(name = "expires_at")
+    var expiresAt: LocalDateTime? = null,
+
+    @Comment("정렬용 환산 연간 최소 급여(원)")
+    @Column(name = "salary_min")
+    var salaryMin: Long? = null,
 ) {
     companion object {
         val NURSE_TARGET_JOB_CODES = setOf("304000", "304001", "304002")
@@ -256,9 +275,12 @@ class JobPosting(
         relJobsNm = detail.relJobsNm
         jobCont = detail.jobCont
         receiptCloseDt = detail.receiptCloseDt
+        expiresAt = detail.expiresAt
+        postedAt = detail.postedAt ?: postedAt
         empTpNm = detail.empTpNm
         collectPsncnt = detail.collectPsncnt
         salTpNm = detail.salTpNm
+        salaryMin = detail.salaryMin
         enterTpNm = detail.enterTpNm
         eduNm = detail.eduNm
         forLang = detail.forLang
@@ -320,9 +342,12 @@ data class JobPostingWork24Detail(
     val relJobsNm: String? = null,
     val jobCont: String? = null,
     val receiptCloseDt: String? = null,
+    val expiresAt: LocalDateTime? = null,
+    val postedAt: LocalDateTime? = null,
     val empTpNm: String? = null,
     val collectPsncnt: String? = null,
     val salTpNm: String? = null,
+    val salaryMin: Long? = null,
     val enterTpNm: String? = null,
     val eduNm: String? = null,
     val forLang: String? = null,

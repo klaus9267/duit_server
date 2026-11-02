@@ -104,6 +104,12 @@ class SecurityConfig(
             "https://duit-admin.vercel.app",
             "https://klaus9267.duckdns.org",
             "https://api.dutyit.net",
+            "https://dutyit.net",
+            "https://www.dutyit.net",
+            "https://dutyit.apps.tossmini.com",
+            "https://dutyit.private-apps.tossmini.com",
+            "https://dutyit.web.tossmini.com",
+            "https://dutyit.private-web.tossmini.com",
             "https://*.ba3a06dea2.us-east-1-01.gitpot.dev"
         )
         configuration.allowedMethods = listOf("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")

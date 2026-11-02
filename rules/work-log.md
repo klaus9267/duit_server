@@ -8,14 +8,122 @@
 
 > 매 작업 후 갱신. 새 세션 시작 시 이 섹션만 읽으면 전체 파악 가능.
 
- **마지막 작업일**: 2026-06-25
- **진행 중인 작업**: PR #147 GitHub Actions 실패 원인 확인 및 fork PR 권한 대응 완료. main 머지(간호조무사 직종코드 `307500` 제외 반영)와 충돌 해소 완료.
+ **마지막 작업일**: 2026-09-11
+ **진행 중인 작업**: 듀잇 앱인토스 운영·테스트 Origin CORS 허용. 기존 공개 API 직접 연동을 위해 서버 배포 필요.
  **블로커**: 운영 DB에서 `scripts/sql/deduplicate_user_device_tokens.sql` 실행 후 `scripts/sql/add_user_device_tokens_unique_constraint.sql` 적용 필요 (이전 작업)
  **미수정 CRITICAL**: 1건 (배포된 비밀 노출 사고 후 실제 비밀 rotation / GHCR 정리 필요)
  **미수정 HIGH**: 6건 (CORS, 외부 API 타임아웃/재시도, FCM invalid token 정리, JWT Refresh Token, Discord fire-and-forget)
- **브랜치**: codex/fix-work24-job-filters
- **신규 의존성**: 없음 (Flyway는 기존 build.gradle 활성화)
+ **브랜치**: codex/dutyit-toss-cors
+ **신규 의존성**: 없음
  **신규 env**: `application*.yml` 의 `ddl-auto: validate` + `flyway enabled`
+
+## 2026-09-11 (듀잇 앱인토스 CORS)
+
+**분류**: fix | test | docs
+
+- 앱인토스 운영·테스트 WebView의 기존 공개 API 호출이 CORS 403으로 차단되는 문제를 해결한다.
+- `dutyit.web.tossmini.com`, `dutyit.private-web.tossmini.com` 두 HTTPS Origin만 추가한다. 다른 미니앱 전체를 허용하는 와일드카드는 사용하지 않는다.
+- 행사·채용 조회와 행사 조회수 PATCH에 기존 API를 직접 쓰며 새 API나 중간 서버는 만들지 않는다. 조회수 실제 변경 없이 OPTIONS 요청으로 검증한다.
+- 허용 Origin 추가이므로 별도 CORS 테스트 클래스를 두지 않고 기존 `SecurityConfigTest`의 허용 도메인 목록을 확장한다. 병합 후 서버 배포와 실제 두 Origin의 CORS 재확인이 필요하다.
+- 검증: JDK 17에서 `./gradlew test --tests 'duit.server.application.config.SecurityConfigTest'` 2개 통과, 실패 0.
+
+## 2026-09-05 (행사 V2 주최자명 검색 추가)
+
+**분류**: feature | performance | test | docs
+
+### 작업 내용
+- `GET /api/v2/events`의 `searchKeyword`가 행사 제목 또는 주최자명에 부분 일치하면 조회하도록 확장
+- 일반 QueryDSL 조회와 `VIEW_COUNT` 네이티브 SQL 조회에 동일한 검색 조건 적용
+- 행사명 검색 테스트의 빈 결과 허용 문제를 보정하고 주최자명 검색 회귀 테스트 추가
+- OpenAPI 파라미터 설명과 API 규칙 문서를 실제 검색 동작에 맞게 갱신
+
+### 테스트 결과
+- `.\gradlew.bat --no-daemon test --tests "duit.server.domain.event.controller.EventControllerV2IntegrationTest"` 통과 (44개, 실패 0)
+
+### 기술적 결정
+- 응답 생성에 이미 필요한 `hosts` 조인을 검색에도 재사용해 추가 DB 조회나 애플리케이션 메모리 필터링 없이 단일 쿼리를 유지
+- 기존 부분 일치 검색 의미와 커서 페이지네이션 구조를 보존
+- MySQL `FULLTEXT`의 `ngram` 인덱스는 스키마 및 검색 의미 변경이 필요한 별도 최적화이므로 이번 최소 변경 범위에서는 의도적으로 도입하지 않음
+
+### 영향 범위
+- 행사 목록 API `/api/v2/events`의 `searchKeyword` 검색 대상
+- DB 스키마 및 외부 의존성 변경 없음
+
+## 2026-09-04 (운영 웹 도메인 CORS 허용)
+
+**분류**: security | test | docs
+
+### 작업 내용
+- `SecurityConfig`의 CORS 허용 origin에 `https://dutyit.net`, `https://www.dutyit.net` 추가
+- 두 운영 웹 도메인이 허용되고 유사 도메인은 거부되는 회귀 테스트 추가
+- API 규칙 문서에 운영 웹 origin과 `allowedOriginPatterns` 작성 규칙 명시
+
+### 테스트 결과
+- `.\gradlew.bat test --tests "duit.server.application.config.SecurityConfigTest"` 통과
+
+### 기술적 결정
+- 운영 웹 서비스는 HTTPS origin만 허용해 평문 HTTP 접근을 허용 목록에 추가하지 않음
+- `allowedOriginPatterns`는 정규식이 아니므로 일반 도메인은 escape 없이 정확한 origin 문자열로 등록
+
+### 영향 범위
+- 보안 설정: `src/main/kotlin/duit/server/application/config/SecurityConfig.kt`
+- 회귀 테스트: `src/test/kotlin/duit/server/application/config/SecurityConfigTest.kt`
+- 문서: `rules/api-conventions.md`, `rules/work-log.md`
+- API 스키마 및 DB 스키마 변경 없음
+
+## 2026-07-15 (PR #150 운영 데이터 기반 최종 보완)
+
+**분류**: fix | test | docs
+
+### 작업 내용
+- 운영 API의 활성 공고 1,354건을 전수 확인해 고정 마감 319건(과거 마감 140건, 현재/미래 179건), 채용시까지 1,035건의 실제 분포를 검증
+- 장기간 `채용시까지`로 남은 공고 중 고용24에서는 이미 마감된 공고가 운영 목록에 계속 노출되는 원인을 확인: 동기화가 조회 결과만 upsert하고 원본 목록에서 사라진 공고를 비활성화하지 않았음
+- 고용24 목록의 전체 `wantedAuthNo`를 authoritative active snapshot으로 수집하고, 기존 활성 공고 중 snapshot에 없는 항목을 일괄 비활성화하도록 보완
+- total/수집 건수/고유 ID 수가 정확히 일치하는 완전한 비어 있지 않은 snapshot에서만 정합화를 수행하도록 fail-closed 보호 조건 추가
+- 상세 조회 실패 시에도 목록의 active ID는 유지해 일시적인 상세 API 장애로 정상 공고가 비활성화되지 않게 처리
+- 상세 조회에 성공해 비대상 직종으로 확정된 공고는 active ID에서 제거해 과거 대상 직종 데이터가 계속 노출되지 않도록 처리
+- 정렬 기준 필드 `postedAt`, `expiresAt`, `salaryMin`을 `JobPostingResponse`에 다시 노출해 클라이언트가 등록일과 정렬값을 확인할 수 있게 복구
+- 기존 `{id}` 전용 커서는 기본 `CREATED_AT`에서만 호환하고, 다른 정렬에 잘못 재사용하면 `400 BAD_REQUEST`로 거부
+- `SalaryType.DAILY` 문서 누락과 Testcontainers 테스트 의존성 기록을 보정
+
+### 안전성 결정
+- 목록 page 실패, total 누락/변경, 중복·빈 ID, 페이지 제한, 빈 snapshot에서는 누락 공고 비활성화를 전부 건너뛴다.
+- 동시 동기화에서 오래된 snapshot이 나중에 완료되는 경우를 대비해 snapshot 시작 이후 갱신된 행은 비활성화 대상에서 제외한다.
+- 내부적으로 일관된 upstream 축소·ID 교체 응답도 방어하기 위해, 동기화 전 DB 활성 공고 중 snapshot에 실제로 누락된 비율이 50%를 초과하면 적용을 중단하고 Discord 오류 알림을 보낸다. 운영에서 확인한 과거 마감 140건과 60일 초과 `채용시까지` 후보 514건을 모두 합쳐도 654/1,354(약 48.3%)이므로 최초 stale 정리는 허용한다.
+- 현재 공고 엔티티에 소스 구분 값이 없으므로 fetcher가 하나일 때만 일괄 정합화를 수행한다. 향후 복수 소스 도입 전에는 소스 식별자 추가가 선행되어야 한다.
+- `NOT IN` 일괄 갱신은 현재 1,354건 규모에서는 충분하며, 데이터가 크게 증가하면 임시 테이블/last-seen 방식과 실행계획을 재검토한다.
+
+### 검증
+- JDK 17에서 고용24 수집기, 동기화 서비스, 저장소 정합화 및 채용공고 API 통합 테스트 실행
+- JDK 17 `./gradlew test`: 576건 실행, 573건 통과, 3건 skip, 실패 0건
+- Linux CI/H2의 timestamp 정밀도 차이로 흔들리지 않도록 저장소 통합 테스트 입력 시각을 초 단위로 고정
+- GitHub Actions 결과는 최종 커밋 push 후 확인
+
+## 2026-07-13 (채용공고 목록 정렬 복구)
+
+**분류**: fix | test | db | docs
+
+### 작업 내용
+- 고용24 상세 모델 전환 과정에서 제거됐던 채용공고 목록 `field` 파라미터와 필드별 QueryDSL 정렬을 복구
+- `CREATED_AT`은 등록일 내림차순, `EXPIRES_AT`은 마감일 오름차순, `SALARY`는 최소 급여 내림차순으로 처리
+- 정렬값과 `id`를 함께 담는 필드별 커서를 복구해 두 번째 페이지에서도 중복·누락 없이 같은 정렬을 유지
+- 고용24 목록/상세 응답에서 마감일과 최소 급여를 정규화해 `expires_at`, `salary_min`에 저장하고 기존 데이터 backfill 및 정렬 인덱스를 추가하는 Flyway V4 마이그레이션 작성
+- PR 리뷰를 반영해 `salTpNm`의 `만원` 금액을 원 단위로 환산하고, SQL backfill과 JPA 인덱스 방향을 운영 스키마 정의에 맞춤
+- 운영 1,313건 전수 검증 후 마감순에서 채용시까지 공고가 사라지지 않도록 null-last cursor를 적용하고, 과거 마감 공고를 조회/migration 양쪽에서 제외
+- 연봉·월급·시급·일급 원금을 직접 비교하지 않고 연간 추정액으로 환산해 급여순 의미를 통일하고 `DAILY` 급여 필터 추가
+- 최신순 기준을 내부 적재 시각이 아닌 고용24 `regDt` 기반 `postedAt`으로 변경하고, 기존 id 전용 커서는 기본 정렬에서 호환
+- 마감 당일 자정부터 비활성화되던 날짜 경계를 당일 전체 포함으로 수정
+- Docker 사용 가능한 CI에서는 Testcontainers MySQL 8로 V4 CTE/정규식/오버플로 backfill을 실제 실행해 검증
+- 배포 직후 기존 `postedAt`은 `createdAt`으로 임시 backfill되며, `ApplicationReadyEvent` 전체 동기화 완료 후 고용24 `regDt`로 교정됨
+- null-last 정렬은 현재 운영 1,313건 규모에서 허용하며, 데이터 증가 시 MySQL 실행계획과 filesort 비용을 재검토
+- 세 정렬 옵션과 `EXPIRES_AT` 커서 페이지 이동 통합 테스트 추가
+
+### 원인
+- 채용공고 모델을 고용24 상세 응답 중심으로 개편한 커밋에서 `JobPostingSortField`, DTO의 `field`, 필드별 커서/정렬 로직이 함께 삭제됨
+- Spring MVC는 미선언 쿼리 파라미터 `field`를 무시했고 저장소가 `id DESC`를 고정 적용해 모든 정렬 옵션이 최신순으로 응답됨
+
+### 검증
+- JDK 17에서 채용공고 통합 테스트, 고용24 매퍼/수집 테스트 및 전체 테스트 실행
 
 ## 2026-06-25 (PR #147 GitHub Actions 권한 실패 대응)
 

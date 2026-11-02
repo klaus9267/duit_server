@@ -22,14 +22,15 @@ class JobPostingService(
 ) {
     fun getJobPostings(param: JobPostingCursorPaginationParam): CursorPageResponse<JobPostingResponse> {
         val currentUserId = securityUtil.getCurrentUserIdOrNull()
+        val cursor = resolveCursor(param)
 
-        val jobPostings = jobPostingRepository.findJobPostings(param, currentUserId)
+        val jobPostings = jobPostingRepository.findJobPostings(param, currentUserId, cursor)
 
         val hasNext = jobPostings.size > param.size
         val actualJobPostings = if (hasNext) jobPostings.dropLast(1) else jobPostings
 
         val nextCursor = if (hasNext && actualJobPostings.isNotEmpty()) {
-            JobPostingCursor.fromJobPosting(actualJobPostings.last()).encode()
+            JobPostingCursor.fromJobPosting(actualJobPostings.last(), param.field).encode()
         } else null
 
         val responses = if (currentUserId != null && actualJobPostings.isNotEmpty()) {
@@ -48,6 +49,16 @@ class JobPostingService(
                 pageSize = actualJobPostings.size
             )
         )
+    }
+
+    private fun resolveCursor(param: JobPostingCursorPaginationParam): JobPostingCursor? {
+        val cursor = param.cursor?.let { JobPostingCursor.decode(it, param.field) } ?: return null
+        if (cursor !is JobPostingCursor.CreatedAtCursor || cursor.postedAt != null) return cursor
+
+        val postedAt = jobPostingRepository.findById(cursor.id)
+            .orElseThrow { IllegalArgumentException("존재하지 않는 커서 기준 공고입니다") }
+            .postedAt
+        return cursor.copy(postedAt = postedAt)
     }
 
     fun getJobPostingDetail(jobPostingId: Long): JobPostingResponse {

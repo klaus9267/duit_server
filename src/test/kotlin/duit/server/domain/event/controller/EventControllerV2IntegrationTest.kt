@@ -603,17 +603,35 @@ class EventControllerV2IntegrationTest : IntegrationTestSupport() {
             inner class OtherFilterTests {
 
                 @Test
-                @DisplayName("searchKeyword 필터링")
-                fun filterBySearchKeywordTest() {
+                @DisplayName("searchKeyword 행사명 필터링")
+                fun filterByTitleSearchKeywordTest() {
                     mockMvc.perform(
                         get("/api/v2/events")
                             .param("searchKeyword", "개발")
+                            .param("statusGroup", "PENDING")
                             .param("size", "10")
                     )
                         .andDo(print())
                         .andExpect(status().isOk)
                         .andExpect(jsonPath("$.content").isArray)
+                        .andExpect(jsonPath("$.content.length()").value(1))
                         .andExpect(jsonPath("$.content[*].title").value(everyItem(containsString("개발"))))
+                }
+
+                @Test
+                @DisplayName("searchKeyword 주최자명 필터링")
+                fun filterByHostNameSearchKeywordTest() {
+                    mockMvc.perform(
+                        get("/api/v2/events")
+                            .param("searchKeyword", "테크")
+                            .param("statusGroup", "ACTIVE")
+                            .param("size", "100")
+                    )
+                        .andDo(print())
+                        .andExpect(status().isOk)
+                        .andExpect(jsonPath("$.content").isArray)
+                        .andExpect(jsonPath("$.content.length()").value(greaterThan(0)))
+                        .andExpect(jsonPath("$.content[*].host.name").value(everyItem(equalTo(host1.name))))
                 }
 
                 @Test
