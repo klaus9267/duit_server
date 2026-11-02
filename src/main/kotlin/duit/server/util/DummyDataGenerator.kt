@@ -252,6 +252,7 @@ class DummyDataGenerator(
             // 3. LOAD DATA INFILE 실행
             logger.info("🚀 MySQL LOAD DATA INFILE 실행 중...")
             loadEventsFromCsv(csvPath)
+            linkEventHosts()
 
             // CSV 파일 삭제
             File(csvPath).delete()
@@ -351,6 +352,19 @@ class DummyDataGenerator(
         """.trimIndent()
 
         jdbcTemplate.execute(sql)
+    }
+
+    // TODO(P-13): events.host_id 사용 중단 시 CSV 에서 host_id 를 빼고 event_hosts 를 직접 생성하도록 변경
+    private fun linkEventHosts() {
+        jdbcTemplate.execute(
+            """
+            INSERT INTO event_hosts (event_id, host_id, sort_order)
+            SELECT e.id, e.host_id, 0
+            FROM events e
+            WHERE e.host_id IS NOT NULL
+              AND NOT EXISTS (SELECT 1 FROM event_hosts eh WHERE eh.event_id = e.id)
+            """.trimIndent()
+        )
     }
 
     @Deprecated("Use calculateStatusAndGroup() with date parameters instead")

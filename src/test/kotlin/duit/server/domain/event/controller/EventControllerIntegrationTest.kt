@@ -8,7 +8,9 @@ import duit.server.domain.host.entity.Host
 import duit.server.domain.user.entity.User
 import duit.server.support.IntegrationTestSupport
 import duit.server.support.fixture.TestFixtures
+import org.hamcrest.Matchers.contains
 import org.hamcrest.Matchers.greaterThanOrEqualTo
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.DisplayName
@@ -179,6 +181,46 @@ class EventControllerIntegrationTest : IntegrationTestSupport() {
                     .andExpect(jsonPath("$.title").value("관리자 행사"))
                     .andExpect(jsonPath("$.eventStatus").value("RECRUITMENT_WAITING"))
             }
+
+            @Test
+            @DisplayName("여러 주최로 생성한다 - 순서 유지, host 는 첫 번째 주최, 신규 주최 로고는 thumbnailIndex 로 매핑")
+            fun createAdminEventWithMultipleHosts() {
+                val eventData = objectMapper.writeValueAsBytes(
+                    mapOf(
+                        "title" to "공동 주최 행사",
+                        "startAt" to "2026-07-01T09:00:00",
+                        "endAt" to "2026-07-01T18:00:00",
+                        "uri" to "https://example.com/co-hosted",
+                        "eventType" to "SEMINAR",
+                        "hosts" to listOf(
+                            mapOf("hostName" to "신규공동주최", "thumbnailIndex" to 0),
+                            mapOf("hostId" to host.id!!),
+                        )
+                    )
+                )
+                val data = MockMultipartFile("data", "", "application/json", eventData)
+                val logo = MockMultipartFile("hostThumbnails", "logo.png", "image/png", byteArrayOf(1, 2, 3))
+
+                mockMvc.perform(
+                    multipart("/api/v1/events/admin")
+                        .file(data)
+                        .file(logo)
+                        .header("Authorization", authHeader(user.id!!))
+                )
+                    .andDo(print())
+                    .andExpect(status().isCreated)
+                    .andExpect(jsonPath("$.hosts.length()").value(2))
+                    .andExpect(jsonPath("$.hosts[0].name").value("신규공동주최"))
+                    .andExpect(jsonPath("$.hosts[0].thumbnail").isNotEmpty)
+                    .andExpect(jsonPath("$.hosts[1].id").value(host.id!!.toInt()))
+                    .andExpect(jsonPath("$.host.name").value("신규공동주최"))
+
+                entityManager.flush()
+                val mirroredHostName = entityManager.createQuery(
+                    "SELECT e.host.name FROM Event e WHERE e.title = '공동 주최 행사'", String::class.java
+                ).singleResult
+                assertEquals("신규공동주최", mirroredHostName, "events.host_id 는 첫 번째 주최를 미러링해야 한다")
+            }
         }
 
         @Nested
@@ -205,6 +247,53 @@ class EventControllerIntegrationTest : IntegrationTestSupport() {
                 )
                     .andDo(print())
                     .andExpect(status().isUnauthorized)
+            }
+
+            @Test
+            @DisplayName("hosts 와 hostId 를 함께 보내면 400을 반환한다")
+            fun mixedHostInputs() {
+                val eventData = objectMapper.writeValueAsBytes(
+                    mapOf(
+                        "title" to "행사",
+                        "startAt" to "2026-07-01T09:00:00",
+                        "uri" to "https://example.com",
+                        "eventType" to "SEMINAR",
+                        "hostId" to host.id!!,
+                        "hosts" to listOf(mapOf("hostId" to host.id!!))
+                    )
+                )
+                val data = MockMultipartFile("data", "", "application/json", eventData)
+
+                mockMvc.perform(
+                    multipart("/api/v1/events/admin")
+                        .file(data)
+                        .header("Authorization", authHeader(user.id!!))
+                )
+                    .andDo(print())
+                    .andExpect(status().isBadRequest)
+            }
+
+            @Test
+            @DisplayName("빈 hosts 를 보내면 400을 반환한다")
+            fun emptyHosts() {
+                val eventData = objectMapper.writeValueAsBytes(
+                    mapOf(
+                        "title" to "행사",
+                        "startAt" to "2026-07-01T09:00:00",
+                        "uri" to "https://example.com",
+                        "eventType" to "SEMINAR",
+                        "hosts" to emptyList<Any>()
+                    )
+                )
+                val data = MockMultipartFile("data", "", "application/json", eventData)
+
+                mockMvc.perform(
+                    multipart("/api/v1/events/admin")
+                        .file(data)
+                        .header("Authorization", authHeader(user.id!!))
+                )
+                    .andDo(print())
+                    .andExpect(status().isBadRequest)
             }
         }
     }
@@ -320,6 +409,50 @@ class EventControllerIntegrationTest : IntegrationTestSupport() {
                     .andDo(print())
                     .andExpect(status().isOk)
                     .andExpect(jsonPath("$.title").value("수정된 행사"))
+            }
+
+            @Test
+            @DisplayName("hosts 로 주최를 교체하고, 다시 순서를 바꿔도 event_hosts 가 요청 순서대로 저장된다")
+            fun updateEventHostsReplaceAndReorder() {
+                val otherHost = TestFixtures.host(name = "다른주최")
+                entityManager.persist(otherHost)
+                entityManager.flush()
+                entityManager.clear()
+
+                fun putHosts(vararg hostIds: Long) = mockMvc.perform(
+                    multipart("/api/v1/events/{eventId}", approvedEvent.id!!)
+                        .file(
+                            MockMultipartFile(
+                                "data", "", "application/json",
+                                objectMapper.writeValueAsBytes(
+                                    mapOf(
+                                        "title" to "공동 주최로 수정",
+                                        "startAt" to "2026-08-01T09:00:00",
+                                        "uri" to "https://example.com/updated",
+                                        "eventType" to "CONFERENCE",
+                                        "hosts" to hostIds.map { mapOf("hostId" to it) }
+                                    )
+                                )
+                            )
+                        )
+                        .with { it.method = "PUT"; it }
+                        .header("Authorization", authHeader(user.id!!))
+                ).andDo(print()).andExpect(status().isOk).also {
+                    entityManager.flush()
+                    entityManager.clear()
+                }
+
+                putHosts(host.id!!, otherHost.id!!)
+                    .andExpect(jsonPath("$.hosts[*].id").value(contains(host.id!!.toInt(), otherHost.id!!.toInt())))
+                putHosts(otherHost.id!!, host.id!!)
+                    .andExpect(jsonPath("$.hosts[*].id").value(contains(otherHost.id!!.toInt(), host.id!!.toInt())))
+                    .andExpect(jsonPath("$.host.id").value(otherHost.id!!.toInt()))
+
+                val storedOrder = entityManager.createQuery(
+                    "SELECT eh.host.id FROM EventHost eh WHERE eh.event.id = :eventId ORDER BY eh.sortOrder",
+                    Long::class.javaObjectType
+                ).setParameter("eventId", approvedEvent.id!!).resultList
+                assertEquals(listOf(otherHost.id!!, host.id!!), storedOrder)
             }
         }
 

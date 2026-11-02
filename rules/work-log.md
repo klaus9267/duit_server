@@ -8,14 +8,47 @@
 
 > 매 작업 후 갱신. 새 세션 시작 시 이 섹션만 읽으면 전체 파악 가능.
 
- **마지막 작업일**: 2026-09-11
- **진행 중인 작업**: 듀잇 앱인토스 운영·테스트 Origin CORS 허용. 기존 공개 API 직접 연동을 위해 서버 배포 필요.
+ **마지막 작업일**: 2026-11-02
+ **진행 중인 작업**: 행사 다중 주최(event_hosts) 1단계 PR (feat/event-multi-hosts → dev). 후속은 Linear P-7 하위 이슈: P-13 (V6, #156 운영 배포 후) → P-14 (V7, P-13 운영 배포 후), P-15 (레거시 필드, 클라이언트 전환 후)
  **블로커**: 운영 DB에서 `scripts/sql/deduplicate_user_device_tokens.sql` 실행 후 `scripts/sql/add_user_device_tokens_unique_constraint.sql` 적용 필요 (이전 작업)
  **미수정 CRITICAL**: 1건 (배포된 비밀 노출 사고 후 실제 비밀 rotation / GHCR 정리 필요)
  **미수정 HIGH**: 6건 (CORS, 외부 API 타임아웃/재시도, FCM invalid token 정리, JWT Refresh Token, Discord fire-and-forget)
- **브랜치**: codex/dutyit-toss-cors
- **신규 의존성**: 없음
+ **브랜치**: feat/event-multi-hosts
+ **신규 의존성**: 없음 (Flyway는 기존 build.gradle 활성화)
  **신규 env**: `application*.yml` 의 `ddl-auto: validate` + `flyway enabled`
+
+## 2026-11-02 (행사 다중 주최 1단계: event_hosts 도입)
+
+**분류**: feature | db | test | docs
+
+### 작업 내용
+- `event_hosts` 테이블(V5) + `EventHost` 엔티티 추가. 기존 `events.host_id` 를 `sort_order=0` 으로 이관
+- `Event.hosts` 가 진실의 원천. `Event.host`(events.host_id)는 첫 번째 주최 미러로만 유지 (`replaceHosts()` 가 함께 갱신)
+- 요청: `hosts: [{hostId} | {hostName, thumbnailIndex}]` + multipart `hostThumbnails` 추가. 레거시 `hostId/hostName/hostThumbnail` 유지, 혼용 시 400 (`EventHostResolver`)
+- 응답(EventResponse/V2 → 행사 목록·상세·캘린더, 알람 V1/V2): `hosts` 추가, `host` 는 첫 번째 주최로 유지
+- 조회: V2 목록 `hostId` 필터를 event_hosts EXISTS 로 변경(QueryDSL·VIEW_COUNT 네이티브 모두), 페이지 쿼리의 host fetch join 제거(batch fetch), 미사용 `searchEvents()` 삭제
+- 주최 삭제 차단 / EVENT_HOST 구독 매칭을 모든 주최 기준으로 변경. 구독 알림 본문은 구독한 주최 이름 사용
+- `findOrCreateHost(name) { thumbnailUrl }` — 주최가 실제로 생성될 때만 로고 업로드 (기존 주최 재사용 시 고아 파일 생성 버그 수정). `HostRequest` 삭제
+- dev←main 병합 후 #153 주최명 검색(`searchKeyword`)을 event_hosts 기준 EXISTS 로 재작성 (QueryDSL·VIEW_COUNT 네이티브 모두, 여러 주최 중 하나라도 일치)
+- Redis 캐시 키 prefix `v2:` (`CacheConfig.CACHE_SCHEMA_VERSION`) — blue-green 중 구/신 서버가 서로의 EventResponseV2 캐시를 역직렬화하지 않도록
+
+### 테스트
+- 전체: 615 tests, 0 failures (dev 582 + 신규 33), 임시 JDK 17 사용
+- MySQL 8.0.40 (일회용 로컬 인스턴스): dev 코드로 스키마 생성(운영과 동일하게 V4 까지) → 데이터 시드 → 신규 코드에서 Flyway baseline 4 → V5 적용 → `ddl-auto: validate` 통과 → 행사/주최/구독 통합 테스트 실행 (시드 데이터로 인한 건수 단정 3건 외 통과). H2 가 실행하지 못하는 VIEW_COUNT 네이티브 경로(주최명 검색·hostId 필터)는 임시 테스트로 MySQL 에서 확인
+
+### 결정 사항
+- blue-green 배포라 V5 적용 후에도 구 서버가 같은 DB 를 쓴다 → 이번 릴리스에서 `events.host_id` 를 지우지 않고 새 서버가 첫 번째 주최로 계속 기록
+- 목록 쿼리(v1 목록·v2 커서/조회수·캘린더)는 `(host_id IS NOT NULL OR event_hosts 존재)` 로 주최 없는 행사를 제외 — 기존 hosts inner join 과 같은 결과. 운영에 host_id NULL 행이 있는지 확인할 수 없어 둔 조건. host_id 만 비고 event_hosts 가 있는 행(P-13 이후 생성)은 포함하므로 P-13 배포 후 #156 으로 롤백해도 목록에서 빠지지 않음. P-13 에서 event_hosts 존재 조건만 남김
+- 전환 구간에 구 서버가 만든 행사는 event_hosts 행이 없을 수 있음 → `Event.hosts` 가 `host` 로 fallback, 캘린더 쿼리는 LEFT JOIN FETCH. (해당 행은 P-13 의 V6 백필 전까지 `hostId` 필터·주최 삭제 차단 조회에서 누락될 수 있음 — 삭제는 events.host_id FK 가 막음)
+- `Event.createdAt` 을 `var` 로 변경 — 생성자 파라미터 `hosts` 때문에 Spring Data auditing 재인스턴스화가 실패 (entities.md 안티패턴 5)
+- 마이그레이션 번호 V5: main 의 `V4__add_job_posting_sort_columns.sql` 이 V4 를 선점 (main 에 머지됨 — push 시 운영 배포 대상)
+- 주최 수 상한 20 (`MAX_EVENT_HOSTS`) — 비로그인 행사 등록 API 남용 방지용 임의 상한
+
+### 후속 작업 (Linear P-7 하위 이슈, 코드에서 `TODO(P-13)` / `TODO(P-15)` 검색)
+- P-13: host_id 사용 중단 (V6 백필·FK 제거·NULL 허용 + `Event.host`·fallback 제거). **#156 이 운영에 배포된 뒤에 PR 을 연다** — 같은 배포에 섞이면 전환 중 구 서버가 만든 행사가 주최 없이 남아 500
+- P-14: host_id 컬럼 삭제 (V7). P-13 이 운영에 배포된 뒤. 컬럼 삭제와 매핑 제거를 한 배포에 넣으면 전환 중 구 서버가 `Unknown column` 으로 실패하므로 두 단계로 나눔
+- P-15: 레거시 요청 필드·응답 `host` 제거. 클라이언트 전환 후
+- `CACHE_SCHEMA_VERSION` 규칙은 `api-conventions.md` Response DTO 체크리스트로 이동
 
 ## 2026-09-11 (듀잇 앱인토스 CORS)
 

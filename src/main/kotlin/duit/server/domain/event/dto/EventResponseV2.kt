@@ -5,6 +5,7 @@ import duit.server.domain.event.entity.EventStatus
 import duit.server.domain.event.entity.EventStatusGroup
 import duit.server.domain.event.entity.EventType
 import duit.server.domain.host.dto.HostResponse
+import io.swagger.v3.oas.annotations.media.Schema
 import java.time.LocalDateTime
 
 data class EventResponseV2(
@@ -19,26 +20,34 @@ data class EventResponseV2(
     val eventType: EventType,
     val eventStatus: EventStatus,
     val eventStatusGroup: EventStatusGroup,
+    // TODO(P-15): 구 클라이언트 호환용 (= hosts 의 첫 번째). 모든 클라이언트가 hosts 로 전환되면 제거
+    @field:Schema(description = "[Deprecated: hosts 사용] 첫 번째 주최", deprecated = true)
     val host: HostResponse,
+    @field:Schema(description = "주최 목록 (등록 순서)")
+    val hosts: List<HostResponse>,
     val viewCount: Int,
     val isBookmarked: Boolean = false
 ) {
     companion object {
-        fun from(event: Event, isBookmarked: Boolean = false) = EventResponseV2(
-            id = event.id!!,
-            title = event.title,
-            startAt = event.startAt,
-            endAt = event.endAt,
-            recruitmentStartAt = event.recruitmentStartAt,
-            recruitmentEndAt = event.recruitmentEndAt,
-            uri = event.uri,
-            thumbnail = event.thumbnail,
-            eventType = event.eventType,
-            eventStatus = event.status,
-            eventStatusGroup = event.statusGroup,
-            host = HostResponse.from(event.host),
-            viewCount = event.view.count,
-            isBookmarked = isBookmarked
-        )
+        fun from(event: Event, isBookmarked: Boolean = false): EventResponseV2 {
+            val hosts = event.hosts.map(HostResponse::from)
+            return EventResponseV2(
+                id = event.id!!,
+                title = event.title,
+                startAt = event.startAt,
+                endAt = event.endAt,
+                recruitmentStartAt = event.recruitmentStartAt,
+                recruitmentEndAt = event.recruitmentEndAt,
+                uri = event.uri,
+                thumbnail = event.thumbnail,
+                eventType = event.eventType,
+                eventStatus = event.status,
+                eventStatusGroup = event.statusGroup,
+                host = hosts.first(),
+                hosts = hosts,
+                viewCount = event.view.count,
+                isBookmarked = isBookmarked
+            )
+        }
     }
 }

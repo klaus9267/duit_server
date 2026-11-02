@@ -58,7 +58,7 @@ class DiscordService(
                 append("• **종료일:** ${it.format(DateTimeFormatter.ofPattern("yyyy년 MM월 dd일"))}\n")
             }
 
-            append("• **주최기관:** ${event.host.name}\n")
+            append("• **주최기관:** ${event.hosts.joinToString { it.name }}\n")
             append("• **행사 유형:** ${event.eventType.displayName}\n")
 
             event.recruitmentStartAt?.let { startAt ->

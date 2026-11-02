@@ -21,7 +21,7 @@ class EventController(
     private val eventService: EventService
 ) {
     @PostMapping(consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
-    @Operation(summary = "행사 생성", description = "행사를 생성합니다 (관리자 승인 필요)")
+    @Operation(summary = "행사 생성", description = "행사를 생성합니다 (관리자 승인 필요). 주최는 data.hosts 로 여러 개 지정 가능(순서 유지, 응답 host = 첫 번째). 신규 주최 로고는 hostThumbnails 파트 + hosts[].thumbnailIndex 로 매핑")
     @ResponseStatus(HttpStatus.CREATED)
     fun createEventByUser(
         @Valid @RequestPart("data") eventRequest: EventCreateRequest,
@@ -29,12 +29,15 @@ class EventController(
         @Parameter(description = "행사 썸네일 이미지")
         eventThumbnail: MultipartFile?,
         @RequestPart("hostThumbnail", required = false)
-        @Parameter(description = "주최 기관 로고 이미지")
-        hostThumbnail: MultipartFile?
-    ) = eventService.createEvent(eventRequest, eventThumbnail, hostThumbnail, autoApprove = false)
+        @Parameter(description = "[Deprecated: hostThumbnails 사용] 주최 기관 로고 이미지 (hostName 사용 시)", deprecated = true)
+        hostThumbnail: MultipartFile?,
+        @RequestPart("hostThumbnails", required = false)
+        @Parameter(description = "주최 기관 로고 이미지 목록. data.hosts[].thumbnailIndex 로 매핑")
+        hostThumbnails: List<MultipartFile>?
+    ) = eventService.createEvent(eventRequest, eventThumbnail, hostThumbnail, autoApprove = false, hostThumbnails.orEmpty())
 
     @PostMapping("/admin", consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
-    @Operation(summary = "관리자 행사 생성", description = "관리자가 행사를 생성합니다 (자동 승인)")
+    @Operation(summary = "관리자 행사 생성", description = "관리자가 행사를 생성합니다 (자동 승인). 주최는 data.hosts 로 여러 개 지정 가능(순서 유지, 응답 host = 첫 번째). 신규 주최 로고는 hostThumbnails 파트 + hosts[].thumbnailIndex 로 매핑")
     @RequireAdmin
     @ResponseStatus(HttpStatus.CREATED)
     fun createEventByAdmin(
@@ -43,9 +46,12 @@ class EventController(
         @Parameter(description = "행사 썸네일 이미지")
         eventThumbnail: MultipartFile?,
         @RequestPart("hostThumbnail", required = false)
-        @Parameter(description = "주최 기관 로고 이미지")
-        hostThumbnail: MultipartFile?
-    ) = eventService.createEvent(eventRequest, eventThumbnail, hostThumbnail, autoApprove = true)
+        @Parameter(description = "[Deprecated: hostThumbnails 사용] 주최 기관 로고 이미지 (hostName 사용 시)", deprecated = true)
+        hostThumbnail: MultipartFile?,
+        @RequestPart("hostThumbnails", required = false)
+        @Parameter(description = "주최 기관 로고 이미지 목록. data.hosts[].thumbnailIndex 로 매핑")
+        hostThumbnails: List<MultipartFile>?
+    ) = eventService.createEvent(eventRequest, eventThumbnail, hostThumbnail, autoApprove = true, hostThumbnails.orEmpty())
 
     @GetMapping
     @Operation(summary = "행사 목록 조회", description = "행사 목록을 페이지네이션으로 조회합니다")
@@ -75,7 +81,7 @@ class EventController(
     fun approveEvent(@PathVariable eventId: Long) = eventService.updateStatus(eventId)
 
     @PutMapping("{eventId}", consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
-    @Operation(summary = "행사 수정 (관리자)", description = "관리자가 행사를 수정합니다")
+    @Operation(summary = "행사 수정 (관리자)", description = "관리자가 행사를 수정합니다. data.hosts 를 보내면 주최 목록을 통째로 교체합니다. 신규 주최 로고는 hostThumbnails 파트 + hosts[].thumbnailIndex 로 매핑")
     @RequireAdmin
     @ResponseStatus(HttpStatus.OK)
     fun updateEvent(
@@ -85,9 +91,12 @@ class EventController(
         @Parameter(description = "행사 썸네일 이미지")
         eventThumbnail: MultipartFile?,
         @RequestPart("hostThumbnail", required = false)
-        @Parameter(description = "주최 기관 로고 이미지")
-        hostThumbnail: MultipartFile?
-    ): EventResponse = eventService.updateEvent(eventId, updateRequest, eventThumbnail, hostThumbnail)
+        @Parameter(description = "[Deprecated: hostThumbnails 사용] 주최 기관 로고 이미지 (hostName 사용 시)", deprecated = true)
+        hostThumbnail: MultipartFile?,
+        @RequestPart("hostThumbnails", required = false)
+        @Parameter(description = "주최 기관 로고 이미지 목록. data.hosts[].thumbnailIndex 로 매핑")
+        hostThumbnails: List<MultipartFile>?
+    ): EventResponse = eventService.updateEvent(eventId, updateRequest, eventThumbnail, hostThumbnail, hostThumbnails.orEmpty())
 
     @DeleteMapping("batch")
     @Operation(summary = "행사 목록 삭제(관리자)")

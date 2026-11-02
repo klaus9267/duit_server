@@ -65,7 +65,7 @@ class EventAlarmSchedulerUnitTest {
         eventType = EventType.CONFERENCE,
         status = EventStatus.RECRUITING,
         statusGroup = EventStatusGroup.ACTIVE,
-        host = host
+        hosts = listOf(host)
     )
 
     @Nested

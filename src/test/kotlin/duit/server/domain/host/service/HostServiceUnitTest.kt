@@ -1,7 +1,6 @@
 package duit.server.domain.host.service
 
 import duit.server.domain.event.repository.EventRepository
-import duit.server.domain.host.dto.HostRequest
 import duit.server.domain.host.dto.HostUpdateRequest
 import duit.server.domain.host.entity.Host
 import duit.server.domain.host.repository.HostRepository
@@ -87,9 +86,11 @@ class HostServiceUnitTest {
             val existing = Host(id = 1L, name = "기존주최")
             every { hostRepository.findByName("기존주최") } returns existing
 
-            val result = hostService.findOrCreateHost(HostRequest("기존주최"))
+            var thumbnailRequested = false
+            val result = hostService.findOrCreateHost("기존주최") { thumbnailRequested = true; "unused.png" }
 
             assertEquals(1L, result.id)
+            assertFalse(thumbnailRequested, "기존 주최 재사용 시 로고 업로드 람다를 호출하면 안 된다")
             verify(exactly = 0) { hostRepository.save(any()) }
         }
 
@@ -97,12 +98,13 @@ class HostServiceUnitTest {
         @DisplayName("이름이 존재하지 않으면 새로 생성한다")
         fun createsNew() {
             every { hostRepository.findByName("신규주최") } returns null
-            val newHost = Host(id = 2L, name = "신규주최")
-            every { hostRepository.save(any<Host>()) } returns newHost
+            val saved = slot<Host>()
+            every { hostRepository.save(capture(saved)) } answers { saved.captured }
 
-            val result = hostService.findOrCreateHost(HostRequest("신규주최"))
+            val result = hostService.findOrCreateHost("신규주최") { "logo.png" }
 
             assertEquals("신규주최", result.name)
+            assertEquals("logo.png", saved.captured.thumbnail)
             verify(exactly = 1) { hostRepository.save(any()) }
         }
     }

@@ -1,5 +1,6 @@
 package duit.server.domain.event.controller
 
+import duit.server.domain.event.entity.Event
 import duit.server.domain.event.entity.EventStatus
 import duit.server.domain.event.entity.EventStatusGroup
 import duit.server.domain.event.entity.EventType
@@ -999,6 +1000,116 @@ class EventControllerV2IntegrationTest : IntegrationTestSupport() {
                     // 잘못된 enum 값은 Spring에서 400으로 처리됨
                     .andExpect(status().isBadRequest)
             }
+        }
+    }
+
+    @Nested
+    @DisplayName("다중 주최")
+    inner class MultipleHostsTests {
+
+        private lateinit var coHostedEvent: Event
+
+        @BeforeEach
+        fun setUpCoHostedEvent() {
+            coHostedEvent = TestFixtures.event(
+                title = "공동주최전용행사",
+                startAt = LocalDateTime.now().plusDays(30),
+                endAt = LocalDateTime.now().plusDays(30).plusHours(2),
+                hosts = listOf(host2, host1),
+                status = EventStatus.RECRUITMENT_WAITING,
+                statusGroup = EventStatusGroup.ACTIVE,
+            )
+            entityManager.persist(coHostedEvent)
+            entityManager.flush()
+            entityManager.clear()
+        }
+
+        @Test
+        @DisplayName("hostId 필터는 두 번째 주최로도 매칭되고, 행사는 한 번만 나온다")
+        fun filterBySecondaryHost() {
+            mockMvc.perform(
+                get("/api/v2/events")
+                    .param("hostId", host1.id.toString())
+                    .param("searchKeyword", "공동주최전용행사")
+                    .param("size", "10")
+            )
+                .andDo(print())
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.content[0].hosts[*].id").value(contains(host2.id!!.toInt(), host1.id!!.toInt())))
+                .andExpect(jsonPath("$.content[0].host.id").value(host2.id!!.toInt()))
+        }
+
+        @Test
+        @DisplayName("searchKeyword 로 두 번째 주최 이름을 검색해도 공동 주최 행사가 한 번 조회된다")
+        fun searchBySecondaryHostName() {
+            mockMvc.perform(
+                get("/api/v2/events")
+                    .param("searchKeyword", host1.name)
+                    .param("size", "100")
+            )
+                .andDo(print())
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.content[?(@.title == '공동주최전용행사')]", hasSize<Any>(1)))
+        }
+
+        @Test
+        @DisplayName("주최 필터 없는 목록에서도 공동 주최 행사가 중복되지 않는다")
+        fun noDuplicatesWithoutFilter() {
+            mockMvc.perform(
+                get("/api/v2/events")
+                    .param("searchKeyword", "공동주최전용행사")
+                    .param("size", "10")
+            )
+                .andDo(print())
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.content.length()").value(1))
+        }
+
+        @Test
+        @DisplayName("단건 조회 응답에 hosts 가 순서대로 포함된다")
+        fun detailIncludesHosts() {
+            mockMvc.perform(get("/api/v2/events/{eventId}", coHostedEvent.id!!))
+                .andDo(print())
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.hosts[*].name").value(contains(host2.name, host1.name)))
+                .andExpect(jsonPath("$.host.name").value(host2.name))
+        }
+
+        @Test
+        @DisplayName("주최가 없는 행사(host_id NULL)는 hosts inner join 시절처럼 목록에서 제외된다")
+        fun excludesEventWithoutHost() {
+            entityManager.createNativeQuery("DELETE FROM event_hosts WHERE event_id = :id")
+                .setParameter("id", coHostedEvent.id).executeUpdate()
+            entityManager.createNativeQuery("UPDATE events SET host_id = NULL WHERE id = :id")
+                .setParameter("id", coHostedEvent.id).executeUpdate()
+
+            mockMvc.perform(
+                get("/api/v2/events")
+                    .param("statusGroup", "ACTIVE")
+                    .param("size", "100")
+            )
+                .andDo(print())
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.content.length()").value(greaterThan(0)))
+                .andExpect(jsonPath("$.content[*].title").value(not(hasItem("공동주최전용행사"))))
+        }
+
+        @Test
+        @DisplayName("host_id 가 비어 있어도 event_hosts 가 있으면 목록에 포함된다 (host_id 사용 중단 후 롤백 대비)")
+        fun includesEventWithEventHostsOnly() {
+            entityManager.createNativeQuery("UPDATE events SET host_id = NULL WHERE id = :id")
+                .setParameter("id", coHostedEvent.id).executeUpdate()
+
+            mockMvc.perform(
+                get("/api/v2/events")
+                    .param("searchKeyword", "공동주최전용행사")
+                    .param("size", "10")
+            )
+                .andDo(print())
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.content[0].hosts[*].id").value(contains(host2.id!!.toInt(), host1.id!!.toInt())))
         }
     }
 }

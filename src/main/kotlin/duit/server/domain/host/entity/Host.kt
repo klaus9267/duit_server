@@ -1,6 +1,6 @@
 package duit.server.domain.host.entity
 
-import duit.server.domain.event.entity.Event
+import duit.server.domain.event.entity.EventHost
 import jakarta.persistence.*
 
 @Entity
@@ -15,5 +15,5 @@ class Host(
     var thumbnail: String? = null,
 
     @OneToMany(mappedBy = "host")
-    val events: List<Event> = emptyList()
+    val eventHosts: List<EventHost> = emptyList()
 )

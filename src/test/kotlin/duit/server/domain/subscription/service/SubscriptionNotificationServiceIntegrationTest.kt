@@ -70,6 +70,41 @@ class SubscriptionNotificationServiceIntegrationTest : IntegrationTestSupport() 
         }
 
         @Test
+        @DisplayName("공동 주최 행사 — 두 번째 주최 구독자도 알람을 받고, 두 주최를 모두 구독한 사용자는 1개만 받는다")
+        fun `EVENT_HOST 다중 주최 매칭`() {
+            val firstHost = TestFixtures.host(name = "첫번째 주최")
+            val secondHost = TestFixtures.host(name = "두번째 주최")
+            entityManager.persist(firstHost)
+            entityManager.persist(secondHost)
+
+            val secondOnly = TestFixtures.user(nickname = "두번째구독자", providerId = "multi-1", deviceToken = "tok-multi-1", alarmSettings = alarmSettings)
+            val both = TestFixtures.user(nickname = "둘다구독자", providerId = "multi-2", deviceToken = "tok-multi-2", alarmSettings = alarmSettings)
+            entityManager.persist(secondOnly)
+            entityManager.persist(both)
+            entityManager.persist(Subscription(user = secondOnly, type = SubscriptionType.EVENT_HOST, host = secondHost))
+            entityManager.persist(Subscription(user = both, type = SubscriptionType.EVENT_HOST, host = firstHost))
+            entityManager.persist(Subscription(user = both, type = SubscriptionType.EVENT_HOST, host = secondHost))
+
+            val event = persistApprovedEvent(hosts = listOf(firstHost, secondHost), title = "공동 주최 행사")
+
+            entityManager.flush()
+            entityManager.clear()
+
+            notificationService.notifyOnEventApproved(
+                entityManager.find(Event::class.java, event.id!!)
+            )
+            entityManager.flush()
+            entityManager.clear()
+
+            val alarmsByUser = alarmRepository.findAll()
+                .filter { it.event?.id == event.id }
+                .groupBy { it.user.id }
+            assertEquals(1, alarmsByUser[secondOnly.id]?.size)
+            assertEquals(1, alarmsByUser[both.id]?.size)
+            assertEquals(AlarmType.EVENT_SUBSCRIPTION_HOST, alarmsByUser.getValue(secondOnly.id).single().type)
+        }
+
+        @Test
         @DisplayName("EVENT_KEYWORD 구독자 — 제목에 키워드 포함된 행사 매칭")
         fun `EVENT_KEYWORD 키워드 부분일치 매칭`() {
             val host = TestFixtures.host(name = "주최A")
@@ -158,9 +193,9 @@ class SubscriptionNotificationServiceIntegrationTest : IntegrationTestSupport() 
         }
     }
 
-    private fun persistApprovedEvent(host: Host, title: String): Event {
+    private fun persistApprovedEvent(host: Host? = null, title: String, hosts: List<Host> = listOfNotNull(host)): Event {
         val event = TestFixtures.event(
-            host = host,
+            hosts = hosts,
             title = title,
             startAt = LocalDateTime.now().plusDays(7),
             recruitmentStartAt = LocalDateTime.now().minusDays(1),

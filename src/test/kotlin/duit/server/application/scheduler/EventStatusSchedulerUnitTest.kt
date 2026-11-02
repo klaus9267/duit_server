@@ -57,7 +57,7 @@ class EventStatusSchedulerUnitTest {
         eventType = EventType.CONFERENCE,
         status = status,
         statusGroup = if (status == EventStatus.FINISHED) EventStatusGroup.FINISHED else EventStatusGroup.ACTIVE,
-        host = host
+        hosts = listOf(host)
     )
 
     @Nested

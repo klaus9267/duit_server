@@ -62,7 +62,7 @@ class AlarmServiceUnitTest {
             recruitmentStartAt = LocalDateTime.now().minusDays(1),
             recruitmentEndAt = LocalDateTime.now().plusHours(12),
             uri = "https://example.com", thumbnail = null,
-            eventType = EventType.CONFERENCE, host = host
+            eventType = EventType.CONFERENCE, hosts = listOf(host)
         )
     }
 

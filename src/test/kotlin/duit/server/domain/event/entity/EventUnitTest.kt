@@ -35,7 +35,7 @@ class EventUnitTest {
         uri = "https://example.com",
         thumbnail = null,
         eventType = EventType.CONFERENCE,
-        host = host
+        hosts = listOf(host)
     )
 
     @Nested
@@ -254,6 +254,80 @@ class EventUnitTest {
             event.updateStatus(baseTime)
 
             assertEquals(EventStatus.EVENT_WAITING, event.status)
+        }
+    }
+
+    @Nested
+    @DisplayName("hosts - 다중 주최")
+    inner class HostsTests {
+        private val hostA = Host(id = 1L, name = "주최A")
+        private val hostB = Host(id = 2L, name = "주최B")
+        private val hostC = Host(id = 3L, name = "주최C")
+
+        private fun createEventWithHosts(vararg hosts: Host) = Event(
+            title = "공동 주최 행사",
+            startAt = baseTime.plusDays(7),
+            endAt = null,
+            recruitmentStartAt = null,
+            recruitmentEndAt = null,
+            uri = "https://example.com",
+            thumbnail = null,
+            eventType = EventType.CONFERENCE,
+            hosts = hosts.toList()
+        )
+
+        @Test
+        @DisplayName("요청 순서대로 주최를 보관하고, host(events.host_id 미러)는 첫 번째 주최다")
+        fun keepsRequestOrderAndMirrorsFirstHost() {
+            val event = createEventWithHosts(hostB, hostA, hostC)
+
+            assertEquals(listOf(hostB, hostA, hostC), event.hosts)
+            assertEquals(hostB, event.host)
+        }
+
+        @Test
+        @DisplayName("같은 주최가 중복되면 처음 등장한 위치만 남긴다")
+        fun removesDuplicatesKeepingFirstOccurrence() {
+            val event = createEventWithHosts(hostA, hostB, hostA)
+
+            assertEquals(listOf(hostA, hostB), event.hosts)
+        }
+
+        @Test
+        @DisplayName("replaceHosts - 순서를 바꾸면 첫 번째 주최 미러도 바뀐다")
+        fun reorderUpdatesMirror() {
+            val event = createEventWithHosts(hostA, hostB)
+
+            event.replaceHosts(listOf(hostB, hostA))
+
+            assertEquals(listOf(hostB, hostA), event.hosts)
+            assertEquals(hostB, event.host)
+        }
+
+        @Test
+        @DisplayName("replaceHosts - 빠진 주최는 제거되고 새 주최는 추가된다")
+        fun replaceRemovesAndAdds() {
+            val event = createEventWithHosts(hostA, hostB)
+
+            event.replaceHosts(listOf(hostB, hostC))
+
+            assertEquals(listOf(hostB, hostC), event.hosts)
+            assertEquals(hostB, event.host)
+        }
+
+        @Test
+        @DisplayName("주최 없이 생성하면 IllegalArgumentException")
+        fun emptyHostsOnCreateThrows() {
+            assertThrows<IllegalArgumentException> { createEventWithHosts() }
+        }
+
+        @Test
+        @DisplayName("replaceHosts - 빈 목록이면 IllegalArgumentException 이고 기존 주최는 유지된다")
+        fun emptyHostsOnReplaceThrows() {
+            val event = createEventWithHosts(hostA)
+
+            assertThrows<IllegalArgumentException> { event.replaceHosts(emptyList()) }
+            assertEquals(listOf(hostA), event.hosts)
         }
     }
 }

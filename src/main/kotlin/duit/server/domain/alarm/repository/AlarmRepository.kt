@@ -17,22 +17,22 @@ interface AlarmRepository : JpaRepository<Alarm, Long> {
     // ─────────────────────────────────────────────────────────────────────
     // V1 호환용 — 이벤트 알람만 (event IS NOT NULL)
     // ─────────────────────────────────────────────────────────────────────
-    @EntityGraph(attributePaths = ["event", "event.host"])
+    @EntityGraph(attributePaths = ["event"])
     fun findByUserIdAndEventIsNotNull(userId: Long, pageable: Pageable): Page<Alarm>
 
-    @EntityGraph(attributePaths = ["event", "event.host"])
+    @EntityGraph(attributePaths = ["event"])
     fun findByUserIdAndEventIsNotNullAndIsRead(userId: Long, isRead: Boolean, pageable: Pageable): Page<Alarm>
 
     // ─────────────────────────────────────────────────────────────────────
     // V2 — 모든 알람 (event 또는 jobPosting). Phase 3 에서 사용 시작
     // ─────────────────────────────────────────────────────────────────────
-    @EntityGraph(attributePaths = ["event", "event.host", "jobPosting", "jobPosting.company"])
+    @EntityGraph(attributePaths = ["event", "jobPosting", "jobPosting.company"])
     fun findByUserId(userId: Long, pageable: Pageable): Page<Alarm>
 
-    @EntityGraph(attributePaths = ["event", "event.host", "jobPosting", "jobPosting.company"])
+    @EntityGraph(attributePaths = ["event", "jobPosting", "jobPosting.company"])
     fun findByUserIdAndIsRead(userId: Long, isRead: Boolean, pageable: Pageable): Page<Alarm>
 
-    @EntityGraph(attributePaths = ["event", "event.host", "jobPosting", "jobPosting.company"])
+    @EntityGraph(attributePaths = ["event", "jobPosting", "jobPosting.company"])
     fun findByUserIdAndId(userId: Long, id: Long): Alarm?
 
     @Modifying

@@ -32,6 +32,10 @@ import java.time.Duration
  *   - @class 타입 정보 불필요: 역직렬화 대상 타입을 TypeReference로 명시
  *   - 타입 소거(Type Erasure) 문제 없음: JavaType이 제네릭 정보 보존
  *   - JavaTimeModule: LocalDateTime 직렬화 지원
+ *
+ * 키 prefix 의 [CACHE_SCHEMA_VERSION]: EventResponseV2 구조가 바뀌면 올린다.
+ *   blue-green 전환 중 구/신 서버가 같은 Redis 를 쓰므로, 버전이 다르면 서로의 캐시를 읽지 않아 역직렬화 오류가 나지 않는다.
+ *   (v2: 행사 다중 주최 — hosts 필드 추가)
  */
 @Configuration
 @EnableCaching
@@ -57,6 +61,7 @@ class CacheConfig(
     private fun cacheConfig(ttl: Duration): RedisCacheConfiguration =
         RedisCacheConfiguration.defaultCacheConfig()
             .entryTtl(ttl)
+            .prefixCacheNameWith("$CACHE_SCHEMA_VERSION:")
             .serializeKeysWith(
                 RedisSerializationContext.SerializationPair.fromSerializer(StringRedisSerializer())
             )
@@ -71,4 +76,8 @@ class CacheConfig(
             .withCacheConfiguration("events-5m", cacheConfig(Duration.ofMinutes(5)))
             .withCacheConfiguration("events-3m", cacheConfig(Duration.ofMinutes(3)))
             .build()
+
+    companion object {
+        const val CACHE_SCHEMA_VERSION = "v2"
+    }
 }
