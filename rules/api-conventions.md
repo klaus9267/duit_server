@@ -122,7 +122,7 @@ data class EventCreateRequest(
     @field:Schema(description = "행사 시작 일시", example = "2025-02-15T09:00:00")
     val startAt: LocalDateTime,
 ) {
-    fun toEntity(host: Host): Event = Event(
+    fun toEntity(hosts: List<Host>): Event = Event(
         title = title,
         startAt = startAt,
         // ...
@@ -159,7 +159,8 @@ data class EventResponseV2(
     val title: String,
     val startAt: LocalDateTime,
     val eventType: EventType,
-    val host: HostResponse,
+    val host: HostResponse,          // Deprecated: hosts 의 첫 번째 (구 클라이언트 호환)
+    val hosts: List<HostResponse>,
     val viewCount: Int,
     val isBookmarked: Boolean = false
 ) {
@@ -177,7 +178,14 @@ data class EventResponseV2(
 - [ ] `data class`
 - [ ] `companion object { fun from(entity): Response }` 팩토리 패턴
 - [ ] 엔티티를 직접 반환하지 않을 것
-- [ ] 중첩 엔티티도 Response DTO로 변환 (예: `HostResponse.from(event.host)`)
+- [ ] 중첩 엔티티도 Response DTO로 변환 (예: `event.hosts.map(HostResponse::from)`)
+
+### 행사 주최 입력/응답 (다중 주최)
+- 요청: `hosts: [{ hostId }, { hostName, thumbnailIndex? }]` (1~20개, 순서 유지). 신규 주최 로고는 multipart `hostThumbnails` 파트 목록에서 `thumbnailIndex` 로 매핑, 주최가 **새로 생성될 때만** 업로드
+- 레거시: `hostId` / `hostName` + `hostThumbnail` (단일 주최). `hosts` 와 섞으면 400. `deleteHostThumbnail` 은 레거시 전용
+- 주최 로고 수정/삭제는 `PUT /api/v1/hosts/{hostId}` 로만
+- 응답: `hosts` (순서대로) + `host` (= 첫 번째, Deprecated). 목록의 `hostId` 필터는 "주최 중 하나라도 일치"
+- 컬렉션(`hosts`)을 페이지 쿼리에서 fetch join 하지 말 것 — `default_batch_fetch_size` 로 로딩 (메모리 페이징 방지)
 
 ---
 

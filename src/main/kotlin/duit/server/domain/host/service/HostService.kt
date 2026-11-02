@@ -5,7 +5,6 @@ import duit.server.domain.common.dto.pagination.PageResponse
 import duit.server.domain.common.extensions.findByIdOrThrow
 import duit.server.domain.event.repository.EventRepository
 import duit.server.domain.host.dto.HostPaginationParam
-import duit.server.domain.host.dto.HostRequest
 import duit.server.domain.host.dto.HostResponse
 import duit.server.domain.host.dto.HostUpdateRequest
 import duit.server.domain.host.entity.Host
@@ -42,11 +41,11 @@ class HostService(
         return HostResponse.from(hostRepository.save(host))
     }
 
+    /** 같은 이름의 주최가 없을 때만 [thumbnailUrl] 을 호출해 생성 — 기존 주최 재사용 시 로고 업로드가 일어나지 않는다 */
     @Transactional
-    fun findOrCreateHost(request: HostRequest): Host {
-        return hostRepository.findByName(request.name)
-            ?: hostRepository.save(request.toEntity())
-    }
+    fun findOrCreateHost(name: String, thumbnailUrl: () -> String? = { null }): Host =
+        hostRepository.findByName(name)
+            ?: hostRepository.save(Host(name = name, thumbnail = thumbnailUrl()))
 
     fun getHosts(param: HostPaginationParam): PageResponse<HostResponse> {
         val hostPage = hostRepository.findAll(param.toPageable())

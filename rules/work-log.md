@@ -8,14 +8,46 @@
 
 > 매 작업 후 갱신. 새 세션 시작 시 이 섹션만 읽으면 전체 파악 가능.
 
- **마지막 작업일**: 2026-06-25
- **진행 중인 작업**: PR #147 GitHub Actions 실패 원인 확인 및 fork PR 권한 대응 완료. main 머지(간호조무사 직종코드 `307500` 제외 반영)와 충돌 해소 완료.
+ **마지막 작업일**: 2026-11-02
+ **진행 중인 작업**: 행사 다중 주최(event_hosts) 1단계 PR (feat/event-multi-hosts → dev). 후속: 클라이언트 `hosts` 전환 → V5 로 `events.host_id` 제거 (아래 2026-11-02 체크리스트, 코드에서 `TODO(event-hosts)` 검색)
  **블로커**: 운영 DB에서 `scripts/sql/deduplicate_user_device_tokens.sql` 실행 후 `scripts/sql/add_user_device_tokens_unique_constraint.sql` 적용 필요 (이전 작업)
  **미수정 CRITICAL**: 1건 (배포된 비밀 노출 사고 후 실제 비밀 rotation / GHCR 정리 필요)
  **미수정 HIGH**: 6건 (CORS, 외부 API 타임아웃/재시도, FCM invalid token 정리, JWT Refresh Token, Discord fire-and-forget)
- **브랜치**: codex/fix-work24-job-filters
+ **브랜치**: feat/event-multi-hosts
  **신규 의존성**: 없음 (Flyway는 기존 build.gradle 활성화)
  **신규 env**: `application*.yml` 의 `ddl-auto: validate` + `flyway enabled`
+
+## 2026-11-02 (행사 다중 주최 1단계: event_hosts 도입)
+
+**분류**: feature | db | test | docs
+
+### 작업 내용
+- `event_hosts` 테이블(V4) + `EventHost` 엔티티 추가. 기존 `events.host_id` 를 `sort_order=0` 으로 이관
+- `Event.hosts` 가 진실의 원천. `Event.host`(events.host_id)는 첫 번째 주최 미러로만 유지 (`replaceHosts()` 가 함께 갱신)
+- 요청: `hosts: [{hostId} | {hostName, thumbnailIndex}]` + multipart `hostThumbnails` 추가. 레거시 `hostId/hostName/hostThumbnail` 유지, 혼용 시 400 (`EventHostResolver`)
+- 응답(EventResponse/V2 → 행사 목록·상세·캘린더, 알람 V1/V2): `hosts` 추가, `host` 는 첫 번째 주최로 유지
+- 조회: V2 목록 `hostId` 필터를 event_hosts EXISTS 로 변경(QueryDSL·VIEW_COUNT 네이티브 모두), 페이지 쿼리의 host fetch join 제거(batch fetch), 미사용 `searchEvents()` 삭제
+- 주최 삭제 차단 / EVENT_HOST 구독 매칭을 모든 주최 기준으로 변경. 구독 알림 본문은 구독한 주최 이름 사용
+- `findOrCreateHost(name) { thumbnailUrl }` — 주최가 실제로 생성될 때만 로고 업로드 (기존 주최 재사용 시 고아 파일 생성 버그 수정). `HostRequest` 삭제
+- Redis 캐시 키 prefix `v2:` (`CacheConfig.CACHE_SCHEMA_VERSION`) — blue-green 중 구/신 서버가 서로의 EventResponseV2 캐시를 역직렬화하지 않도록
+
+### 테스트
+- 전체: 577 tests, 0 failures (기존 545 + 신규 32), 임시 JDK 17 사용
+- MySQL 8.0.40 (일회용 로컬 인스턴스): 기존 코드로 스키마 생성 → 데이터 시드 → 신규 코드에서 Flyway baseline 3 → V4 적용 → `ddl-auto: validate` 통과 → 이벤트/주최/구독 통합 테스트 실행 (시드 데이터로 인한 건수 단정 3건 외 통과). VIEW_COUNT 네이티브 쿼리(FORCE INDEX + EXISTS), ON DELETE CASCADE 수동 확인
+
+### 결정 사항
+- blue-green 배포라 V4 적용 후에도 구 서버가 같은 DB 를 쓴다 → 이번 릴리스에서 `events.host_id` 를 지우지 않고 새 서버가 첫 번째 주최로 계속 기록
+- 전환 구간에 구 서버가 만든 행사는 event_hosts 행이 없을 수 있음 → `Event.hosts` 가 `host` 로 fallback, 캘린더 쿼리는 LEFT JOIN FETCH. (해당 행은 V5 백필 전까지 `hostId` 필터·주최 삭제 차단 조회에서 누락될 수 있음 — 삭제는 events.host_id FK 가 막음)
+- `Event.createdAt` 을 `var` 로 변경 — 생성자 파라미터 `hosts` 때문에 Spring Data auditing 재인스턴스화가 실패 (entities.md 안티패턴 5)
+- 주최 수 상한 20 (`MAX_EVENT_HOSTS`) — 비로그인 행사 등록 API 남용 방지용 임의 상한
+
+### 후속 작업 체크리스트 (`TODO(event-hosts)`)
+- [ ] 클라이언트 전환: duit-admin, duty-it-web, duty-it(Flutter), duit-surfer 가 요청은 `hosts`, 응답은 `hosts` 사용
+- [ ] V5 마이그레이션 (구 서버가 모두 내려간 뒤): ① event_hosts 누락분 백필 ② `SHOW CREATE TABLE events` 로 host_id FK 이름 확인 후 DROP FOREIGN KEY (로컬 Hibernate 재현 시 `FKdqkiykj89a9gdfh6cepo057o6` — 운영값 반드시 확인) ③ `events.host_id` DROP
+- [ ] V5 와 함께: `Event.host` 필드·`hosts` fallback 제거, `DummyDataGenerator` 의 host_id CSV 제거
+- [ ] 클라이언트 전환 후: 요청 `hostId/hostName/hostThumbnail/deleteHostThumbnail`, 응답 `host` 제거
+- [ ] 다음 EventResponseV2 구조 변경 시 `CACHE_SCHEMA_VERSION` 올리기
+- [ ] main 의 #153(검색어에 주최명 포함)은 dev 미반영 — dev←main 병합 시 `EventRepositoryImpl` 충돌. 주최명 검색을 event_hosts 기준(EXISTS)으로 재작성할 것
 
 ## 2026-06-25 (PR #147 GitHub Actions 권한 실패 대응)
 

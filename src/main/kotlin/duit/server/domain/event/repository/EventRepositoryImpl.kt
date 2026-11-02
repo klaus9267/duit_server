@@ -1,6 +1,7 @@
 package duit.server.domain.event.repository
 
 import com.querydsl.core.types.dsl.BooleanExpression
+import com.querydsl.jpa.JPAExpressions
 import com.querydsl.jpa.impl.JPAQuery
 import com.querydsl.jpa.impl.JPAQueryFactory
 import duit.server.domain.bookmark.entity.QBookmark
@@ -8,7 +9,6 @@ import duit.server.domain.common.dto.pagination.EventCursor
 import duit.server.domain.common.dto.pagination.PaginationField.*
 import duit.server.domain.event.dto.EventCursorPaginationParam
 import duit.server.domain.event.entity.*
-import duit.server.domain.host.entity.QHost
 import duit.server.domain.view.entity.QView
 import jakarta.persistence.EntityManager
 import org.springframework.stereotype.Repository
@@ -22,7 +22,7 @@ class EventRepositoryImpl(
 ) : EventRepositoryCustom {
 
     private val event = QEvent.event
-    private val host = QHost.host
+    private val eventHost = QEventHost.eventHost
     private val view = QView.view
     private val bookmark = QBookmark.bookmark
 
@@ -78,10 +78,9 @@ class EventRepositoryImpl(
             return fetchEventsByViewCountWithCursor(param, cursor, currentUserId)
         }
 
-        // QueryDSL 쿼리 빌드
+        // QueryDSL 쿼리 빌드 — hosts(컬렉션)는 limit 과 함께 fetch join 하면 메모리 페이징이 되므로 batch fetch 로 로딩
         val query = queryFactory
             .selectFrom(event)
-            .join(event.host(), host).fetchJoin()
             .leftJoin(event.view(), view).fetchJoin()
             .buildWhere(param, currentUserId, cursor)
             .buildOrderBy(param)
@@ -117,9 +116,14 @@ class EventRepositoryImpl(
             conditions.add(event.title.containsIgnoreCase(keyword))
         }
 
-        // 주최자 ID 필터
+        // 주최자 ID 필터 (여러 주최 중 하나라도 일치)
         param.hostId?.let { hostId ->
-            conditions.add(event.host().id.eq(hostId))
+            conditions.add(
+                JPAExpressions.selectOne()
+                    .from(eventHost)
+                    .where(eventHost.event().eq(event), eventHost.host().id.eq(hostId))
+                    .exists()
+            )
         }
 
         val now = LocalDateTime.now()
@@ -261,7 +265,7 @@ class EventRepositoryImpl(
         } else ""
 
         val hostCondition = if (param.hostId != null) {
-            "AND e.host_id = :hostId"
+            "AND EXISTS (SELECT 1 FROM event_hosts eh WHERE eh.event_id = e.id AND eh.host_id = :hostId)"
         } else ""
 
 
@@ -282,7 +286,6 @@ class EventRepositoryImpl(
             SELECT e.*
             FROM views v FORCE INDEX (idx_count_event)
             JOIN events e ON e.id = v.event_id
-            JOIN hosts h ON e.host_id = h.id
             $bookmarkJoin
             WHERE $statusCondition
               $typesCondition

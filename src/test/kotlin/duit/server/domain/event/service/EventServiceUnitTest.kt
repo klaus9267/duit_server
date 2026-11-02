@@ -8,7 +8,6 @@ import duit.server.domain.event.entity.EventStatus
 import duit.server.domain.event.entity.EventStatusGroup
 import duit.server.domain.event.entity.EventType
 import duit.server.domain.event.repository.EventRepository
-import duit.server.domain.host.dto.HostRequest
 import duit.server.domain.host.entity.Host
 import duit.server.domain.host.service.HostService
 import duit.server.domain.subscription.service.SubscriptionNotificationService
@@ -31,9 +30,17 @@ class EventServiceUnitTest {
     private fun createHost(id: Long = 1L, name: String = "테스트 주최", thumbnail: String? = null) =
         Host(id = id, name = name, thumbnail = thumbnail)
 
+    /** findOrCreateHost 를 "새 주최 생성"으로 흉내낸다. 로고 람다를 실제로 호출하므로 업로드 여부와 결과 URL 을 검증할 수 있다 */
+    private fun stubHostCreation(hostService: HostService, name: String, id: Long = 2L) {
+        every { hostService.findOrCreateHost(name, any()) } answers {
+            Host(id = id, name = name, thumbnail = secondArg<() -> String?>().invoke())
+        }
+    }
+
     private fun createEvent(
         id: Long = 1L,
         host: Host,
+        hosts: List<Host> = listOf(host),
         title: String = "테스트 행사",
         startAt: LocalDateTime = LocalDateTime.now().plusDays(7),
         endAt: LocalDateTime? = LocalDateTime.now().plusDays(8),
@@ -47,7 +54,7 @@ class EventServiceUnitTest {
     ) = Event(
         id = id, title = title, startAt = startAt, endAt = endAt,
         recruitmentStartAt = recruitmentStartAt, recruitmentEndAt = recruitmentEndAt,
-        uri = uri, thumbnail = thumbnail, eventType = eventType, host = host,
+        uri = uri, thumbnail = thumbnail, eventType = eventType, hosts = hosts,
         status = status, statusGroup = statusGroup,
     )
 
@@ -60,7 +67,7 @@ class EventServiceUnitTest {
         eventQueryService: EventQueryService = mockk(relaxed = true),
         eventCacheEvictService: EventCacheEvictService = mockk(relaxed = true),
         subscriptionNotificationService: SubscriptionNotificationService = mockk(relaxed = true),
-    ) = EventService(eventRepository, securityUtil, discordService, hostService, fileStorageService, eventQueryService, eventCacheEvictService, subscriptionNotificationService)
+    ) = EventService(eventRepository, securityUtil, discordService, EventHostResolver(hostService, fileStorageService), fileStorageService, eventQueryService, eventCacheEvictService, subscriptionNotificationService)
 
     @Nested
     @DisplayName("createEvent")
@@ -116,12 +123,13 @@ class EventServiceUnitTest {
                 hostId = null, hostName = "신규 주최"
             )
 
-            every { hostService.findOrCreateHost(HostRequest(name = "신규 주최", thumbnail = null)) } returns host
+            stubHostCreation(hostService, "신규 주최")
             every { eventRepository.save(any<Event>()) } returns savedEvent
 
             val result = eventService.createEvent(eventRequest, null, null, true)
 
-            verify(exactly = 1) { hostService.findOrCreateHost(HostRequest(name = "신규 주최", thumbnail = null)) }
+            verify(exactly = 1) { hostService.findOrCreateHost("신규 주최", any()) }
+            verify(exactly = 0) { fileStorageService.uploadFile(any(), any()) }
             assertEquals(2L, result.id)
         }
 
@@ -139,7 +147,7 @@ class EventServiceUnitTest {
             val exception = assertThrows<IllegalArgumentException> {
                 eventService.createEvent(eventRequest, null, null, true)
             }
-            assertTrue(exception.message!!.contains("hostId 또는 hostName"))
+            assertTrue(exception.message!!.contains("hosts 또는 hostId/hostName"))
         }
 
         @Test
@@ -248,16 +256,16 @@ class EventServiceUnitTest {
                 hostId = null, hostName = "신규 주최"
             )
             val hostThumbnail = mockk<MultipartFile>()
+            val eventSlot = slot<Event>()
 
             every { fileStorageService.uploadFile(hostThumbnail, "hosts") } returns "https://storage.com/host.jpg"
-            every {
-                hostService.findOrCreateHost(HostRequest(name = "신규 주최", thumbnail = "https://storage.com/host.jpg"))
-            } returns host
-            every { eventRepository.save(any<Event>()) } returns savedEvent
+            stubHostCreation(hostService, "신규 주최")
+            every { eventRepository.save(capture(eventSlot)) } returns savedEvent
 
             eventService.createEvent(eventRequest, null, hostThumbnail, true)
 
             verify(exactly = 1) { fileStorageService.uploadFile(hostThumbnail, "hosts") }
+            assertEquals("https://storage.com/host.jpg", eventSlot.captured.hosts.single().thumbnail)
         }
     }
 
@@ -535,13 +543,13 @@ class EventServiceUnitTest {
             eventService.updateEvent(1L, updateRequest, null, null)
 
             verify(exactly = 1) { hostService.getHost(2L) }
-            verify(exactly = 0) { hostService.findOrCreateHost(any()) }
+            verify(exactly = 0) { hostService.findOrCreateHost(any(), any()) }
+            assertEquals(listOf(newHost), event.hosts)
         }
 
         @Test
         @DisplayName("hostName + deleteHostThumbnail=true - 썸네일 null로 Host 생성")
         fun updateEventWithHostNameDeleteThumbnail() {
-            val newHost = createHost(id = 2L, name = "신규 주최")
             val event = createEvent(host = createHost(thumbnail = "https://storage.com/oldhost.jpg"))
             val updateRequest = EventUpdateRequest(
                 title = "수정된 행사", startAt = LocalDateTime.now().plusDays(7),
@@ -552,18 +560,19 @@ class EventServiceUnitTest {
             )
 
             every { eventRepository.findById(1L) } returns Optional.of(event)
-            every { hostService.findOrCreateHost(HostRequest(name = "신규 주최", thumbnail = null)) } returns newHost
+            stubHostCreation(hostService, "신규 주최")
             every { eventRepository.save(event) } returns event
 
-            eventService.updateEvent(1L, updateRequest, null, null)
+            eventService.updateEvent(1L, updateRequest, null, mockk<MultipartFile>())
 
-            verify(exactly = 1) { hostService.findOrCreateHost(HostRequest(name = "신규 주최", thumbnail = null)) }
+            verify(exactly = 1) { hostService.findOrCreateHost("신규 주최", any()) }
+            verify(exactly = 0) { fileStorageService.uploadFile(any(), any()) }
+            assertNull(event.hosts.single().thumbnail)
         }
 
         @Test
         @DisplayName("hostName + hostThumbnail - 새 썸네일로 Host 생성")
         fun updateEventWithHostThumbnail() {
-            val newHost = createHost(id = 2L, name = "신규 주최", thumbnail = "https://storage.com/newhost.jpg")
             val event = createEvent(host = createHost())
             val updateRequest = EventUpdateRequest(
                 title = "수정된 행사", startAt = LocalDateTime.now().plusDays(7),
@@ -576,21 +585,19 @@ class EventServiceUnitTest {
 
             every { eventRepository.findById(1L) } returns Optional.of(event)
             every { fileStorageService.uploadFile(hostThumbnail, "hosts") } returns "https://storage.com/newhost.jpg"
-            every {
-                hostService.findOrCreateHost(HostRequest(name = "신규 주최", thumbnail = "https://storage.com/newhost.jpg"))
-            } returns newHost
+            stubHostCreation(hostService, "신규 주최")
             every { eventRepository.save(event) } returns event
 
             eventService.updateEvent(1L, updateRequest, null, hostThumbnail)
 
             verify(exactly = 1) { fileStorageService.uploadFile(hostThumbnail, "hosts") }
+            assertEquals("https://storage.com/newhost.jpg", event.hosts.single().thumbnail)
         }
 
         @Test
         @DisplayName("hostName + 썸네일 변경 없음 - 기존 Host 썸네일 유지")
         fun updateEventKeepHostThumbnail() {
             val oldHost = createHost(thumbnail = "https://storage.com/oldhost.jpg")
-            val newHost = createHost(id = 2L, name = "신규 주최", thumbnail = "https://storage.com/oldhost.jpg")
             val event = createEvent(host = oldHost)
             val updateRequest = EventUpdateRequest(
                 title = "수정된 행사", startAt = LocalDateTime.now().plusDays(7),
@@ -601,16 +608,59 @@ class EventServiceUnitTest {
             )
 
             every { eventRepository.findById(1L) } returns Optional.of(event)
-            every {
-                hostService.findOrCreateHost(HostRequest(name = "신규 주최", thumbnail = "https://storage.com/oldhost.jpg"))
-            } returns newHost
+            stubHostCreation(hostService, "신규 주최")
             every { eventRepository.save(event) } returns event
 
             eventService.updateEvent(1L, updateRequest, null, null)
 
-            verify(exactly = 1) {
-                hostService.findOrCreateHost(HostRequest(name = "신규 주최", thumbnail = "https://storage.com/oldhost.jpg"))
+            verify(exactly = 1) { hostService.findOrCreateHost("신규 주최", any()) }
+            assertEquals("https://storage.com/oldhost.jpg", event.hosts.single().thumbnail)
+        }
+
+        @Test
+        @DisplayName("hosts - 여러 주최로 교체하고 순서를 유지한다")
+        fun updateEventWithMultipleHosts() {
+            val hostA = createHost(id = 1L, name = "주최A")
+            val hostB = createHost(id = 2L, name = "주최B")
+            val event = createEvent(host = hostA)
+            val updateRequest = EventUpdateRequest(
+                title = "수정된 행사", startAt = LocalDateTime.now().plusDays(7),
+                endAt = LocalDateTime.now().plusDays(8),
+                recruitmentStartAt = null, recruitmentEndAt = null,
+                uri = "https://example.com", eventType = EventType.CONFERENCE,
+                hosts = listOf(EventHostRequest(hostId = 2L), EventHostRequest(hostId = 1L))
+            )
+
+            every { eventRepository.findById(1L) } returns Optional.of(event)
+            every { hostService.getHost(1L) } returns hostA
+            every { hostService.getHost(2L) } returns hostB
+            every { eventRepository.save(event) } returns event
+
+            val result = eventService.updateEvent(1L, updateRequest, null, null)
+
+            assertEquals(listOf(hostB, hostA), event.hosts)
+            assertEquals(listOf(2L, 1L), result.hosts.map { it.id })
+            assertEquals(2L, result.host.id)
+        }
+
+        @Test
+        @DisplayName("hosts 와 deleteHostThumbnail 을 함께 쓰면 IllegalArgumentException")
+        fun updateEventWithHostsAndDeleteHostThumbnailThrowsException() {
+            val event = createEvent(host = createHost())
+            val updateRequest = EventUpdateRequest(
+                title = "수정된 행사", startAt = LocalDateTime.now().plusDays(7),
+                endAt = LocalDateTime.now().plusDays(8),
+                recruitmentStartAt = null, recruitmentEndAt = null,
+                uri = "https://example.com", eventType = EventType.CONFERENCE,
+                hosts = listOf(EventHostRequest(hostId = 1L)), deleteHostThumbnail = true
+            )
+
+            every { eventRepository.findById(1L) } returns Optional.of(event)
+
+            val exception = assertThrows<IllegalArgumentException> {
+                eventService.updateEvent(1L, updateRequest, null, null)
             }
+            assertTrue(exception.message!!.contains("deleteHostThumbnail"))
         }
 
         @Test
@@ -630,7 +680,7 @@ class EventServiceUnitTest {
             val exception = assertThrows<IllegalArgumentException> {
                 eventService.updateEvent(1L, updateRequest, null, null)
             }
-            assertTrue(exception.message!!.contains("hostId 또는 hostName"))
+            assertTrue(exception.message!!.contains("hosts 또는 hostId/hostName"))
         }
     }
 

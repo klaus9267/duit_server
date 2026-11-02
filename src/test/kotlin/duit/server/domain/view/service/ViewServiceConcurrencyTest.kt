@@ -82,7 +82,7 @@ class ViewServiceConcurrencyTest {
                     uri = "https://example.com/event",
                     thumbnail = null,
                     eventType = EventType.CONFERENCE,
-                    host = host
+                    hosts = listOf(host)
                 )
                 entityManager.persist(e)
                 entityManager.flush()

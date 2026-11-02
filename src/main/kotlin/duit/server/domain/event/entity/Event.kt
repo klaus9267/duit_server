@@ -57,14 +57,15 @@ class Event(
     @Enumerated(EnumType.STRING)
     var eventType: EventType,
 
+    // var 필수: val 이면 Spring Data auditing 이 primary constructor 로 재인스턴스화를 시도하는데,
+    // 생성자 파라미터 hosts 는 영속 프로퍼티가 아니어서 "Required property hosts not found" 로 실패한다
     @CreatedDate
-    val createdAt: LocalDateTime = LocalDateTime.now(),
+    var createdAt: LocalDateTime = LocalDateTime.now(),
 
     @LastModifiedDate
     var updatedAt: LocalDateTime = LocalDateTime.now(),
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    var host: Host,
+    hosts: List<Host>,
 
     @OneToMany(mappedBy = "event", cascade = [CascadeType.ALL], orphanRemoval = true)
     val bookmarks: List<Bookmark> = emptyList(),
@@ -75,7 +76,44 @@ class Event(
     @OneToOne(mappedBy = "event", cascade = [CascadeType.ALL], orphanRemoval = true)
     var view: View = View(event = this)
 
-    fun update(updateRequest: EventUpdateRequest, thumbnailUrl: String?, host: Host) {
+    @OneToMany(mappedBy = "event", cascade = [CascadeType.ALL], orphanRemoval = true)
+    @OrderBy("sortOrder ASC")
+    private val eventHosts: MutableList<EventHost> = mutableListOf()
+
+    // TODO(event-hosts): events.host_id 는 blue-green 배포 중 구 서버·롤백 호환을 위해 첫 번째 주최를 미러링만 한다.
+    //  읽기는 항상 hosts 를 사용할 것. 구 서버가 모두 내려간 뒤 events.host_id 컬럼(V5 마이그레이션)과 함께 이 필드를 제거.
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "host_id")
+    var host: Host = requireNotNull(hosts.firstOrNull()) { "주최는 최소 1개 이상이어야 합니다" }
+        protected set
+
+    // TODO(event-hosts): ifEmpty fallback 은 전환 구간에 구 서버가 event_hosts 없이 기록한 행 대응. V5 백필 후 제거
+    val hosts: List<Host>
+        get() = eventHosts.sortedBy { it.sortOrder }.map { it.host }.ifEmpty { listOf(host) }
+
+    init {
+        replaceHosts(hosts)
+    }
+
+    fun replaceHosts(newHosts: List<Host>) {
+        val orderedHosts = newHosts.distinctBy { it.identity() }
+        require(orderedHosts.isNotEmpty()) { "주최는 최소 1개 이상이어야 합니다" }
+
+        val keptIdentities = orderedHosts.map { it.identity() }.toSet()
+        eventHosts.removeIf { it.host.identity() !in keptIdentities }
+
+        orderedHosts.forEachIndexed { index, host ->
+            eventHosts.find { it.host.identity() == host.identity() }
+                ?.let { it.sortOrder = index }
+                ?: eventHosts.add(EventHost(event = this, host = host, sortOrder = index))
+        }
+
+        host = orderedHosts.first()
+    }
+
+    private fun Host.identity(): Any = id ?: this
+
+    fun update(updateRequest: EventUpdateRequest, thumbnailUrl: String?, hosts: List<Host>) {
         title = updateRequest.title
         startAt = updateRequest.startAt
         endAt = updateRequest.endAt
@@ -83,7 +121,7 @@ class Event(
         recruitmentEndAt = updateRequest.recruitmentEndAt
         uri = updateRequest.uri
         eventType = updateRequest.eventType
-        this.host = host
+        replaceHosts(hosts)
         thumbnail = thumbnailUrl
     }
 

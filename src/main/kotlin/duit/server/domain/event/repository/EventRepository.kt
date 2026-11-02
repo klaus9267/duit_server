@@ -18,7 +18,6 @@ interface EventRepository : JpaRepository<Event, Long>, EventRepositoryCustom {
         value = """
         SELECT e.*
         FROM events e
-        JOIN hosts h ON h.id = e.host_id
         LEFT JOIN views v ON v.event_id = e.id
         LEFT JOIN bookmarks b ON b.event_id = e.id AND (b.user_id = :#{#filter.userId} OR :#{#filter.userId} IS NULL)
         WHERE (:#{#filter.excludePending} = false OR e.status_group <> 'PENDING')
@@ -50,7 +49,6 @@ interface EventRepository : JpaRepository<Event, Long>, EventRepositoryCustom {
         countQuery = """
         SELECT COUNT(DISTINCT e.id)
         FROM events e
-        JOIN hosts h ON h.id = e.host_id
         LEFT JOIN bookmarks b ON b.event_id = e.id AND (b.user_id = :#{#filter.userId} OR :#{#filter.userId} IS NULL)
         WHERE (:#{#filter.excludePending} = false OR e.status_group <> 'PENDING')
         AND (:#{#filter.eventTypesToString()} IS NULL OR FIND_IN_SET(e.event_type, :#{#filter.eventTypesToString()}) > 0)
@@ -62,19 +60,6 @@ interface EventRepository : JpaRepository<Event, Long>, EventRepositoryCustom {
         filter: EventSearchFilter,
         pageable: Pageable
     ): Page<Event>
-
-    @Query(
-        """
-        SELECT e
-        FROM Event e
-        JOIN FETCH e.host h
-        JOIN FETCH e.view v
-        WHERE e.statusGroup <> duit.server.domain.event.entity.EventStatusGroup.PENDING
-        AND e.title LIKE CONCAT('%', :keyword, '%')
-        OR h.name LIKE CONCAT('%', :keyword, '%')
-        """
-    )
-    fun searchEvents(keyword: String): List<Event>
 
     @Query(
         """
@@ -110,7 +95,8 @@ interface EventRepository : JpaRepository<Event, Long>, EventRepositoryCustom {
         """
         SELECT DISTINCT e
         FROM Event e
-        JOIN FETCH e.host
+        LEFT JOIN FETCH e.eventHosts eh
+        LEFT JOIN FETCH eh.host
         JOIN FETCH e.view
         JOIN Bookmark b ON b.event = e
         WHERE b.user.id = :userId
@@ -140,8 +126,9 @@ interface EventRepository : JpaRepository<Event, Long>, EventRepositoryCustom {
     )
     fun countActiveEvents(): Long
 
-    fun existsByHostId(hostId: Long): Boolean
+    @Query("SELECT CASE WHEN COUNT(eh) > 0 THEN true ELSE false END FROM EventHost eh WHERE eh.host.id = :hostId")
+    fun existsByHostId(@Param("hostId") hostId: Long): Boolean
 
-    @Query("SELECT DISTINCT e.host.id FROM Event e WHERE e.host.id IN :hostIds")
+    @Query("SELECT DISTINCT eh.host.id FROM EventHost eh WHERE eh.host.id IN :hostIds")
     fun findHostIdsWithEvents(@Param("hostIds") hostIds: List<Long>): List<Long>
 }

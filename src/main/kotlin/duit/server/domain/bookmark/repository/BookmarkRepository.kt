@@ -11,7 +11,7 @@ import org.springframework.data.jpa.repository.Query
 interface BookmarkRepository : JpaRepository<Bookmark, Long> {
     fun findByEventIdAndUserId(eventId: Long, userId: Long): Bookmark?
 
-    @EntityGraph(attributePaths = ["event", "event.host"])
+    @EntityGraph(attributePaths = ["event"])
     fun findByUserId(userId: Long, pageable: Pageable): Page<Bookmark>
 
     @Query(

@@ -68,7 +68,8 @@ object TestFixtures {
         status: EventStatus = EventStatus.PENDING,
         statusGroup: EventStatusGroup = EventStatusGroup.PENDING,
         eventType: EventType = EventType.CONFERENCE,
-        host: Host,
+        host: Host? = null,
+        hosts: List<Host> = listOfNotNull(host),
     ): Event = Event(
         title = title,
         startAt = startAt,
@@ -80,7 +81,7 @@ object TestFixtures {
         status = status,
         statusGroup = statusGroup,
         eventType = eventType,
-        host = host,
+        hosts = hosts,
     )
 
     fun bookmark(

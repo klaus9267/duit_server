@@ -177,7 +177,7 @@ class AlarmService(
                 mapOf(
                     "type" to "event_start",
                     "eventId" to event.id.toString(),
-                    "hostName" to event.host.name
+                    "hostName" to event.hosts.first().name
                 )
             )
 
@@ -187,7 +187,7 @@ class AlarmService(
                 mapOf(
                     "type" to "recruitment_start",
                     "eventId" to event.id.toString(),
-                    "hostName" to event.host.name
+                    "hostName" to event.hosts.first().name
                 )
             )
 
@@ -197,7 +197,7 @@ class AlarmService(
                 mapOf(
                     "type" to "recruitment_end",
                     "eventId" to event.id.toString(),
-                    "hostName" to event.host.name
+                    "hostName" to event.hosts.first().name
                 )
             )
 

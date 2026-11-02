@@ -300,6 +300,21 @@ class HostControllerIntegrationTest : IntegrationTestSupport() {
             }
 
             @Test
+            @DisplayName("두 번째 주최로만 연결된 행사가 있어도 409를 반환한다")
+            fun conflictWhenLinkedAsSecondaryHost() {
+                entityManager.persist(TestFixtures.event(hosts = listOf(host1, host2)))
+                entityManager.flush()
+                entityManager.clear()
+
+                mockMvc.perform(
+                    delete("/api/v1/hosts/{hostId}", host2.id!!)
+                        .header("Authorization", authHeader(user.id!!))
+                )
+                    .andDo(print())
+                    .andExpect(status().isConflict)
+            }
+
+            @Test
             @DisplayName("인증 없이 접근하면 401을 반환한다")
             fun unauthorized() {
                 mockMvc.perform(delete("/api/v1/hosts/{hostId}", host1.id!!))

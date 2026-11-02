@@ -81,7 +81,7 @@ class SubscriptionNotificationService(
             )
             SubscriptionType.EVENT_HOST -> Triple(
                 "구독한 주최의 새 행사 🔔",
-                "${event.host.name}에서 새 행사를 등록했어요: ${event.title}",
+                "${subscription.host?.name ?: "구독 주최"}에서 새 행사를 등록했어요: ${event.title}",
                 baseData + ("type" to "event_subscription_host"),
             )
             SubscriptionType.EVENT_TYPE -> Triple(

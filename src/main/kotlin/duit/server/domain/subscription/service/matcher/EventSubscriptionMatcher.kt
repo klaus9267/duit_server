@@ -8,7 +8,8 @@ import org.springframework.stereotype.Component
 
 /**
  * 행사 등록/승인 시 매칭되는 구독을 찾는다.
- * EVENT_KEYWORD (제목 부분일치), EVENT_HOST, EVENT_TYPE 3종 합집합.
+ * EVENT_KEYWORD (제목 부분일치), EVENT_HOST (행사의 주최 중 하나라도 일치), EVENT_TYPE 3종 합집합.
+ * 같은 행사의 여러 주최를 구독한 사용자는 매칭이 여러 건이지만 알람은 (user, event, type) 기준으로 1건만 생성된다.
  */
 @Component
 class EventSubscriptionMatcher(
@@ -20,9 +21,10 @@ class EventSubscriptionMatcher(
             .findAllByType(SubscriptionType.EVENT_KEYWORD)
             .filter { event.title.contains(it.keyword!!, ignoreCase = true) }
 
-        val hostMatches = event.host.id?.let { hostId ->
-            subscriptionRepository.findAllByTypeAndHostId(SubscriptionType.EVENT_HOST, hostId)
-        } ?: emptyList()
+        val hostMatches = event.hosts.mapNotNull { it.id }
+            .takeIf { it.isNotEmpty() }
+            ?.let { hostIds -> subscriptionRepository.findAllByTypeAndHostIdIn(SubscriptionType.EVENT_HOST, hostIds) }
+            .orEmpty()
 
         val typeMatches = subscriptionRepository
             .findAllByTypeAndEventType(SubscriptionType.EVENT_TYPE, event.eventType)
