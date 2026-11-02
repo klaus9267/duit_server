@@ -185,6 +185,7 @@ data class EventResponseV2(
 - [ ] `companion object { fun from(entity): Response }` 팩토리 패턴
 - [ ] 엔티티를 직접 반환하지 않을 것
 - [ ] 중첩 엔티티도 Response DTO로 변환 (예: `event.hosts.map(HostResponse::from)`)
+- [ ] `EventResponseV2` 구조를 바꾸면 `CacheConfig.CACHE_SCHEMA_VERSION` 을 올린다 — blue-green 전환 중 구/신 서버가 같은 Redis 캐시를 역직렬화하지 않도록
 
 ### 행사 주최 입력/응답 (다중 주최)
 - 요청: `hosts: [{ hostId }, { hostName, thumbnailIndex? }]` (1~20개, 순서 유지). 신규 주최 로고는 multipart `hostThumbnails` 파트 목록에서 `thumbnailIndex` 로 매핑, 주최가 **새로 생성될 때만** 업로드

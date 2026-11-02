@@ -20,7 +20,7 @@ data class EventResponseV2(
     val eventType: EventType,
     val eventStatus: EventStatus,
     val eventStatusGroup: EventStatusGroup,
-    // TODO(event-hosts): 구 클라이언트 호환용 (= hosts 의 첫 번째). 모든 클라이언트가 hosts 로 전환되면 제거
+    // TODO(P-15): 구 클라이언트 호환용 (= hosts 의 첫 번째). 모든 클라이언트가 hosts 로 전환되면 제거
     @field:Schema(description = "[Deprecated: hosts 사용] 첫 번째 주최", deprecated = true)
     val host: HostResponse,
     @field:Schema(description = "주최 목록 (등록 순서)")

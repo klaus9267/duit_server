@@ -40,7 +40,7 @@ data class EventUpdateRequest(
     @field:Schema(description = "주최 목록 (순서 유지, 첫 번째 주최가 응답의 host 로 사용됨). 기존 목록을 통째로 교체. hostId/hostName 과 함께 사용 불가")
     override val hosts: List<EventHostRequest>? = null,
 
-    // TODO(event-hosts): 모든 클라이언트가 hosts 로 전환되면 hostId/hostName/deleteHostThumbnail 제거
+    // TODO(P-15): 모든 클라이언트가 hosts 로 전환되면 hostId/hostName/deleteHostThumbnail 제거
     @field:Schema(description = "[Deprecated: hosts 사용] 주최 기관 ID (기존 기관 사용 시)", example = "1", deprecated = true)
     override val hostId: Long? = null,
 

@@ -9,7 +9,7 @@
 > 매 작업 후 갱신. 새 세션 시작 시 이 섹션만 읽으면 전체 파악 가능.
 
  **마지막 작업일**: 2026-11-02
- **진행 중인 작업**: 행사 다중 주최(event_hosts) 1단계 PR (feat/event-multi-hosts → dev). 후속: 클라이언트 `hosts` 전환 → V6 로 `events.host_id` 제거 (아래 2026-11-02 체크리스트, 코드에서 `TODO(event-hosts)` 검색)
+ **진행 중인 작업**: 행사 다중 주최(event_hosts) 1단계 PR (feat/event-multi-hosts → dev). 후속은 Linear P-7 하위 이슈: P-13 (V6, #156 운영 배포 후) → P-14 (V7, P-13 운영 배포 후), P-15 (레거시 필드, 클라이언트 전환 후)
  **블로커**: 운영 DB에서 `scripts/sql/deduplicate_user_device_tokens.sql` 실행 후 `scripts/sql/add_user_device_tokens_unique_constraint.sql` 적용 필요 (이전 작업)
  **미수정 CRITICAL**: 1건 (배포된 비밀 노출 사고 후 실제 비밀 rotation / GHCR 정리 필요)
  **미수정 HIGH**: 6건 (CORS, 외부 API 타임아웃/재시도, FCM invalid token 정리, JWT Refresh Token, Discord fire-and-forget)
@@ -38,17 +38,16 @@
 
 ### 결정 사항
 - blue-green 배포라 V5 적용 후에도 구 서버가 같은 DB 를 쓴다 → 이번 릴리스에서 `events.host_id` 를 지우지 않고 새 서버가 첫 번째 주최로 계속 기록
-- 전환 구간에 구 서버가 만든 행사는 event_hosts 행이 없을 수 있음 → `Event.hosts` 가 `host` 로 fallback, 캘린더 쿼리는 LEFT JOIN FETCH. (해당 행은 V6 백필 전까지 `hostId` 필터·주최 삭제 차단 조회에서 누락될 수 있음 — 삭제는 events.host_id FK 가 막음)
+- 전환 구간에 구 서버가 만든 행사는 event_hosts 행이 없을 수 있음 → `Event.hosts` 가 `host` 로 fallback, 캘린더 쿼리는 LEFT JOIN FETCH. (해당 행은 P-13 의 V6 백필 전까지 `hostId` 필터·주최 삭제 차단 조회에서 누락될 수 있음 — 삭제는 events.host_id FK 가 막음)
 - `Event.createdAt` 을 `var` 로 변경 — 생성자 파라미터 `hosts` 때문에 Spring Data auditing 재인스턴스화가 실패 (entities.md 안티패턴 5)
 - 마이그레이션 번호 V5: main 의 `V4__add_job_posting_sort_columns.sql` 이 V4 를 선점 (main 에 머지됨 — push 시 운영 배포 대상)
 - 주최 수 상한 20 (`MAX_EVENT_HOSTS`) — 비로그인 행사 등록 API 남용 방지용 임의 상한
 
-### 후속 작업 체크리스트 (`TODO(event-hosts)`)
-- [ ] 클라이언트 전환: duit-admin, duty-it-web, duty-it(Flutter), duit-surfer 가 요청은 `hosts`, 응답은 `hosts` 사용
-- [ ] V6 마이그레이션 (구 서버가 모두 내려간 뒤): ① event_hosts 누락분 백필 ② `SHOW CREATE TABLE events` 로 host_id FK 이름 확인 후 DROP FOREIGN KEY (로컬 Hibernate 재현 시 `FKdqkiykj89a9gdfh6cepo057o6` — 운영값 반드시 확인) ③ `events.host_id` DROP
-- [ ] V6 와 함께: `Event.host` 필드·`hosts` fallback 제거, `DummyDataGenerator` 의 host_id CSV 제거
-- [ ] 클라이언트 전환 후: 요청 `hostId/hostName/hostThumbnail/deleteHostThumbnail`, 응답 `host` 제거
-- [ ] 다음 EventResponseV2 구조 변경 시 `CACHE_SCHEMA_VERSION` 올리기
+### 후속 작업 (Linear P-7 하위 이슈, 코드에서 `TODO(P-13)` / `TODO(P-15)` 검색)
+- P-13: host_id 사용 중단 (V6 백필·FK 제거·NULL 허용 + `Event.host`·fallback 제거). **#156 이 운영에 배포된 뒤에 PR 을 연다** — 같은 배포에 섞이면 전환 중 구 서버가 만든 행사가 주최 없이 남아 500
+- P-14: host_id 컬럼 삭제 (V7). P-13 이 운영에 배포된 뒤. 컬럼 삭제와 매핑 제거를 한 배포에 넣으면 전환 중 구 서버가 `Unknown column` 으로 실패하므로 두 단계로 나눔
+- P-15: 레거시 요청 필드·응답 `host` 제거. 클라이언트 전환 후
+- `CACHE_SCHEMA_VERSION` 규칙은 `api-conventions.md` Response DTO 체크리스트로 이동
 
 ## 2026-09-11 (듀잇 앱인토스 CORS)
 

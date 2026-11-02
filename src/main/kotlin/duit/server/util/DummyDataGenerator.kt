@@ -354,7 +354,7 @@ class DummyDataGenerator(
         jdbcTemplate.execute(sql)
     }
 
-    // TODO(event-hosts): events.host_id 제거(V6) 시 CSV 에서 host_id 를 빼고 event_hosts 를 직접 생성하도록 변경
+    // TODO(P-13): events.host_id 사용 중단 시 CSV 에서 host_id 를 빼고 event_hosts 를 직접 생성하도록 변경
     private fun linkEventHosts() {
         jdbcTemplate.execute(
             """
