@@ -38,6 +38,7 @@
 
 ### 결정 사항
 - blue-green 배포라 V5 적용 후에도 구 서버가 같은 DB 를 쓴다 → 이번 릴리스에서 `events.host_id` 를 지우지 않고 새 서버가 첫 번째 주최로 계속 기록
+- 목록 쿼리(v1 목록·v2 커서/조회수·캘린더)는 `host_id IS NOT NULL` 로 주최 없는 행사를 제외 — 기존 hosts inner join 과 같은 결과. 운영에 host_id NULL 행이 있는지 확인할 수 없어 유지. P-13 에서 event_hosts 존재 조건으로 교체
 - 전환 구간에 구 서버가 만든 행사는 event_hosts 행이 없을 수 있음 → `Event.hosts` 가 `host` 로 fallback, 캘린더 쿼리는 LEFT JOIN FETCH. (해당 행은 P-13 의 V6 백필 전까지 `hostId` 필터·주최 삭제 차단 조회에서 누락될 수 있음 — 삭제는 events.host_id FK 가 막음)
 - `Event.createdAt` 을 `var` 로 변경 — 생성자 파라미터 `hosts` 때문에 Spring Data auditing 재인스턴스화가 실패 (entities.md 안티패턴 5)
 - 마이그레이션 번호 V5: main 의 `V4__add_job_posting_sort_columns.sql` 이 V4 를 선점 (main 에 머지됨 — push 시 운영 배포 대상)

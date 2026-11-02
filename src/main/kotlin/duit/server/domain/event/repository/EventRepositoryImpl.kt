@@ -99,7 +99,8 @@ class EventRepositoryImpl(
                 .on(bookmark.user().id.eq(currentUserId))
         }
 
-        val conditions = mutableListOf<BooleanExpression?>()
+        // TODO(P-13): 주최 없는 행사 제외 (hosts inner join 시절과 동일). host_id 사용 중단 시 event_hosts 존재 조건으로 교체
+        val conditions = mutableListOf<BooleanExpression?>(event.host().isNotNull)
 
         // status 또는 statusGroup 필터
         if (param.status != null) {
@@ -299,7 +300,8 @@ class EventRepositoryImpl(
             FROM views v FORCE INDEX (idx_count_event)
             JOIN events e ON e.id = v.event_id
             $bookmarkJoin
-            WHERE $statusCondition
+            WHERE e.host_id IS NOT NULL
+              AND $statusCondition
               $typesCondition
               $searchCondition
               $hostCondition
