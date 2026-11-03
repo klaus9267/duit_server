@@ -51,7 +51,8 @@ class SecurityConfig(
                         "/swagger-ui/**",
                         "/v3/api-docs/**",
                         "/swagger-resources/**",
-                        "/actuator/**",
+                        "/actuator/health/**",
+                        "/actuator/prometheus",
                         "/api/v1/users/check-nickname",
                         "/api/v1/webhooks/**",
                         "/api/v1/dummy/**",
@@ -59,7 +60,6 @@ class SecurityConfig(
                         "/api/v1/events/migrate-status",
                         "/api/v1/scheduler/**",
                         "/api/v1/views/**",
-                        "/actuator/**",
                         "/uploads/**",
                     ).permitAll()
                     .requestMatchers(
