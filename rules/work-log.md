@@ -8,7 +8,7 @@
 
 > 매 작업 후 갱신. 새 세션 시작 시 이 섹션만 읽으면 전체 파악 가능.
 
- **마지막 작업일**: 2026-11-02
+ **마지막 작업일**: 2026-11-04
  **진행 중인 작업**: 행사 다중 주최(event_hosts) 1단계 PR (feat/event-multi-hosts → dev). 후속은 Linear P-7 하위 이슈: P-13 (V6, #156 운영 배포 후) → P-14 (V7, P-13 운영 배포 후), P-15 (레거시 필드, 클라이언트 전환 후)
  **블로커**: 운영 DB에서 `scripts/sql/deduplicate_user_device_tokens.sql` 실행 후 `scripts/sql/add_user_device_tokens_unique_constraint.sql` 적용 필요 (이전 작업)
  **미수정 CRITICAL**: 1건 (배포된 비밀 노출 사고 후 실제 비밀 rotation / GHCR 정리 필요)
@@ -16,6 +16,31 @@
  **브랜치**: feat/event-multi-hosts
  **신규 의존성**: 없음 (Flyway는 기존 build.gradle 활성화)
  **신규 env**: `application*.yml` 의 `ddl-auto: validate` + `flyway enabled`
+
+## 2026-11-04 (Actuator 노출 범위 축소)
+
+**분류**: infra | config | test | docs
+
+### 작업 내용
+- `management.endpoints.web.exposure.include` 를 `"*"` 에서 `health,prometheus` 로 변경
+- `SecurityConfig` 의 permitAll 을 `/actuator/**` 전체에서 `/actuator/health/**`, `/actuator/prometheus` 두 경로로 축소 (중복 선언 제거)
+- `ActuatorExposureTest` 추가: 메인 `application.yml` 의 노출 값, health·prometheus 의 비인증 접근, 그 밖의 엔드포인트가 비인증 401 / 로그인 사용자 404 인지 검증
+
+### 기술적 결정
+- 코드베이스에서 쓰는 Actuator 경로는 `/actuator/health`(`scripts/deploy.sh`, `docker/docker-compose.yml` 헬스체크)와 `/actuator/prometheus`(`docker/monitoring/prometheus.yml`)뿐이라 두 개만 남김. `info`·`metrics` 등 나머지는 사용처가 없다
+- 관리 포트 분리(`management.server.port`)는 하지 않음: 배포 스크립트·compose 헬스체크·Prometheus 대상이 모두 8080 을 쓰고, 배포 흐름은 로컬에서 검증할 수 없다
+- 테스트 리소스의 `application.yml` 이 메인 `application.yml` 을 가려서 테스트는 메인의 `management` 설정을 읽지 않는다. `ActuatorExposureTest` 는 메인 파일을 직접 읽어 `DynamicPropertySource` 로 컨텍스트에 적용한다. 메트릭 내보내기는 `@SpringBootTest` 에서 기본 비활성이라 `@AutoConfigureObservability` 를 붙인다
+- 변경 전 설정으로 되돌리면 3건(노출 값, 비인증 접근, 로그인 사용자 노출)이 실패하는 것을 확인
+
+### 영향 범위
+- 배포 헬스체크·compose 헬스체크·Prometheus 수집 경로는 그대로 동작한다. `/actuator` 아래의 나머지 경로는 웹에서 404(비인증은 401)
+- 파일: `application.yml`, `SecurityConfig.kt`, `ActuatorExposureTest.kt`, `rules/api-conventions.md`
+
+### 발견한 제약 조건
+- 앞단 nginx 설정(`/etc/nginx/nginx.conf`)은 저장소 밖이라 `/actuator` 경로를 어떻게 프록시하는지 확인할 수 없다
+- Prometheus 가 인증 없이 수집하므로 `/actuator/prometheus` 는 앱에서 열려 있다. 수집이 docker 네트워크 안에서만 이뤄지므로 외부 프록시에서는 막아도 된다
+
+---
 
 ## 2026-11-02 (행사 다중 주최 1단계: event_hosts 도입)
 

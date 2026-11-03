@@ -40,7 +40,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: "*"
+        include: health,prometheus  # 배포 헬스체크(health)와 Prometheus 수집(prometheus)에 쓰는 엔드포인트만 노출
   endpoint:
     health:
       show-details: never
