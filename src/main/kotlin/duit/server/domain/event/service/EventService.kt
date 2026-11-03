@@ -1,7 +1,7 @@
 package duit.server.domain.event.service
 
 import duit.server.application.security.SecurityUtil
-import duit.server.domain.common.dto.pagination.CursorPageInfo
+import duit.server.domain.bookmark.service.BookmarkedEventIdsCache
 import duit.server.domain.common.dto.pagination.CursorPageResponse
 import duit.server.domain.common.dto.pagination.PageInfo
 import duit.server.domain.common.dto.pagination.PageResponse
@@ -9,8 +9,6 @@ import duit.server.domain.common.dto.pagination.PaginationField
 import duit.server.domain.common.extensions.findByIdOrThrow
 import duit.server.domain.event.dto.Event4CalendarRequest
 import duit.server.domain.event.dto.EventCreateRequest
-import duit.server.domain.common.dto.pagination.EventCursor
-import duit.server.domain.common.dto.pagination.encode
 import duit.server.domain.event.dto.EventCursorPaginationParam
 import duit.server.domain.event.dto.EventPaginationParam
 import duit.server.domain.event.dto.EventResponse
@@ -25,6 +23,7 @@ import duit.server.infrastructure.external.discord.DiscordService
 import duit.server.infrastructure.external.file.FileStorageService
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.multipart.MultipartFile
 import java.time.LocalDateTime
@@ -40,6 +39,7 @@ class EventService(
     private val eventQueryService: EventQueryService,
     private val eventCacheEvictService: EventCacheEvictService,
     private val subscriptionNotificationService: SubscriptionNotificationService,
+    private val bookmarkedEventIdsCache: BookmarkedEventIdsCache,
 ) {
     @Transactional
     fun createEvent(
@@ -99,8 +99,7 @@ class EventService(
 
         // 인증된 사용자의 경우 북마크 정보 포함
         val eventResponses = if (currentUserId != null) {
-            val eventIds = events.content.map { it.id!! }
-            val bookmarkedEventIds = eventRepository.findBookmarkedEventIds(currentUserId, eventIds).toSet()
+            val bookmarkedEventIds = bookmarkedEventIdsCache.get(currentUserId)
 
             events.content.map { event ->
                 EventResponse.from(event, bookmarkedEventIds.contains(event.id))
@@ -115,61 +114,33 @@ class EventService(
         )
     }
 
+    /**
+     * 이 메서드는 트랜잭션을 열지 않는다(SUPPORTS): DB 조회는 EventQueryService 의 짧은 트랜잭션에서 끝내고, 캐시(Redis) 조회·저장과
+     * 북마크 덧입히기는 커넥션을 반납한 뒤에 한다. Redis 가 멈추면 명령마다 타임아웃까지 기다리는데, 그동안 커넥션을 쥐고 있으면
+     * 풀(10)이 고갈돼 Redis 를 안 쓰는 API 까지 멈춘다 (performance D-027).
+     * NOT_SUPPORTED 가 아닌 이유: 호출자에 트랜잭션이 있으면(테스트) 끊지 않고 합류해야 그 트랜잭션의 데이터가 보인다.
+     */
+    @Transactional(propagation = Propagation.SUPPORTS)
     fun getEvents(param: EventCursorPaginationParam): CursorPageResponse<EventResponseV2> {
         val currentUserId = securityUtil.getCurrentUserIdOrNull()
 
-        return if (isCacheable(param)) {
-            // Spring @Cacheable 경유: EventQueryService.findEvents → 북마크 오버레이
-            overlayBookmarks(eventQueryService.findEvents(param), currentUserId)
+        val page = if (isCacheable(param)) {
+            eventQueryService.findEvents(param) // Spring @Cacheable 경유
         } else {
-            // 캐싱 불가 → DB 직접 조회
-            getEventsFromDb(param, currentUserId)
+            eventQueryService.findEventsUncached(param, currentUserId)
         }
+        return overlayBookmarks(page, currentUserId)
     }
 
+    // 주최 필터(hostId)도 캐시한다 — 행사 상세의 "이 주최 다른 행사"로 트래픽의 ~10% (performance D-026)
     private fun isCacheable(param: EventCursorPaginationParam): Boolean =
         !param.bookmarked
             && param.searchKeyword == null
-            && param.hostId == null
             && param.field != PaginationField.VIEW_COUNT
 
-    private fun getEventsFromDb(
-        param: EventCursorPaginationParam,
-        currentUserId: Long?
-    ): CursorPageResponse<EventResponseV2> {
-        param.cursor?.let { EventCursor.decode(it, param.field) }
-
-        val events = eventRepository.findEvents(param, currentUserId)
-
-        val hasNext = events.size > param.size
-        val actualEvents = if (hasNext) events.dropLast(1) else events
-
-        val nextCursor = if (hasNext && actualEvents.isNotEmpty()) {
-            EventCursor.fromEvent(actualEvents.last(), param.field).encode()
-        } else null
-
-        val eventResponses = if (currentUserId != null && actualEvents.isNotEmpty()) {
-            val eventIds = actualEvents.map { it.id!! }
-            val bookmarkedEventIds = eventRepository.findBookmarkedEventIds(currentUserId, eventIds).toSet()
-            actualEvents.map { event ->
-                EventResponseV2.from(event, event.id in bookmarkedEventIds)
-            }
-        } else {
-            actualEvents.map { EventResponseV2.from(it) }
-        }
-
-        return CursorPageResponse(
-            content = eventResponses,
-            pageInfo = CursorPageInfo(
-                hasNext = hasNext,
-                nextCursor = nextCursor,
-                pageSize = actualEvents.size
-            )
-        )
-    }
-
     /**
-     * 캐시된 응답에 현재 사용자의 북마크 정보를 오버레이
+     * 목록 응답에 현재 사용자의 북마크 정보를 오버레이.
+     * 북마크 ID 도 캐시에서 읽으므로 로그인 사용자의 캐시 히트도 DB 커넥션을 잡지 않는다 (performance D-020)
      */
     private fun overlayBookmarks(
         cached: CursorPageResponse<EventResponseV2>,
@@ -177,8 +148,7 @@ class EventService(
     ): CursorPageResponse<EventResponseV2> {
         if (currentUserId == null || cached.content.isEmpty()) return cached
 
-        val eventIds = cached.content.map { it.id }
-        val bookmarkedEventIds = eventRepository.findBookmarkedEventIds(currentUserId, eventIds).toSet()
+        val bookmarkedEventIds = bookmarkedEventIdsCache.get(currentUserId)
 
         return CursorPageResponse(
             content = cached.content.map { it.copy(isBookmarked = it.id in bookmarkedEventIds) },
@@ -186,17 +156,13 @@ class EventService(
         )
     }
 
+    /** 목록과 같은 이유로 트랜잭션을 열지 않는다: 행사를 읽고 커넥션을 반납한 뒤 북마크 ID 캐시를 본다 (performance D-027) */
+    @Transactional(propagation = Propagation.SUPPORTS)
     fun getEventDetail(eventId: Long): EventResponseV2 {
-        val event = getEvent(eventId)
-        val currentUserId = securityUtil.getCurrentUserIdOrNull()
+        val detail = eventQueryService.findEventDetail(eventId)
+        val currentUserId = securityUtil.getCurrentUserIdOrNull() ?: return detail
 
-        val isBookmarked = if (currentUserId != null) {
-            eventRepository.findBookmarkedEventIds(currentUserId, listOf(event.id!!)).isNotEmpty()
-        } else {
-            false
-        }
-
-        return EventResponseV2.from(event, isBookmarked)
+        return detail.copy(isBookmarked = detail.id in bookmarkedEventIdsCache.get(currentUserId))
     }
 
     fun countActiveEvents(): Long = eventRepository.countActiveEvents()

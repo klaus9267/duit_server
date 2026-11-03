@@ -8,6 +8,7 @@ import org.springframework.http.HttpMethod
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
 import org.springframework.security.config.http.SessionCreationPolicy
+import org.springframework.security.config.observation.SecurityObservationSettings
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.security.web.SecurityFilterChain
@@ -27,6 +28,13 @@ class SecurityConfig(
     fun passwordEncoder(): PasswordEncoder {
         return BCryptPasswordEncoder()
     }
+
+    /**
+     * Spring Security 의 필터·인증·인가 관측을 끈다. 켜 두면 보안 필터마다 Observation 을 만들어 요청 스레드 CPU 의 ~7% 를 쓴다.
+     * 이 메트릭(spring_security_*)을 쓰는 대시보드는 없고, HTTP 요청 메트릭(http_server_requests)은 그대로 남는다 (performance D-019)
+     */
+    @Bean
+    fun securityObservationSettings(): SecurityObservationSettings = SecurityObservationSettings.noObservations()
 
     @Bean
     fun securityFilterChain(http: HttpSecurity): SecurityFilterChain {

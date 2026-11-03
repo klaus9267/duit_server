@@ -23,6 +23,11 @@ class JwtTokenProvider(
     private val key: SecretKey by lazy {
         Keys.hmacShaKeyFor(secretKey.toByteArray(StandardCharsets.UTF_8))
     }
+
+    // JwtParser 는 불변·스레드 안전이라 요청마다 새로 만들지 않는다
+    private val parser: JwtParser by lazy {
+        Jwts.parser().verifyWith(key).build()
+    }
     
     /**
      * JWT AccessToken 생성
@@ -41,46 +46,25 @@ class JwtTokenProvider(
     }
     
     /**
-     * JWT 토큰에서 userId 추출
+     * 서명·만료를 검증하고 userId 를 주체로 하는 인증 객체를 만든다. 유효하지 않으면 null.
+     * 검증과 userId 추출을 한 번의 파싱으로 한다 — 둘을 따로 하면 요청마다 서명 검증을 두 번 한다 (performance H-17)
      */
-    fun getUserId(token: String): Long {
-        return getClaims(token)
-            .get("userId", Integer::class.java)
-            .toLong()
-    }
-    
-    /**
-     * JWT 토큰에서 Authentication 객체 생성
-     */
-    fun getAuthentication(token: String): Authentication {
-        val userId = getUserId(token)
-        val authorities = listOf(SimpleGrantedAuthority("ROLE_USER"))
-        
-        return UsernamePasswordAuthenticationToken(userId, null, authorities)
-    }
-    
-    /**
-     * JWT 토큰 유효성 검증
-     */
-    fun validateToken(token: String): Boolean {
-        return try {
+    fun getAuthenticationOrNull(token: String): Authentication? {
+        val claims = try {
             getClaims(token)
-            true
         } catch (e: JwtException) {
-            false
+            return null
         } catch (e: IllegalArgumentException) {
-            false
+            return null
         }
+        val userId = claims.get("userId", Integer::class.java).toLong()
+        return UsernamePasswordAuthenticationToken(userId, null, listOf(SimpleGrantedAuthority("ROLE_USER")))
     }
-    
+
     /**
      * JWT 토큰에서 Claims 추출
      */
     private fun getClaims(token: String): Claims {
-        return Jwts.parser()
-            .verifyWith(key)
-            .build()
-            .parseSignedClaims(token)
-            .payload
+        return parser.parseSignedClaims(token).payload
     }
 }

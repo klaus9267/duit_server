@@ -10,6 +10,7 @@ import duit.server.domain.job.dto.JobPostingResponse
 import duit.server.domain.job.dto.encode
 import duit.server.domain.job.repository.JobBookmarkRepository
 import duit.server.domain.job.repository.JobPostingRepository
+import jakarta.persistence.EntityNotFoundException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -62,7 +63,8 @@ class JobPostingService(
     }
 
     fun getJobPostingDetail(jobPostingId: Long): JobPostingResponse {
-        val jobPosting = jobPostingRepository.findByIdOrThrow(jobPostingId)
+        val jobPosting = jobPostingRepository.findWithCompanyAndAttachListById(jobPostingId)
+            ?: throw EntityNotFoundException("JobPosting을(를) 찾을 수 없습니다: $jobPostingId")
         val currentUserId = securityUtil.getCurrentUserIdOrNull()
 
         val isBookmarked = currentUserId?.let {

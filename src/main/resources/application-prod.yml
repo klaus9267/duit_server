@@ -2,7 +2,9 @@
 spring:
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://${DB_HOST}:${DB_PORT}/${DB_NAME}?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&useSSL=false&allowPublicKeyRetrieval=true
+    # 준비문 캐시: 없으면 Connector/J 가 SQL 마다 문자열을 다시 파싱한다(요청 스레드 CPU 9.3%). 로컬과 같은 값 — DataSourceUrlParityTest
+    # prepStmtCacheSqlLimit 2048: Hibernate SQL 은 길어서(채용 본문 조회 컬럼 40여 개) 기본값 256자로는 캐시되지 않는다. 근거: performance/decisions.md D-019
+    url: jdbc:mysql://${DB_HOST}:${DB_PORT}/${DB_NAME}?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&useSSL=false&allowPublicKeyRetrieval=true&cachePrepStmts=true&prepStmtCacheSize=500&prepStmtCacheSqlLimit=2048
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
 

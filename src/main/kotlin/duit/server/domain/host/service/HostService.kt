@@ -4,6 +4,7 @@ import duit.server.domain.common.dto.pagination.PageInfo
 import duit.server.domain.common.dto.pagination.PageResponse
 import duit.server.domain.common.extensions.findByIdOrThrow
 import duit.server.domain.event.repository.EventRepository
+import duit.server.domain.event.service.EventCacheEvictService
 import duit.server.domain.host.dto.HostPaginationParam
 import duit.server.domain.host.dto.HostResponse
 import duit.server.domain.host.dto.HostUpdateRequest
@@ -11,6 +12,8 @@ import duit.server.domain.host.entity.Host
 import duit.server.domain.host.repository.HostRepository
 import duit.server.infrastructure.external.file.FileStorageService
 import jakarta.persistence.EntityExistsException
+import org.springframework.cache.annotation.CacheEvict
+import org.springframework.cache.annotation.Cacheable
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.multipart.MultipartFile
@@ -20,12 +23,14 @@ import org.springframework.web.multipart.MultipartFile
 class HostService(
     private val hostRepository: HostRepository,
     private val eventRepository: EventRepository,
-    private val fileStorageService: FileStorageService
+    private val fileStorageService: FileStorageService,
+    private val eventCacheEvictService: EventCacheEvictService,
 ) {
 
     fun getHost(hostId: Long): Host = hostRepository.findByIdOrThrow(hostId)
 
     @Transactional
+    @CacheEvict(cacheNames = [HOSTS_CACHE], allEntries = true)
     fun createHost(name: String, thumbnail: MultipartFile?): HostResponse {
         if (hostRepository.findByName(name) != null) {
             throw EntityExistsException("이미 존재하는 호스트입니다 $name")
@@ -43,10 +48,13 @@ class HostService(
 
     /** 같은 이름의 주최가 없을 때만 [thumbnailUrl] 을 호출해 생성 — 기존 주최 재사용 시 로고 업로드가 일어나지 않는다 */
     @Transactional
+    @CacheEvict(cacheNames = [HOSTS_CACHE], allEntries = true)
     fun findOrCreateHost(name: String, thumbnailUrl: () -> String? = { null }): Host =
         hostRepository.findByName(name)
             ?: hostRepository.save(Host(name = name, thumbnail = thumbnailUrl()))
 
+    /** 주최기관 전체 목록 (앱이 page 0~3 × size 100 을 매번 통째로 받는다). 주최기관이 바뀌면 비운다 — performance D-026 */
+    @Cacheable(cacheNames = [HOSTS_CACHE], key = "#param.cacheKey()")
     fun getHosts(param: HostPaginationParam): PageResponse<HostResponse> {
         val hostPage = hostRepository.findAll(param.toPageable())
             .map { HostResponse.from(it) }
@@ -58,6 +66,7 @@ class HostService(
     }
 
     @Transactional
+    @CacheEvict(cacheNames = [HOSTS_CACHE], allEntries = true)
     fun updateHost(
         hostId: Long,
         request: HostUpdateRequest,
@@ -77,11 +86,13 @@ class HostService(
 
         host.name = request.name
         host.thumbnail = thumbnailUrl
+        eventCacheEvictService.evictAll() // 행사 목록 캐시 값에 주최 이름·썸네일이 들어 있다
 
         HostResponse.from(hostRepository.save(host))
     }
 
     @Transactional
+    @CacheEvict(cacheNames = [HOSTS_CACHE], allEntries = true)
     fun deleteHost(hostId: Long) {
         val host = hostRepository.findByIdOrThrow(hostId)
         check(!eventRepository.existsByHostId(hostId)) {
@@ -92,6 +103,7 @@ class HostService(
     }
 
     @Transactional
+    @CacheEvict(cacheNames = [HOSTS_CACHE], allEntries = true)
     fun deleteHosts(hostIds: List<Long>): Map<String, Any> {
         val hosts = hostRepository.findAllById(hostIds)
         val blockedIds = eventRepository.findHostIdsWithEvents(hostIds).toSet()
@@ -106,5 +118,9 @@ class HostService(
             "deletedCount" to deletable.size,
             "blockedHosts" to blocked.map { mapOf("id" to it.id!!, "name" to it.name) },
         )
+    }
+
+    companion object {
+        const val HOSTS_CACHE = "hosts"
     }
 }

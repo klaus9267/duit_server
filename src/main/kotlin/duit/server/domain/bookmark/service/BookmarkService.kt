@@ -21,7 +21,8 @@ class BookmarkService(
     private val bookmarkRepository: BookmarkRepository,
     private val eventService: EventService,
     private val userService: UserService,
-    private val securityUtil: SecurityUtil
+    private val securityUtil: SecurityUtil,
+    private val bookmarkedEventIdsCache: BookmarkedEventIdsCache,
 ) {
     @Transactional
     fun bookmarkEvent(eventId: Long): BookmarkToggleResponse {
@@ -52,6 +53,7 @@ class BookmarkService(
             true
         }
 
+        bookmarkedEventIdsCache.evictAfterCommit(currentUserId)
         return BookmarkToggleResponse(eventId, isBookmarked)
     }
 

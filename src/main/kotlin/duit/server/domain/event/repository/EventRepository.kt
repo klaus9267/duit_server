@@ -86,17 +86,6 @@ interface EventRepository : JpaRepository<Event, Long>, EventRepositoryCustom {
 
     @Query(
         """
-        SELECT e.id
-        FROM Event e
-        JOIN Bookmark b ON b.event.id = e.id
-        WHERE b.user.id = :userId
-        AND e.id IN :eventIds
-        """
-    )
-    fun findBookmarkedEventIds(userId: Long, eventIds: List<Long>): List<Long>
-
-    @Query(
-        """
         SELECT DISTINCT e
         FROM Event e
         LEFT JOIN FETCH e.eventHosts eh
@@ -117,6 +106,14 @@ interface EventRepository : JpaRepository<Event, Long>, EventRepositoryCustom {
         end: LocalDateTime,
         eventType: EventType?
     ): List<Event>
+
+    /**
+     * 행사 상세: 행사·주최·조회수를 SQL 1개로 (performance D-026).
+     * 주최는 지연 로딩이라 1번, 조회수(@OneToOne mappedBy)는 프록시를 못 만들어 즉시 로딩으로 또 1번 따로 읽었다.
+     * 다중 주최 이후 응답의 주최는 event_hosts 에서 온다 — 주최 연결과 그 주최까지 같이 읽는다(단건이라 컬렉션 fetch join 의 페이징 문제가 없다).
+     */
+    @EntityGraph(attributePaths = ["eventHosts", "eventHosts.host", "view"])
+    fun findWithHostById(id: Long): Event?
 
     @EntityGraph(attributePaths = ["view"])
     fun findAllByIdInAndThumbnailNotNull(ids: List<Long>): List<Event>
