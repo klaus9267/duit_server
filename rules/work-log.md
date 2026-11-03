@@ -53,6 +53,7 @@
 
 ### 발견한 제약 조건
 - 관리자 추가는 `admins` 에 직접 insert 해야 한다 (등록 API 없음). `password` 는 BCrypt 해시여야 함
+- 풀이 `auto-commit=false` 라서(main 의 #158) 테스트에서 `JdbcTemplate` 로 직접 쓰는 정리·DDL 은 트랜잭션 안에서 실행해야 커밋된다. `AdminLegacySchemaTest` 가 `TransactionTemplate` 을 쓰는 이유. dev 에는 #158 이 없어서 dev 단독 테스트에서는 드러나지 않았고, main 대상 PR 의 CI 에서 처음 실패했다
 - `DELETE /api/v1/users`(회원 탈퇴)는 `User.admin` cascade 로 관리자 행도 함께 지운다 — 관리자가 탈퇴하면 관리자가 0명이 될 수 있음. 이번 범위에서는 변경하지 않음
 
 ---
