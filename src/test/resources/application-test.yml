@@ -7,12 +7,20 @@ spring:
     url: jdbc:h2:mem:test;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;MODE=MySQL
     username: sa
     password: ""
+    # 운영(main application.yml)과 같은 풀 설정. 테스트의 application.yml 이 main 의 application.yml 을
+    # 클래스패스에서 가리므로 커넥션 동작을 좌우하는 값은 여기에 복제한다 (TestConfigParityTest 가 일치 검사)
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 10
+      connection-timeout: 3000
+      auto-commit: false  # 운영과 동일 (A-1, D-016)
 
   h2:
     console:
       enabled: false  # 테스트에서는 H2 콘솔 비활성화
 
   jpa:
+    open-in-view: false  # 운영과 동일. main 설정이 가려져 있던 동안 테스트만 OSIV 가 켜진 채로 돌았다
     hibernate:
       ddl-auto: create-drop  # 테스트마다 스키마 재생성
     properties:
@@ -21,7 +29,13 @@ spring:
         show_sql: false  # 테스트 로그 깔끔하게
         format_sql: false
         use_sql_comments: false
+        connection:
+          handling_mode: DELAYED_ACQUISITION_AND_RELEASE_AFTER_TRANSACTION  # 운영과 동일 (A-1, D-016)
     show-sql: false
+
+  jackson:
+    serialization:
+      indent-output: false  # 운영과 동일 (D-019)
 
   # Flyway 비활성화 — 테스트는 H2 + JPA 자동 스키마 사용
   flyway:

@@ -30,7 +30,7 @@ class HostServiceUnitTest {
         hostRepository = mockk()
         eventRepository = mockk()
         fileStorageService = mockk(relaxed = true)
-        hostService = HostService(hostRepository, eventRepository, fileStorageService)
+        hostService = HostService(hostRepository, eventRepository, fileStorageService, mockk(relaxed = true))
     }
 
     @Nested
