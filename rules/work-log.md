@@ -9,13 +9,53 @@
 > 매 작업 후 갱신. 새 세션 시작 시 이 섹션만 읽으면 전체 파악 가능.
 
  **마지막 작업일**: 2026-11-04
- **진행 중인 작업**: 행사 다중 주최(event_hosts) 1단계 PR (feat/event-multi-hosts → dev). 후속은 Linear P-7 하위 이슈: P-13 (V6, #156 운영 배포 후) → P-14 (V7, P-13 운영 배포 후), P-15 (레거시 필드, 클라이언트 전환 후)
+ **진행 중인 작업**: 관리자 계정 관리 PR (feat/admin-member-management → dev). Actuator 노출 범위 축소는 #160 으로 dev 병합 완료. 앞선 작업은 행사 다중 주최(event_hosts) 1단계(#156, dev 병합 완료). 후속은 Linear P-7 하위 이슈: P-13 (V6, #156 운영 배포 후) → P-14 (V7, P-13 운영 배포 후), P-15 (레거시 필드, 클라이언트 전환 후)
  **블로커**: 운영 DB에서 `scripts/sql/deduplicate_user_device_tokens.sql` 실행 후 `scripts/sql/add_user_device_tokens_unique_constraint.sql` 적용 필요 (이전 작업)
  **미수정 CRITICAL**: 1건 (배포된 비밀 노출 사고 후 실제 비밀 rotation / GHCR 정리 필요)
  **미수정 HIGH**: 6건 (CORS, 외부 API 타임아웃/재시도, FCM invalid token 정리, JWT Refresh Token, Discord fire-and-forget)
- **브랜치**: feat/event-multi-hosts
+ **브랜치**: feat/admin-member-management
  **신규 의존성**: 없음 (Flyway는 기존 build.gradle 활성화)
  **신규 env**: `application*.yml` 의 `ddl-auto: validate` + `flyway enabled`
+
+## 2026-11-04 (관리자 계정 관리: 목록 조회·해제, 등록 API 삭제)
+
+**분류**: feature | api | test | docs
+
+### 작업 내용
+- `GET /api/v1/admins` 관리자 목록 조회 추가. `AdminController` + `AdminService`(목록·해제) 신설
+- `DELETE /api/v1/admins/{id}` 관리자 해제 추가. 사용자 계정은 유지하고 그 사용자의 `admins` 행을 모두 삭제. 본인 해제는 400
+- `POST /api/v1/admin/auth/register` 삭제. 관련 서비스 로직, `AdminRegisterRequest`, 쓰지 않게 된 `existsByAdminId`·`AdminResponse.from()` 도 제거. 이제 `AdminAuthController` 는 로그인만 제공한다. 삭제를 고정하는 테스트(`RegisterRemovedTests`: 로그인 사용자 404, 무인증 401) 추가
+- `AdminAuthService` 는 로그인 전용. 같은 `adminId` 행이 둘 이상이면 500 대신 400 으로 거부
+- `AdminRepository.existsByUserId` 를 `@Query` 로 교체 — 파생 쿼리가 `LEFT JOIN users` 를 만들던 것을 `admins.user_id` 단일 조건으로 변경 (모든 `@RequireAdmin` 요청의 가드 쿼리)
+- `AdminEndpointAccessTest` 추가 — `/api/v1/admin*` 핸들러는 로그인 외 전부 `@RequireAdmin` 인지 검증
+
+### 기술적 결정
+- 기존 `GET /api/v1/users` 에 필터를 넣지 않고 새 API 로 분리: 관리자 수는 극소수라 `admins` 에서 시작해 `users` 를 PK 조인하는 쪽이 users 전체를 대상으로 하는 필터보다 항상 작고, 응답(관리자 ID·등록일)도 사용자 응답과 달라 한 DTO 로 합치기 어렵다
+- 목록은 JPQL 생성자 표현식으로 필요한 컬럼만 조회 — 엔티티 하이드레이션·lazy `user` N+1 이 없고 `password` 컬럼을 읽지 않는다. `countQuery` 는 조인 없는 `COUNT(a)`. 첫 페이지가 `size` 보다 적으면 Spring Data 가 count 를 생략한다
+- 목록 정렬은 `id` 고정 (`AdminPaginationParam`). `PaginationParam.field` 를 그대로 받으면 `field=NAME` 같은 값이 `Sort` 로 흘러 엔티티에 없는 속성이라 500 이 난다 (`GET /api/v1/users` 도 같은 구조). 기존 users 쪽은 이번 범위에서 건드리지 않음
+- 상세 API 는 만들지 않음: 목록 응답이 해제에 필요한 식별 정보(관리자 ID, 사용자 ID, 닉네임, 이메일, 등록일)를 모두 포함
+- 해제는 `admins` 전체 행을 `ORDER BY id FOR UPDATE` 로 잠가 직렬화하고, 락을 얻은 뒤 요청자가 아직 관리자인지 재확인한다. 관리자 A·B 가 서로를 동시에 해제하면 락 없이는 둘 다 통과해 관리자가 0명이 된다. 관리자 수가 극소수라 전체 행 잠금 비용이 거의 없고, 모든 변경이 같은 순서로 잠그므로 데드락이 없다. `@Lock` 을 빼면 `AdminRevokeConcurrencyTest` 와 `AdminLegacySchemaTest` 의 동시성 테스트가 모두 실패하는 것을 확인
+- 본인 해제 금지 + 락 후 재검증으로 "요청자는 항상 남는다" 가 보장되어 마지막 관리자는 해제되지 않는다 (사용자 기준 비교라 본인 행이 중복돼도 같다)
+- 운영 `admins` 의 unique 제약(`user_id`, `admin_id`)을 확인할 수 없어 제약에 기대지 않게 만들었다. 사용자 식별은 admins PK 가 아니라 `user.id` 로 하고(해제는 그 사용자의 행을 일괄 삭제), 로그인은 `findAllByAdminId().singleOrNull()` 로 중복 행에서 500 대신 거부한다. 제약이 없는 스키마를 `AdminLegacySchemaTest` 가 재현한다
+- Flyway 로 unique 제약을 추가하지 않았다: V6·V7 이 P-13·P-14 에 예약되어 번호가 겹치고, 운영에 중복 행이 있으면 마이그레이션이 실패해 배포가 막힌다
+- 해제가 즉시 반영되는 이유: `AdminAuthorizationInterceptor` 가 요청마다 `admins` 를 조회하므로 이미 발급된 JWT 로도 권한이 바로 사라진다 (JWT 에 권한 정보 없음)
+- 관리자 계정 생성 API 는 제공하지 않기로 했다. 관리자는 몇 명 안 되고 추가가 드물어 운영자가 DB 에서 직접 처리한다
+
+### 영향 범위
+- API: 신규 `GET /api/v1/admins`, `DELETE /api/v1/admins/{id}`. `POST /api/v1/admin/auth/register` 삭제
+- 스키마 변경 없음 (Flyway 마이그레이션 없음)
+- 파일: `domain/admin/{controller,service,dto,repository}`, 테스트 `AdminControllerIntegrationTest`·`AdminServiceUnitTest`·`AdminRevokeConcurrencyTest`·`AdminLegacySchemaTest`·`AdminEndpointAccessTest`, `rules/api-conventions.md`
+
+### 테스트
+- 관리자 관련 단위·통합·동시성 테스트와 구조 가드 테스트 추가/갱신 (임시 JDK 17 사용). 전체 결과는 PR 본문 참조
+- Hibernate SQL 로그(H2)로 쿼리 형태 확인: 목록 `admins JOIN users ... ORDER BY a.id`, 가드 `WHERE a.user_id = ?`, 해제 `ORDER BY id FOR UPDATE` 후 `DELETE ... WHERE user_id = ?` (`users` 조회·N+1 없음). **MySQL EXPLAIN 은 실행하지 않음** (로컬에 MySQL 없음)
+- `AdminLegacySchemaTest`: 별도 H2 DB 에서 unique 제약을 지우고 중복 행(같은 사용자·같은 adminId)을 만든 뒤 목록·해제·로그인과 동시 해제를 검증. 락·`FOR UPDATE` 의 실제 InnoDB 동작(next-key 락)은 H2 로 검증되지 않음
+
+### 발견한 제약 조건
+- 관리자 추가는 `admins` 에 직접 insert 해야 한다 (등록 API 없음). `password` 는 BCrypt 해시여야 함
+- `DELETE /api/v1/users`(회원 탈퇴)는 `User.admin` cascade 로 관리자 행도 함께 지운다 — 관리자가 탈퇴하면 관리자가 0명이 될 수 있음. 이번 범위에서는 변경하지 않음
+
+---
 
 ## 2026-11-04 (Actuator 노출 범위 축소)
 

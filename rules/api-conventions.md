@@ -31,7 +31,8 @@ api/v{version}/{resource}
 | AlarmController | `api/v1/alarms` | v1 | 7 | 전부 |
 | AlarmControllerV2 | `api/v2/alarms` | v2 | 1 | 전부 |
 | SubscriptionController | `api/v1/subscriptions` | v1 | 3 | 전부 |
-| AdminAuthController | `api/v1/admin/auth` | v1 | 2 | register만 |
+| AdminAuthController | `api/v1/admin/auth` | v1 | 1 | login 공개 |
+| AdminController | `api/v1/admins` | v1 | 2 | 관리자 전용 |
 | ViewController | `api/v1/views` | v1 | 1 | 없음 (공개) |
 
 ---
@@ -83,16 +84,30 @@ class EventController(
 @ResponseStatus(HttpStatus.OK)
 fun protectedEndpoint() = ...
 
+// 관리자 전용 엔드포인트 — AdminAuthorizationInterceptor 가 admins 테이블로 요청마다 검증 (해제 즉시 반영)
+@RequireAdmin
+@ResponseStatus(HttpStatus.OK)
+fun adminEndpoint() = ...
+
 // 공개 엔드포인트
 @ResponseStatus(HttpStatus.OK)
 fun publicEndpoint() = ...
 ```
+
+- `/api/v1/admin*` 경로의 핸들러는 로그인(`POST /api/v1/admin/auth/login`)을 제외하고 모두 `@RequireAdmin` 이어야 한다 (`AdminEndpointAccessTest` 가 검증)
 
 ### CORS 정책
 - 허용 origin은 `SecurityConfig.corsConfigurationSource()`에서 명시적으로 관리한다
 - 운영 웹 클라이언트는 `https://dutyit.net`, `https://www.dutyit.net`을 허용한다
 - origin에는 scheme과 host만 사용하며 trailing slash나 path를 포함하지 않는다
 - `allowedOriginPatterns`는 정규식이 아닌 origin pattern 문법이므로 일반 도메인의 점(`.`)을 escape하지 않는다
+
+### 관리자 계정 관리 엔드포인트
+- `GET /api/v1/admins` — 관리자 전용. `page`, `size`(1~100), `sortDirection` 만 받고 정렬은 항상 `id`(등록 순). 응답 `AdminResponse`: `id`, `adminId`, `userId`, `nickname`, `email`, `createdAt` (비밀번호 해시·`providerId` 미포함). 목록만으로 해제 대상을 식별할 수 있어 별도 상세 API는 두지 않는다
+- `DELETE /api/v1/admins/{id}` — 관리자 전용. `id` 는 목록 응답의 `id`. 사용자 계정은 유지하고 그 사용자의 `admins` 행을 모두 삭제한다. 본인 해제 400, 대상 없음 404
+- 해제는 `admins` 전체 행을 id 순서로 `FOR UPDATE` 잠가 직렬화하고, 락을 얻은 뒤 요청자 권한을 재검증한다. 관리자끼리 동시에 해제해도 한 명은 남는다
+- 관리자 계정을 만드는 API 는 제공하지 않는다. 관리자 추가는 `admins` 에 직접 insert 한다 (`password` 는 BCrypt 해시, `user_id` 는 기존 사용자). 신규 DB 의 첫 관리자도 같다
+- 운영 DB 의 `admins` 에 unique 제약(`user_id`, `admin_id`)이 있다고 가정하지 않는다. 해제는 행 id 가 아니라 사용자 기준으로 처리해 중복 행이 있어도 동작하고, 같은 `adminId` 행이 둘 이상이면 로그인은 400 으로 거부한다
 
 ### Actuator 노출 범위
 - 웹으로 노출하는 엔드포인트는 `health`(배포 스크립트·compose 헬스체크)와 `prometheus`(Prometheus 수집)뿐이다. `management.endpoints.web.exposure.include` 에 `*` 를 쓰지 않고, 늘릴 때는 사용처를 함께 적는다
@@ -249,6 +264,9 @@ data class EventCursorPaginationParam(
 - 채용공고 커서는 선택한 정렬값과 `id`를 함께 Base64로 인코딩한다. 다음 페이지 요청에는 첫 페이지와 같은 `field`를 전달해야 한다
 - 기존 `{id}` 전용 커서는 기본 `CREATED_AT` 정렬에서만 호환한다. `EXPIRES_AT`/`SALARY`에 정렬값이 없는 커서를 보내면 `400 BAD_REQUEST`를 반환한다
 - 행사 목록 API의 `searchKeyword`는 행사 제목 또는 주최자명(여러 주최 중 하나라도)에 부분 일치하면 조회한다
+
+- 정렬 필드를 받지 않는 목록은 `PaginationParam` 을 상속해 `field` 를 `PaginationField.ID` 로 고정하고 `@get:Parameter(hidden = true)` 로 Swagger 에서 숨긴다 (`AdminPaginationParam`). 엔티티에 없는 필드(`NAME` 등)가 `Sort` 로 흘러 500 이 나는 것을 막는다
+- 소량 테이블 목록은 드라이빙 테이블에서 시작하는 JPQL 생성자 표현식(`SELECT new ...Response(...)`)으로 필요한 컬럼만 조회한다 (엔티티 로딩·N+1 없음, `countQuery` 는 조인 없이)
 
 ### 정렬 옵션 (PaginationField)
 

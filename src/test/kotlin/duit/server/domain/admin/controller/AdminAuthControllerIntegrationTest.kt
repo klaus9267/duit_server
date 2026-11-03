@@ -4,6 +4,7 @@ import duit.server.domain.admin.entity.Admin
 import duit.server.domain.user.entity.User
 import duit.server.support.IntegrationTestSupport
 import duit.server.support.fixture.TestFixtures
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -23,16 +24,12 @@ class AdminAuthControllerIntegrationTest : IntegrationTestSupport() {
     private lateinit var passwordEncoder: PasswordEncoder
 
     private lateinit var adminUser: User
-    private lateinit var registerUser: User
     private lateinit var admin: Admin
 
     @BeforeEach
     fun setUp() {
         adminUser = TestFixtures.user(nickname = "관리자유저", providerId = "admin-provider")
         entityManager.persist(adminUser)
-
-        registerUser = TestFixtures.user(nickname = "등록용유저", providerId = "register-provider", email = "register@example.com")
-        entityManager.persist(registerUser)
 
         admin = TestFixtures.admin(
             user = adminUser,
@@ -167,103 +164,52 @@ class AdminAuthControllerIntegrationTest : IntegrationTestSupport() {
     }
 
     @Nested
-    @DisplayName("POST /api/v1/admin/auth/register - 관리자 등록")
-    inner class RegisterTests {
+    @DisplayName("POST /api/v1/admin/auth/register - 제공하지 않는 엔드포인트")
+    inner class RegisterRemovedTests {
 
-        @Nested
-        @DisplayName("성공")
-        inner class Success {
+        private fun adminCount(): Long =
+            entityManager.createQuery("SELECT COUNT(a) FROM Admin a", Long::class.javaObjectType).singleResult
 
-            @Test
-            @DisplayName("새로운 관리자 계정을 등록한다")
-            fun registerSuccess() {
-                val requestBody = objectMapper.writeValueAsString(
-                    mapOf("adminId" to "newadmin", "password" to "newpassword1234")
-                )
+        private fun callRegister(callerId: Long?, targetUserId: Long?) =
+            mockMvc.perform(
+                post("/api/v1/admin/auth/register")
+                    .apply { callerId?.let { header("Authorization", authHeader(it)) } }
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        objectMapper.writeValueAsString(
+                            mapOf("userId" to targetUserId, "adminId" to "newadmin", "password" to "newpassword1234")
+                        )
+                    )
+            ).andDo(print())
 
-                mockMvc.perform(
-                    post("/api/v1/admin/auth/register")
-                        .header("Authorization", authHeader(registerUser.id!!))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody)
-                )
-                    .andDo(print())
-                    .andExpect(status().isCreated)
-                    .andExpect(jsonPath("$.adminId").value("newadmin"))
-                    .andExpect(jsonPath("$.userId").value(registerUser.id!!.toInt()))
-            }
+        @Test
+        @DisplayName("로그인한 관리자가 호출해도 404를 반환하고 관리자가 생성되지 않는다")
+        fun notFoundForAdmin() {
+            val target = TestFixtures.user(nickname = "대상유저", providerId = "target-provider").also(entityManager::persist)
+            entityManager.flush()
+            val before = adminCount()
+
+            callRegister(adminUser.id, target.id).andExpect(status().isNotFound)
+
+            assertEquals(before, adminCount())
         }
 
-        @Nested
-        @DisplayName("실패")
-        inner class Failure {
+        @Test
+        @DisplayName("로그인한 일반 사용자가 본인을 대상으로 호출해도 404를 반환하고 관리자가 생성되지 않는다")
+        fun notFoundForNormalUser() {
+            val normal = TestFixtures.user(nickname = "일반유저", providerId = "normal-provider").also(entityManager::persist)
+            entityManager.flush()
+            val before = adminCount()
 
-            @Test
-            @DisplayName("인증 없이 접근하면 401을 반환한다")
-            fun unauthorized() {
-                val requestBody = objectMapper.writeValueAsString(
-                    mapOf("adminId" to "newadmin", "password" to "newpassword1234")
-                )
+            callRegister(normal.id, normal.id).andExpect(status().isNotFound)
 
-                mockMvc.perform(
-                    post("/api/v1/admin/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody)
-                )
-                    .andDo(print())
-                    .andExpect(status().isUnauthorized)
-            }
+            assertEquals(before, adminCount())
+        }
 
-            @Test
-            @DisplayName("이미 존재하는 adminId로 등록하면 에러를 반환한다")
-            fun duplicateAdminId() {
-                val requestBody = objectMapper.writeValueAsString(
-                    mapOf("adminId" to "testadmin", "password" to "newpassword1234")
-                )
-
-                mockMvc.perform(
-                    post("/api/v1/admin/auth/register")
-                        .header("Authorization", authHeader(registerUser.id!!))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody)
-                )
-                    .andDo(print())
-                    .andExpect(status().isBadRequest)
-            }
-
-            @Test
-            @DisplayName("adminId가 4자 미만이면 에러를 반환한다")
-            fun adminIdTooShort() {
-                val requestBody = objectMapper.writeValueAsString(
-                    mapOf("adminId" to "ab", "password" to "newpassword1234")
-                )
-
-                mockMvc.perform(
-                    post("/api/v1/admin/auth/register")
-                        .header("Authorization", authHeader(registerUser.id!!))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody)
-                )
-                    .andDo(print())
-                    .andExpect(status().isBadRequest)
-            }
-
-            @Test
-            @DisplayName("password가 8자 미만이면 에러를 반환한다")
-            fun passwordTooShort() {
-                val requestBody = objectMapper.writeValueAsString(
-                    mapOf("adminId" to "newadmin", "password" to "short")
-                )
-
-                mockMvc.perform(
-                    post("/api/v1/admin/auth/register")
-                        .header("Authorization", authHeader(registerUser.id!!))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody)
-                )
-                    .andDo(print())
-                    .andExpect(status().isBadRequest)
-            }
+        @Test
+        @DisplayName("인증 없이 호출하면 401을 반환한다")
+        fun unauthorized() {
+            callRegister(null, adminUser.id).andExpect(status().isUnauthorized)
         }
     }
 }
