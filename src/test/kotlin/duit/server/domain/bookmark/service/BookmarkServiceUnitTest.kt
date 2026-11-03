@@ -29,6 +29,7 @@ class BookmarkServiceUnitTest {
     private lateinit var eventService: EventService
     private lateinit var userService: UserService
     private lateinit var securityUtil: SecurityUtil
+    private lateinit var bookmarkedEventIdsCache: BookmarkedEventIdsCache
     private lateinit var bookmarkService: BookmarkService
 
     private lateinit var host: Host
@@ -41,7 +42,8 @@ class BookmarkServiceUnitTest {
         eventService = mockk()
         userService = mockk()
         securityUtil = mockk()
-        bookmarkService = BookmarkService(bookmarkRepository, eventService, userService, securityUtil)
+        bookmarkedEventIdsCache = mockk(relaxed = true)
+        bookmarkService = BookmarkService(bookmarkRepository, eventService, userService, securityUtil, bookmarkedEventIdsCache)
 
         host = Host(id = 1L, name = "테스트 주최")
         user = User(id = 1L, nickname = "테스트유저", providerId = "p1")
@@ -71,6 +73,7 @@ class BookmarkServiceUnitTest {
 
             assertTrue(result.isBookmarked)
             assertEquals(10L, result.eventId)
+            verify(exactly = 1) { bookmarkedEventIdsCache.evictAfterCommit(1L) }
         }
 
         @Test
@@ -86,6 +89,7 @@ class BookmarkServiceUnitTest {
             assertFalse(result.isBookmarked)
             assertEquals(10L, result.eventId)
             verify(exactly = 1) { bookmarkRepository.delete(existingBookmark) }
+            verify(exactly = 1) { bookmarkedEventIdsCache.evictAfterCommit(1L) }
         }
 
         @Test

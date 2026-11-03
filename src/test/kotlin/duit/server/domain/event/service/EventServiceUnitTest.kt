@@ -1,6 +1,7 @@
 package duit.server.domain.event.service
 
 import duit.server.application.security.SecurityUtil
+import duit.server.domain.bookmark.service.BookmarkedEventIdsCache
 import duit.server.domain.event.dto.*
 import duit.server.domain.common.dto.pagination.PaginationField
 import duit.server.domain.event.entity.Event
@@ -58,6 +59,8 @@ class EventServiceUnitTest {
         status = status, statusGroup = statusGroup,
     )
 
+    private val bookmarkedEventIdsCache = mockk<BookmarkedEventIdsCache>()
+
     private fun createEventService(
         eventRepository: EventRepository,
         securityUtil: SecurityUtil,
@@ -67,7 +70,7 @@ class EventServiceUnitTest {
         eventQueryService: EventQueryService = mockk(relaxed = true),
         eventCacheEvictService: EventCacheEvictService = mockk(relaxed = true),
         subscriptionNotificationService: SubscriptionNotificationService = mockk(relaxed = true),
-    ) = EventService(eventRepository, securityUtil, discordService, EventHostResolver(hostService, fileStorageService), fileStorageService, eventQueryService, eventCacheEvictService, subscriptionNotificationService)
+    ) = EventService(eventRepository, securityUtil, discordService, EventHostResolver(hostService, fileStorageService), fileStorageService, eventQueryService, eventCacheEvictService, subscriptionNotificationService, bookmarkedEventIdsCache)
 
     @Nested
     @DisplayName("createEvent")
@@ -286,7 +289,11 @@ class EventServiceUnitTest {
             discordService = mockk()
             hostService = mockk()
             fileStorageService = mockk()
-            eventService = createEventService(eventRepository, securityUtil, discordService, hostService, fileStorageService)
+            // 행사 조회의 DB 부분은 EventQueryService 가 맡는다 (D-027) — 실제 객체로 두고 저장소만 목으로 바꿔 함께 검증한다
+            eventService = createEventService(
+                eventRepository, securityUtil, discordService, hostService, fileStorageService,
+                eventQueryService = EventQueryService(eventRepository),
+            )
         }
 
         @Test
@@ -337,7 +344,7 @@ class EventServiceUnitTest {
 
             every { securityUtil.getCurrentUserIdOrNull() } returns 100L
             every { eventRepository.findEvents(param, 100L) } returns events
-            every { eventRepository.findBookmarkedEventIds(100L, listOf(1L, 2L)) } returns listOf(1L)
+            every { bookmarkedEventIdsCache.get(100L) } returns setOf(1L)
 
             val result = eventService.getEvents(param)
 
@@ -360,7 +367,7 @@ class EventServiceUnitTest {
 
             assertEquals(1, result.content.size)
             assertFalse(result.content[0].isBookmarked)
-            verify(exactly = 0) { eventRepository.findBookmarkedEventIds(any(), any()) }
+            verify(exactly = 0) { bookmarkedEventIdsCache.get(any()) }
         }
 
         @Test
@@ -374,7 +381,7 @@ class EventServiceUnitTest {
             val result = eventService.getEvents(param)
 
             assertEquals(0, result.content.size)
-            verify(exactly = 0) { eventRepository.findBookmarkedEventIds(any(), any()) }
+            verify(exactly = 0) { bookmarkedEventIdsCache.get(any()) }
         }
     }
 
@@ -395,7 +402,11 @@ class EventServiceUnitTest {
             discordService = mockk()
             hostService = mockk()
             fileStorageService = mockk()
-            eventService = createEventService(eventRepository, securityUtil, discordService, hostService, fileStorageService)
+            // 행사 조회의 DB 부분은 EventQueryService 가 맡는다 (D-027) — 실제 객체로 두고 저장소만 목으로 바꿔 함께 검증한다
+            eventService = createEventService(
+                eventRepository, securityUtil, discordService, hostService, fileStorageService,
+                eventQueryService = EventQueryService(eventRepository),
+            )
         }
 
         @Test
@@ -404,9 +415,9 @@ class EventServiceUnitTest {
             val host = createHost()
             val event = createEvent(id = 1L, host = host)
 
-            every { eventRepository.findById(1L) } returns Optional.of(event)
+            every { eventRepository.findWithHostById(1L) } returns event
             every { securityUtil.getCurrentUserIdOrNull() } returns 100L
-            every { eventRepository.findBookmarkedEventIds(100L, listOf(1L)) } returns listOf(1L)
+            every { bookmarkedEventIdsCache.get(100L) } returns setOf(1L)
 
             val result = eventService.getEventDetail(1L)
 
@@ -420,13 +431,13 @@ class EventServiceUnitTest {
             val host = createHost()
             val event = createEvent(id = 1L, host = host)
 
-            every { eventRepository.findById(1L) } returns Optional.of(event)
+            every { eventRepository.findWithHostById(1L) } returns event
             every { securityUtil.getCurrentUserIdOrNull() } returns null
 
             val result = eventService.getEventDetail(1L)
 
             assertFalse(result.isBookmarked)
-            verify(exactly = 0) { eventRepository.findBookmarkedEventIds(any(), any()) }
+            verify(exactly = 0) { bookmarkedEventIdsCache.get(any()) }
         }
     }
 

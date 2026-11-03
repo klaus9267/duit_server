@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import java.time.LocalDateTime
+import java.util.concurrent.Executor
 
 @DisplayName("SubscriptionNotificationService 단위 테스트")
 class SubscriptionNotificationServiceUnitTest {
@@ -49,7 +50,8 @@ class SubscriptionNotificationServiceUnitTest {
         every { alarmRepository.save(any()) } answers { firstArg() }
         every { fcmService.sendAlarms(any(), any(), capture(body), any()) } returns Unit
 
-        SubscriptionNotificationService(matcher, mockk(), alarmRepository, fcmService).notifyOnEventApproved(event)
+        SubscriptionNotificationService(matcher, mockk(), alarmRepository, fcmService, Executor { it.run() })
+            .notifyOnEventApproved(event)
 
         assertTrue(body.captured.startsWith("두번째 주최에서"), "body: ${body.captured}")
     }

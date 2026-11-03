@@ -1,5 +1,6 @@
 package duit.server.domain.subscription.service
 
+import duit.server.application.config.PushExecutorConfig
 import duit.server.domain.alarm.entity.Alarm
 import duit.server.domain.alarm.entity.AlarmType
 import duit.server.domain.alarm.repository.AlarmRepository
@@ -12,12 +13,19 @@ import duit.server.domain.subscription.service.matcher.EventSubscriptionMatcher
 import duit.server.domain.subscription.service.matcher.JobSubscriptionMatcher
 import duit.server.domain.user.entity.User
 import duit.server.infrastructure.external.firebase.FCMService
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionSynchronization
+import org.springframework.transaction.support.TransactionSynchronizationManager
+import java.util.concurrent.Executor
 
 /**
  * 구독 매칭 → 알람 생성 → FCM 발송.
+ * 알람 행은 호출한 트랜잭션(승인 등)과 함께 커밋하고, FCM 은 커밋 뒤 푸시 전용 스레드에서 보낸다 (performance D-023):
+ *  - 승인 API 가 구독자 수 × FCM 왕복을 기다리지 않고, 그동안 DB 커넥션을 잡고 있지도 않는다.
+ *  - 승인이 롤백되면 푸시도 나가지 않는다 (전에는 커밋 전에 보내 롤백돼도 푸시가 나갔다).
  *
  * 호출 지점:
  *  - [duit.server.domain.event.service.EventService] 행사 승인 시 (PENDING → RECRUITMENT_WAITING, autoApprove 포함)
@@ -29,6 +37,7 @@ class SubscriptionNotificationService(
     private val jobMatcher: JobSubscriptionMatcher,
     private val alarmRepository: AlarmRepository,
     private val fcmService: FCMService,
+    @Qualifier(PushExecutorConfig.PUSH_EXECUTOR) private val pushExecutor: Executor,
 ) {
 
     @Transactional
@@ -44,7 +53,7 @@ class SubscriptionNotificationService(
                 return@forEach
             }
             val (title, body, data) = buildEventContent(subscription, event)
-            sendFcm(subscription.user, title, body, data)
+            sendFcmAfterCommit(subscription.user, title, body, data)
         }
     }
 
@@ -61,7 +70,7 @@ class SubscriptionNotificationService(
                 return@forEach
             }
             val (title, body, data) = buildJobContent(subscription, jobPosting)
-            sendFcm(subscription.user, title, body, data)
+            sendFcmAfterCommit(subscription.user, title, body, data)
         }
     }
 
@@ -122,9 +131,17 @@ class SubscriptionNotificationService(
         }
     }
 
-    private fun sendFcm(user: User, title: String, body: String, data: Map<String, String>) {
-        val tokens = user.deviceTokens.map { it.token }
+    private fun sendFcmAfterCommit(user: User, title: String, body: String, data: Map<String, String>) {
+        val tokens = user.deviceTokens.map { it.token } // 지연 로딩이라 트랜잭션 안에서 읽어 둔다
         if (tokens.isEmpty()) return
-        fcmService.sendAlarms(deviceTokens = tokens, title = title, body = body, data = data)
+        val send = Runnable { fcmService.sendAlarms(deviceTokens = tokens, title = title, body = body, data = data) }
+
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            pushExecutor.execute(send)
+            return
+        }
+        TransactionSynchronizationManager.registerSynchronization(object : TransactionSynchronization {
+            override fun afterCommit() = pushExecutor.execute(send)
+        })
     }
 }

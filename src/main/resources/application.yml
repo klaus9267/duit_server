@@ -9,9 +9,17 @@ spring:
       idle-timeout: 30000
       max-lifetime: 300000
       connection-timeout: 3000
+      # 풀 커넥션을 autocommit=false 로 둔다. Boot 가 이를 보고 Hibernate 의 provider_disables_autocommit 을 자동으로 켜서
+      # 트랜잭션마다 보내던 SET autocommit 왕복이 사라진다. 쓰기는 반드시 @Transactional 안에서 (밖에서 쓴 JDBC 는 커밋되지 않는다)
+      auto-commit: false
 
   jpa:
     open-in-view: false  # OSIV 비활성화 — 컨트롤러에서 Lazy Loading 방지, 커넥션 풀 점유 최소화
+    properties:
+      # 커넥션을 첫 SQL 에서 잡고 트랜잭션 끝에 반납 → SQL 이 없는 트랜잭션(캐시 히트)은 커넥션을 잡지 않는다.
+      # 이 모드에선 @Transactional(isolation=…) 을 쓸 수 없다(InvalidIsolationLevelException). provider_disables_autocommit 은 직접 쓰지 말 것.
+      # 근거·측정: performance/decisions.md D-016
+      hibernate.connection.handling_mode: DELAYED_ACQUISITION_AND_RELEASE_AFTER_TRANSACTION
 
   # Flyway 스키마 마이그레이션 — prod/local 에서 활성, test 는 application-test.yml 에서 비활성화
   flyway:
@@ -33,7 +41,7 @@ spring:
   # Jackson 설정
   jackson:
     serialization:
-      indent-output: true
+      indent-output: false  # 들여쓰기 출력은 요청 스레드 CPU 2.6% + 응답 바이트. 클라이언트는 전부 JSON 파서 (performance D-019)
     time-zone: Asia/Seoul
 
 management:

@@ -84,7 +84,7 @@ data class EventCursorPaginationParam(
 
     /**
      * Spring @Cacheable 캐시 키 생성
-     * 패턴: {field}:{statusFilter}:{types}:{size}:{cursor}
+     * 패턴: {field}:{statusFilter}:{types}:{size}:{cursor}, 주최 필터가 있으면 {field}:h{hostId}:… (D-026)
      */
     fun cacheKey(): String {
         val fieldStr = field.name.lowercase()
@@ -95,6 +95,7 @@ data class EventCursorPaginationParam(
         }
         val typesStr = types?.sortedBy { it.name }?.joinToString(",") { it.name.lowercase() } ?: "all"
         val cursorStr = cursor ?: "first"
-        return "$fieldStr:$statusFilter:$typesStr:$size:$cursorStr"
+        val hostStr = hostId?.let { "h$it:" } ?: ""
+        return "$fieldStr:$hostStr$statusFilter:$typesStr:$size:$cursorStr"
     }
 }
