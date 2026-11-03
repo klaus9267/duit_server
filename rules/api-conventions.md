@@ -94,6 +94,12 @@ fun publicEndpoint() = ...
 - origin에는 scheme과 host만 사용하며 trailing slash나 path를 포함하지 않는다
 - `allowedOriginPatterns`는 정규식이 아닌 origin pattern 문법이므로 일반 도메인의 점(`.`)을 escape하지 않는다
 
+### Actuator 노출 범위
+- 웹으로 노출하는 엔드포인트는 `health`(배포 스크립트·compose 헬스체크)와 `prometheus`(Prometheus 수집)뿐이다. `management.endpoints.web.exposure.include` 에 `*` 를 쓰지 않고, 늘릴 때는 사용처를 함께 적는다
+- `SecurityConfig` 의 permitAll 도 `/actuator/health/**`, `/actuator/prometheus` 두 경로만 연다. 새 엔드포인트를 열 때는 `application.yml` 과 `SecurityConfig` 를 함께 바꾸고 `ActuatorExposureTest` 를 갱신한다
+- `health` 상세(`show-details`)는 `never` 로 둔다
+- Prometheus 는 docker 네트워크 안(`duit-server-*:8080`)에서 인증 없이 수집한다. 앞단 nginx 설정은 저장소 밖에 있다
+
 ### 사용자 디바이스 토큰 엔드포인트
 - 기존 등록 엔드포인트는 `PATCH /api/v1/users/device/{token}`를 유지하되, 새 토큰을 **추가 등록**한다
 - 디바이스 토큰은 컨트롤러에서 `@NotBlank`, `@Pattern` 같은 표준 Bean Validation으로 선검증하고 서비스는 검증 완료 입력만 받는다
