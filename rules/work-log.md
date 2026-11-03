@@ -17,15 +17,15 @@
  **신규 의존성**: 없음 (Flyway는 기존 build.gradle 활성화)
  **신규 env**: `application*.yml` 의 `ddl-auto: validate` + `flyway enabled`
 
-## 2026-11-04 (관리자 계정 관리: 목록 조회·해제, 등록 대상 지정)
+## 2026-11-04 (관리자 계정 관리: 목록 조회·해제, 등록 API 삭제)
 
 **분류**: feature | api | test | docs
 
 ### 작업 내용
-- `GET /api/v1/admins` 관리자 목록 조회 추가. `AdminController` + `AdminService`(목록·해제) 신설, 기존 `AdminAuthService` 는 로그인·등록 유지
-- `DELETE /api/v1/admins/{id}` 관리자 해제 추가. `admins` 행만 삭제하고 사용자 계정은 유지. 본인 해제는 400
-- `POST /api/v1/admin/auth/register` 를 관리자가 **대상 사용자(`userId`)를 지정**하는 방식으로 변경 (`@RequireAdmin`). 대상 없음 404, 이미 관리자 409
-- `AdminResponse` 를 평탄화(`nickname`, `email`)하고 목록·등록 응답에 공용으로 사용. `UserResponse` 중첩(`user`)과 `providerId` 노출 제거
+- `GET /api/v1/admins` 관리자 목록 조회 추가. `AdminController` + `AdminService`(목록·해제) 신설
+- `DELETE /api/v1/admins/{id}` 관리자 해제 추가. 사용자 계정은 유지하고 그 사용자의 `admins` 행을 모두 삭제. 본인 해제는 400
+- `POST /api/v1/admin/auth/register` 삭제. 관련 서비스 로직, `AdminRegisterRequest`, 쓰지 않게 된 `existsByAdminId`·`AdminResponse.from()` 도 제거. 이제 `AdminAuthController` 는 로그인만 제공한다. 삭제를 고정하는 테스트(`RegisterRemovedTests`: 로그인 사용자 404, 무인증 401) 추가
+- `AdminAuthService` 는 로그인 전용. 같은 `adminId` 행이 둘 이상이면 500 대신 400 으로 거부
 - `AdminRepository.existsByUserId` 를 `@Query` 로 교체 — 파생 쿼리가 `LEFT JOIN users` 를 만들던 것을 `admins.user_id` 단일 조건으로 변경 (모든 `@RequireAdmin` 요청의 가드 쿼리)
 - `AdminEndpointAccessTest` 추가 — `/api/v1/admin*` 핸들러는 로그인 외 전부 `@RequireAdmin` 인지 검증
 
@@ -34,27 +34,25 @@
 - 목록은 JPQL 생성자 표현식으로 필요한 컬럼만 조회 — 엔티티 하이드레이션·lazy `user` N+1 이 없고 `password` 컬럼을 읽지 않는다. `countQuery` 는 조인 없는 `COUNT(a)`. 첫 페이지가 `size` 보다 적으면 Spring Data 가 count 를 생략한다
 - 목록 정렬은 `id` 고정 (`AdminPaginationParam`). `PaginationParam.field` 를 그대로 받으면 `field=NAME` 같은 값이 `Sort` 로 흘러 엔티티에 없는 속성이라 500 이 난다 (`GET /api/v1/users` 도 같은 구조). 기존 users 쪽은 이번 범위에서 건드리지 않음
 - 상세 API 는 만들지 않음: 목록 응답이 해제에 필요한 식별 정보(관리자 ID, 사용자 ID, 닉네임, 이메일, 등록일)를 모두 포함
-- 등록·해제는 `admins` 전체 행을 `ORDER BY id FOR UPDATE` 로 잠가 직렬화하고, 락을 얻은 뒤 요청자가 아직 관리자인지 재확인한다. 관리자 A·B 가 서로를 동시에 해제하면 락 없이는 둘 다 통과해 관리자가 0명이 된다. 관리자 수가 극소수라 전체 행 잠금 비용이 거의 없고, 모든 변경이 같은 순서로 잠그므로 데드락이 없다
-- 락 뒤의 존재 여부 확인(`existsByUserId`, `existsByAdminId`)은 목록을 재사용하지 않고 새로 조회한다. 락을 기다리는 동안 다른 트랜잭션이 넣은 행은 기다리기 전에 읽은 목록에 없을 수 있다 (H2 에서 같은 사용자 동시 등록이 둘 다 성공하는 것으로 확인)
+- 해제는 `admins` 전체 행을 `ORDER BY id FOR UPDATE` 로 잠가 직렬화하고, 락을 얻은 뒤 요청자가 아직 관리자인지 재확인한다. 관리자 A·B 가 서로를 동시에 해제하면 락 없이는 둘 다 통과해 관리자가 0명이 된다. 관리자 수가 극소수라 전체 행 잠금 비용이 거의 없고, 모든 변경이 같은 순서로 잠그므로 데드락이 없다. `@Lock` 을 빼면 `AdminRevokeConcurrencyTest` 와 `AdminLegacySchemaTest` 의 동시성 테스트가 모두 실패하는 것을 확인
+- 본인 해제 금지 + 락 후 재검증으로 "요청자는 항상 남는다" 가 보장되어 마지막 관리자는 해제되지 않는다 (사용자 기준 비교라 본인 행이 중복돼도 같다)
 - 운영 `admins` 의 unique 제약(`user_id`, `admin_id`)을 확인할 수 없어 제약에 기대지 않게 만들었다. 사용자 식별은 admins PK 가 아니라 `user.id` 로 하고(해제는 그 사용자의 행을 일괄 삭제), 로그인은 `findAllByAdminId().singleOrNull()` 로 중복 행에서 500 대신 거부한다. 제약이 없는 스키마를 `AdminLegacySchemaTest` 가 재현한다
 - Flyway 로 unique 제약을 추가하지 않았다: V6·V7 이 P-13·P-14 에 예약되어 번호가 겹치고, 운영에 중복 행이 있으면 마이그레이션이 실패해 배포가 막힌다
-- `@Lock` 을 빼면 `AdminRevokeConcurrencyTest` 와 `AdminLegacySchemaTest` 의 동시성 테스트 30회가 모두 실패하는 것을 확인
-- 본인 해제 금지 + 락 후 재검증으로 "요청자는 항상 남는다" 가 보장되어 마지막 관리자는 해제되지 않는다 (사용자 기준 비교라 본인 행이 중복돼도 같다)
 - 해제가 즉시 반영되는 이유: `AdminAuthorizationInterceptor` 가 요청마다 `admins` 를 조회하므로 이미 발급된 JWT 로도 권한이 바로 사라진다 (JWT 에 권한 정보 없음)
-- 등록 대상 없음은 404, 이미 관리자는 409(`IllegalStateException`), `adminId` 중복은 기존 테스트가 400 으로 고정하고 있어 유지
+- 관리자 계정 생성 API 는 제공하지 않기로 했다. 관리자는 몇 명 안 되고 추가가 드물어 운영자가 DB 에서 직접 처리한다
 
 ### 영향 범위
-- API: `POST /api/v1/admin/auth/register` 요청에 `userId` 필수 추가(필수 필드 추가라 하위 호환 아님), 응답 형태 변경. 신규 `GET /api/v1/admins`, `DELETE /api/v1/admins/{id}`
-- 스키마 변경 없음 (Flyway 마이그레이션 없음). 기존 `admins` 의 PK·`user_id` unique·`admin_id` unique 만 사용
-- 파일: `domain/admin/{controller,service,dto,repository}` (등록은 `AdminService` 로 이동, `AdminAuthService` 는 로그인 전용), 테스트 `AdminControllerIntegrationTest`·`AdminServiceUnitTest`·`AdminRevokeConcurrencyTest`·`AdminLegacySchemaTest`·`AdminEndpointAccessTest`, `rules/api-conventions.md`
+- API: 신규 `GET /api/v1/admins`, `DELETE /api/v1/admins/{id}`. `POST /api/v1/admin/auth/register` 삭제
+- 스키마 변경 없음 (Flyway 마이그레이션 없음)
+- 파일: `domain/admin/{controller,service,dto,repository}`, 테스트 `AdminControllerIntegrationTest`·`AdminServiceUnitTest`·`AdminRevokeConcurrencyTest`·`AdminLegacySchemaTest`·`AdminEndpointAccessTest`, `rules/api-conventions.md`
 
 ### 테스트
 - 관리자 관련 단위·통합·동시성 테스트와 구조 가드 테스트 추가/갱신 (임시 JDK 17 사용). 전체 결과는 PR 본문 참조
 - Hibernate SQL 로그(H2)로 쿼리 형태 확인: 목록 `admins JOIN users ... ORDER BY a.id`, 가드 `WHERE a.user_id = ?`, 해제 `ORDER BY id FOR UPDATE` 후 `DELETE ... WHERE user_id = ?` (`users` 조회·N+1 없음). **MySQL EXPLAIN 은 실행하지 않음** (로컬에 MySQL 없음)
-- `AdminLegacySchemaTest`: 별도 H2 DB 에서 unique 제약을 지우고 중복 행(같은 사용자·같은 adminId)을 만든 뒤 목록·해제·등록·로그인과 동시 등록을 검증. 락·`FOR UPDATE` 의 실제 InnoDB 동작(next-key 락)은 H2 로 검증되지 않음
+- `AdminLegacySchemaTest`: 별도 H2 DB 에서 unique 제약을 지우고 중복 행(같은 사용자·같은 adminId)을 만든 뒤 목록·해제·로그인과 동시 해제를 검증. 락·`FOR UPDATE` 의 실제 InnoDB 동작(next-key 락)은 H2 로 검증되지 않음
 
 ### 발견한 제약 조건
-- 관리자가 한 명도 없는 환경(신규 DB)에서는 `admins` 에 직접 insert 해야 한다 (등록 API 가 관리자 전용). `password` 는 BCrypt 해시여야 함
+- 관리자 추가는 `admins` 에 직접 insert 해야 한다 (등록 API 없음). `password` 는 BCrypt 해시여야 함
 - `DELETE /api/v1/users`(회원 탈퇴)는 `User.admin` cascade 로 관리자 행도 함께 지운다 — 관리자가 탈퇴하면 관리자가 0명이 될 수 있음. 이번 범위에서는 변경하지 않음
 
 ---

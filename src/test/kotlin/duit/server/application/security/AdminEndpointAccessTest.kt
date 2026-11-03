@@ -44,10 +44,9 @@ class AdminEndpointAccessTest : IntegrationTestSupport() {
     }
 
     @Test
-    @DisplayName("관리자 등록·목록 조회·해제는 @RequireAdmin 으로 보호된다")
+    @DisplayName("관리자 목록 조회·해제는 @RequireAdmin 으로 보호된다")
     fun adminManagementEndpointsAreGuarded() {
         listOf(
-            "POST /api/v1/admin/auth/register",
             "GET /api/v1/admins",
             "DELETE /api/v1/admins/{id}",
         ).forEach { endpoint ->

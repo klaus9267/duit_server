@@ -2,7 +2,6 @@ package duit.server.domain.admin.service
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import duit.server.application.security.JwtTokenProvider
-import duit.server.domain.admin.dto.AdminRegisterRequest
 import duit.server.domain.admin.entity.Admin
 import duit.server.domain.admin.repository.AdminRepository
 import duit.server.domain.user.entity.User
@@ -24,6 +23,7 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
 import org.springframework.http.MediaType
 import org.springframework.jdbc.core.JdbcTemplate
+import org.springframework.security.access.AccessDeniedException
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.security.crypto.password.PasswordEncoder
@@ -117,18 +117,6 @@ class AdminLegacySchemaTest {
     private fun revoke(caller: User, adminPk: Long): ResultActions =
         mockMvc.perform(delete("/api/v1/admins/{id}", adminPk).header("Authorization", auth(caller)))
 
-    private fun register(caller: User, targetUserId: Long, adminId: String): ResultActions =
-        mockMvc.perform(
-            post("/api/v1/admin/auth/register")
-                .header("Authorization", auth(caller))
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(
-                    objectMapper.writeValueAsString(
-                        mapOf("userId" to targetUserId, "adminId" to adminId, "password" to "password-1234")
-                    )
-                )
-        )
-
     private fun runConcurrently(vararg calls: Pair<User, () -> Unit>): List<Result<Unit>> {
         val barrier = CyclicBarrier(calls.size)
         val executor = Executors.newFixedThreadPool(calls.size)
@@ -208,17 +196,6 @@ class AdminLegacySchemaTest {
         }
 
         @Test
-        @DisplayName("이미 관리자 행이 중복된 사용자를 등록하려 하면 409를 반환한다")
-        fun registerForUserWithDuplicateRows() {
-            val caller = user("caller").also { admin(it, "caller-admin") }
-            val target = user("target").also { admin(it, "target-1"); admin(it, "target-2") }
-
-            register(caller, target.id!!, "new-admin-id").andExpect(status().isConflict)
-
-            assertEquals(2L, rowsOf(target))
-        }
-
-        @Test
         @DisplayName("같은 adminId 의 행이 둘 이상이면 비밀번호가 맞아도 로그인은 400으로 거부된다 (500 아님)")
         fun loginRejectedForAmbiguousAdminId() {
             val password = passwordEncoder.encode("password-1234")
@@ -240,38 +217,21 @@ class AdminLegacySchemaTest {
     inner class Concurrent {
 
         @RepeatedTest(10)
-        @DisplayName("관리자 둘이 같은 사용자를 동시에 등록해도 관리자 행은 하나만 생긴다")
-        fun concurrentRegisterOfSameUserCreatesOneRow() {
-            val first = user("first").also { admin(it, "first-admin") }
-            val second = user("second").also { admin(it, "second-admin") }
-            val target = user("target")
+        @DisplayName("관리자 행이 각각 중복된 두 관리자가 서로를 동시에 해제해도 한 명은 남는다")
+        fun concurrentMutualRevokeWithDuplicateRows() {
+            val first = user("first")
+            val second = user("second")
+            val firstAdmin = admin(first, "first-admin-1").also { admin(first, "first-admin-2") }
+            val secondAdmin = admin(second, "second-admin-1").also { admin(second, "second-admin-2") }
 
             val results = runConcurrently(
-                first to { adminService.register(AdminRegisterRequest(target.id!!, "id-by-first", "password-1234")) },
-                second to { adminService.register(AdminRegisterRequest(target.id!!, "id-by-second", "password-1234")) },
+                first to { adminService.revokeAdmin(secondAdmin.id!!) },
+                second to { adminService.revokeAdmin(firstAdmin.id!!) },
             )
 
             assertEquals(1, results.count { it.isSuccess }, "정확히 한 쪽만 성공해야 합니다: $results")
-            assertEquals(1, results.count { it.exceptionOrNull() is IllegalStateException }, "나머지는 409(IllegalStateException)여야 합니다: $results")
-            assertEquals(1L, rowsOf(target))
-        }
-
-        @RepeatedTest(10)
-        @DisplayName("관리자 둘이 서로 다른 사용자에게 같은 adminId 를 동시에 발급해도 하나만 생긴다")
-        fun concurrentRegisterOfSameAdminIdCreatesOneRow() {
-            val first = user("first").also { admin(it, "first-admin") }
-            val second = user("second").also { admin(it, "second-admin") }
-            val targetOfFirst = user("target-1")
-            val targetOfSecond = user("target-2")
-
-            val results = runConcurrently(
-                first to { adminService.register(AdminRegisterRequest(targetOfFirst.id!!, "contested-id", "password-1234")) },
-                second to { adminService.register(AdminRegisterRequest(targetOfSecond.id!!, "contested-id", "password-1234")) },
-            )
-
-            assertEquals(1, results.count { it.isSuccess }, "정확히 한 쪽만 성공해야 합니다: $results")
-            assertEquals(1, results.count { it.exceptionOrNull() is IllegalArgumentException }, "나머지는 400(IllegalArgumentException)이어야 합니다: $results")
-            assertEquals(1L, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM admins WHERE admin_id = 'contested-id'", Long::class.java))
+            assertEquals(1, results.count { it.exceptionOrNull() is AccessDeniedException }, "나머지는 403이어야 합니다: $results")
+            assertEquals(1, listOf(rowsOf(first), rowsOf(second)).count { it > 0 }, "관리자가 한 명 남아야 합니다")
         }
     }
 }

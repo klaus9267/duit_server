@@ -12,11 +12,9 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
-import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.ResultActions
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
-import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.result.MockMvcResultHandlers.print
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.content
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
@@ -205,25 +203,6 @@ class AdminControllerIntegrationTest : IntegrationTestSupport() {
                 mockMvc.perform(delete("/api/v1/admins/{id}", firstAdmin.id).header("Authorization", revokedUserHeader))
                     .andExpect(status().isForbidden)
                 assertEquals(1L, adminCount())
-            }
-
-            @Test
-            @DisplayName("해제된 사용자는 다른 관리자가 다시 등록할 수 있다")
-            fun canBeRegisteredAgainAfterRevoke() {
-                revoke(firstAdminUser.id, secondAdmin.id!!).andExpect(status().isNoContent)
-
-                mockMvc.perform(
-                    post("/api/v1/admin/auth/register")
-                        .header("Authorization", authHeader(firstAdminUser.id!!))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(
-                            objectMapper.writeValueAsString(
-                                mapOf("userId" to secondAdminUser.id, "adminId" to "second-admin", "password" to "newpassword1234")
-                            )
-                        )
-                ).andExpect(status().isCreated)
-
-                assertEquals(2L, adminCount())
             }
         }
 

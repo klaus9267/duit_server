@@ -1,6 +1,5 @@
 package duit.server.domain.admin.dto
 
-import duit.server.domain.admin.entity.Admin
 import io.swagger.v3.oas.annotations.media.Schema
 import java.time.LocalDateTime
 
@@ -22,15 +21,4 @@ data class AdminResponse(
 
     @field:Schema(description = "관리자 등록 일시")
     val createdAt: LocalDateTime
-) {
-    companion object {
-        fun from(admin: Admin) = AdminResponse(
-            id = admin.id!!,
-            adminId = admin.adminId,
-            userId = admin.user.id!!,
-            nickname = admin.user.nickname,
-            email = admin.user.email,
-            createdAt = admin.createdAt
-        )
-    }
-}
+)

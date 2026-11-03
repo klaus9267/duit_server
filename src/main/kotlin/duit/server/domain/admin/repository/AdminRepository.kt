@@ -13,7 +13,6 @@ import org.springframework.data.repository.query.Param
 
 interface AdminRepository : JpaRepository<Admin, Long> {
     fun findAllByAdminId(adminId: String): List<Admin>
-    fun existsByAdminId(adminId: String): Boolean
 
     @Query("SELECT CASE WHEN COUNT(a) > 0 THEN true ELSE false END FROM Admin a WHERE a.user.id = :userId")
     fun existsByUserId(@Param("userId") userId: Long): Boolean

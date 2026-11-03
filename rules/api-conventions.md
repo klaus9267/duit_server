@@ -31,7 +31,7 @@ api/v{version}/{resource}
 | AlarmController | `api/v1/alarms` | v1 | 7 | 전부 |
 | AlarmControllerV2 | `api/v2/alarms` | v2 | 1 | 전부 |
 | SubscriptionController | `api/v1/subscriptions` | v1 | 3 | 전부 |
-| AdminAuthController | `api/v1/admin/auth` | v1 | 2 | login 공개, register 관리자 |
+| AdminAuthController | `api/v1/admin/auth` | v1 | 1 | login 공개 |
 | AdminController | `api/v1/admins` | v1 | 2 | 관리자 전용 |
 | ViewController | `api/v1/views` | v1 | 1 | 없음 (공개) |
 
@@ -103,12 +103,11 @@ fun publicEndpoint() = ...
 - `allowedOriginPatterns`는 정규식이 아닌 origin pattern 문법이므로 일반 도메인의 점(`.`)을 escape하지 않는다
 
 ### 관리자 계정 관리 엔드포인트
-- `POST /api/v1/admin/auth/register` — 관리자 전용. 요청 `{userId, adminId, password}` 로 **대상 사용자**를 지정해 관리자 계정을 발급한다. 대상 없음 404, 이미 관리자 409, `adminId` 중복 400
 - `GET /api/v1/admins` — 관리자 전용. `page`, `size`(1~100), `sortDirection` 만 받고 정렬은 항상 `id`(등록 순). 응답 `AdminResponse`: `id`, `adminId`, `userId`, `nickname`, `email`, `createdAt` (비밀번호 해시·`providerId` 미포함). 목록만으로 해제 대상을 식별할 수 있어 별도 상세 API는 두지 않는다
 - `DELETE /api/v1/admins/{id}` — 관리자 전용. `id` 는 목록 응답의 `id`. 사용자 계정은 유지하고 그 사용자의 `admins` 행을 모두 삭제한다. 본인 해제 400, 대상 없음 404
-- 등록·해제는 `admins` 전체 행을 id 순서로 `FOR UPDATE` 잠가 직렬화하고, 락을 얻은 뒤 요청자 권한을 재검증한다. 관리자끼리 동시에 해제해도 한 명은 남고, 같은 사용자·같은 `adminId` 를 동시에 등록해도 한 행만 생긴다
-- 운영 DB 의 `admins` 에 unique 제약(`user_id`, `admin_id`)이 있다고 가정하지 않는다. 위 직렬화와 락 이후의 재조회로 중복을 막고, 이미 중복 행이 있어도 목록·해제·등록(409)이 동작한다. 같은 `adminId` 행이 둘 이상이면 로그인은 400 으로 거부한다
-- 관리자가 한 명도 없는 환경(신규 DB)에서는 `admins` 에 직접 insert 해야 한다
+- 해제는 `admins` 전체 행을 id 순서로 `FOR UPDATE` 잠가 직렬화하고, 락을 얻은 뒤 요청자 권한을 재검증한다. 관리자끼리 동시에 해제해도 한 명은 남는다
+- 관리자 계정을 만드는 API 는 제공하지 않는다. 관리자 추가는 `admins` 에 직접 insert 한다 (`password` 는 BCrypt 해시, `user_id` 는 기존 사용자). 신규 DB 의 첫 관리자도 같다
+- 운영 DB 의 `admins` 에 unique 제약(`user_id`, `admin_id`)이 있다고 가정하지 않는다. 해제는 행 id 가 아니라 사용자 기준으로 처리해 중복 행이 있어도 동작하고, 같은 `adminId` 행이 둘 이상이면 로그인은 400 으로 거부한다
 
 ### 사용자 디바이스 토큰 엔드포인트
 - 기존 등록 엔드포인트는 `PATCH /api/v1/users/device/{token}`를 유지하되, 새 토큰을 **추가 등록**한다
