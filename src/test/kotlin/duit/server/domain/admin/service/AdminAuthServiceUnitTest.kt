@@ -10,6 +10,7 @@ import duit.server.domain.admin.repository.BannedIpRepository
 import duit.server.domain.user.entity.User
 import duit.server.domain.user.repository.UserRepository
 import io.mockk.*
+import jakarta.persistence.EntityNotFoundException
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -125,31 +126,80 @@ class AdminAuthServiceUnitTest {
     inner class RegisterTests {
 
         @Test
-        @DisplayName("새로운 adminId로 등록하면 AdminResponse를 반환한다")
+        @DisplayName("지정한 사용자를 새로운 adminId의 관리자로 등록한다")
         fun registerSuccess() {
-            every { adminRepository.existsByAdminId("newadmin") } returns false
-            every { securityUtil.getCurrentUserId() } returns 1L
             every { userRepository.findById(1L) } returns Optional.of(user)
+            every { adminRepository.existsByUserId(1L) } returns false
+            every { adminRepository.existsByAdminId("newadmin") } returns false
+            every { securityUtil.getCurrentUserId() } returns 99L
             every { passwordEncoder.encode("password123") } returns "encoded-new-pw"
             every { adminRepository.save(any<Admin>()) } answers {
                 val arg = firstArg<Admin>()
                 Admin(id = 100L, user = arg.user, adminId = arg.adminId, password = arg.password)
             }
 
-            val result = adminAuthService.register(AdminRegisterRequest("newadmin", "password123"))
+            val result = adminAuthService.register(AdminRegisterRequest(1L, "newadmin", "password123"))
 
+            assertEquals(100L, result.id)
             assertEquals("newadmin", result.adminId)
             assertEquals(1L, result.userId)
+            verify(exactly = 1) { adminRepository.save(match { it.user === user && it.password == "encoded-new-pw" }) }
+        }
+
+        @Test
+        @DisplayName("요청자가 아닌 요청 본문의 userId 사용자가 관리자가 된다")
+        fun registersRequestedUserNotCaller() {
+            val callerId = 99L
+            val saved = slot<Admin>()
+            every { securityUtil.getCurrentUserId() } returns callerId
+            every { userRepository.findById(1L) } returns Optional.of(user)
+            every { adminRepository.existsByUserId(1L) } returns false
+            every { adminRepository.existsByAdminId("newadmin") } returns false
+            every { passwordEncoder.encode(any()) } returns "encoded"
+            every { adminRepository.save(capture(saved)) } answers {
+                Admin(id = 100L, user = saved.captured.user, adminId = saved.captured.adminId, password = "encoded")
+            }
+
+            adminAuthService.register(AdminRegisterRequest(1L, "newadmin", "password123"))
+
+            assertEquals(1L, saved.captured.user.id)
+            verify(exactly = 0) { userRepository.findById(callerId) }
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 사용자를 지정하면 EntityNotFoundException이 발생한다")
+        fun throwsWhenUserNotFound() {
+            every { userRepository.findById(404L) } returns Optional.empty()
+
+            assertThrows<EntityNotFoundException> {
+                adminAuthService.register(AdminRegisterRequest(404L, "newadmin", "password123"))
+            }
+            verify(exactly = 0) { adminRepository.save(any<Admin>()) }
+        }
+
+        @Test
+        @DisplayName("이미 관리자인 사용자를 지정하면 IllegalStateException이 발생한다")
+        fun throwsWhenUserAlreadyAdmin() {
+            every { userRepository.findById(1L) } returns Optional.of(user)
+            every { adminRepository.existsByUserId(1L) } returns true
+
+            assertThrows<IllegalStateException> {
+                adminAuthService.register(AdminRegisterRequest(1L, "newadmin", "password123"))
+            }
+            verify(exactly = 0) { adminRepository.save(any<Admin>()) }
         }
 
         @Test
         @DisplayName("이미 존재하는 adminId로 등록하면 IllegalArgumentException이 발생한다")
         fun throwsOnDuplicateAdminId() {
+            every { userRepository.findById(1L) } returns Optional.of(user)
+            every { adminRepository.existsByUserId(1L) } returns false
             every { adminRepository.existsByAdminId("testadmin") } returns true
 
             assertThrows<IllegalArgumentException> {
-                adminAuthService.register(AdminRegisterRequest("testadmin", "password123"))
+                adminAuthService.register(AdminRegisterRequest(1L, "testadmin", "password123"))
             }
+            verify(exactly = 0) { adminRepository.save(any<Admin>()) }
         }
     }
 }

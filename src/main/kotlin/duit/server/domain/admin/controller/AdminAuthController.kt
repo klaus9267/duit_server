@@ -1,6 +1,6 @@
 package duit.server.domain.admin.controller
 
-import duit.server.application.common.RequireAuth
+import duit.server.application.common.RequireAdmin
 import duit.server.domain.admin.dto.AdminLoginRequest
 import duit.server.domain.admin.dto.AdminLoginResponse
 import duit.server.domain.admin.dto.AdminRegisterRequest
@@ -11,7 +11,11 @@ import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
-import org.springframework.web.bind.annotation.*
+import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.RequestBody
+import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.ResponseStatus
+import org.springframework.web.bind.annotation.RestController
 
 @RestController
 @RequestMapping("/api/v1/admin/auth")
@@ -32,8 +36,11 @@ class AdminAuthController(
     }
 
     @PostMapping("/register")
-    @Operation(summary = "관리자 등록", description = "새로운 관리자 계정을 등록합니다")
-    @RequireAuth
+    @Operation(
+        summary = "관리자 등록 (관리자)",
+        description = "기존 관리자가 지정한 사용자에게 관리자 계정을 발급합니다. 이미 관리자인 사용자는 409, 존재하지 않는 사용자는 404를 반환합니다."
+    )
+    @RequireAdmin
     @ResponseStatus(HttpStatus.CREATED)
     fun register(
         @RequestBody @Valid request: AdminRegisterRequest

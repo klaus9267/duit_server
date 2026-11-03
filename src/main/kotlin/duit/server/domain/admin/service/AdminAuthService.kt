@@ -10,6 +10,7 @@ import duit.server.domain.admin.repository.AdminRepository
 import duit.server.domain.admin.repository.BannedIpRepository
 import duit.server.domain.common.extensions.findByIdOrThrow
 import duit.server.domain.user.repository.UserRepository
+import org.slf4j.LoggerFactory
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -25,6 +26,8 @@ class AdminAuthService(
     private val jwtTokenProvider: JwtTokenProvider,
     private val securityUtil: SecurityUtil
 ) {
+
+    private val logger = LoggerFactory.getLogger(AdminAuthService::class.java)
 
     @Transactional
     fun login(adminId: String, password: String, ip: String): AdminLoginResponse {
@@ -48,21 +51,22 @@ class AdminAuthService(
 
     @Transactional
     fun register(request: AdminRegisterRequest): AdminResponse {
-        require(!adminRepository.existsByAdminId(request.adminId)) {
-            "이미 존재하는 관리자 ID입니다"
-        }
+        val user = userRepository.findByIdOrThrow(request.userId)
 
-        val currentUserId = securityUtil.getCurrentUserId()
+        check(!adminRepository.existsByUserId(request.userId)) { "이미 관리자로 등록된 사용자입니다" }
+        require(!adminRepository.existsByAdminId(request.adminId)) { "이미 존재하는 관리자 ID입니다" }
 
-        return userRepository.findByIdOrThrow(currentUserId)
-            .let { user ->
-                val admin = Admin(
-                    user = user,
-                    adminId = request.adminId,
-                    password = passwordEncoder.encode(request.password)
-                )
-                val savedAdmin = adminRepository.save(admin)
-                AdminResponse.from(savedAdmin)
-            }
+        val admin = adminRepository.save(
+            Admin(
+                user = user,
+                adminId = request.adminId,
+                password = passwordEncoder.encode(request.password)
+            )
+        )
+        logger.info(
+            "관리자 등록: 요청자 userId={}, 대상 userId={}, adminId(PK)={}",
+            securityUtil.getCurrentUserId(), request.userId, admin.id
+        )
+        return AdminResponse.from(admin)
     }
 }
