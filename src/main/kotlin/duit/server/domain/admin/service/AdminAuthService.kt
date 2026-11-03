@@ -1,15 +1,9 @@
 package duit.server.domain.admin.service
 
 import duit.server.application.security.JwtTokenProvider
-import duit.server.application.security.SecurityUtil
 import duit.server.domain.admin.dto.AdminLoginResponse
-import duit.server.domain.admin.dto.AdminRegisterRequest
-import duit.server.domain.admin.dto.AdminResponse
-import duit.server.domain.admin.entity.Admin
 import duit.server.domain.admin.repository.AdminRepository
 import duit.server.domain.admin.repository.BannedIpRepository
-import duit.server.domain.common.extensions.findByIdOrThrow
-import duit.server.domain.user.repository.UserRepository
 import org.slf4j.LoggerFactory
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
@@ -21,10 +15,8 @@ class AdminAuthService(
     private val adminRepository: AdminRepository,
     private val bannedIpRepository: BannedIpRepository,
     private val bannedIpService: BannedIpService,
-    private val userRepository: UserRepository,
     private val passwordEncoder: PasswordEncoder,
-    private val jwtTokenProvider: JwtTokenProvider,
-    private val securityUtil: SecurityUtil
+    private val jwtTokenProvider: JwtTokenProvider
 ) {
 
     private val logger = LoggerFactory.getLogger(AdminAuthService::class.java)
@@ -37,7 +29,7 @@ class AdminAuthService(
             ?.let { throw IllegalStateException("IP가 차단되었습니다. 관리자에게 문의하세요.") }
 
         // 2. 관리자 조회 및 비밀번호 검증 (아이디/비밀번호 오류 구분 불가)
-        val admin = adminRepository.findByAdminId(adminId)
+        val admin = findUniqueAdmin(adminId)
             ?.takeIf { passwordEncoder.matches(password, it.password) }
             ?: run {
                 bannedIpService.handleLoginFailure(ip)
@@ -49,24 +41,10 @@ class AdminAuthService(
         return AdminLoginResponse(token)
     }
 
-    @Transactional
-    fun register(request: AdminRegisterRequest): AdminResponse {
-        val user = userRepository.findByIdOrThrow(request.userId)
-
-        check(!adminRepository.existsByUserId(request.userId)) { "이미 관리자로 등록된 사용자입니다" }
-        require(!adminRepository.existsByAdminId(request.adminId)) { "이미 존재하는 관리자 ID입니다" }
-
-        val admin = adminRepository.save(
-            Admin(
-                user = user,
-                adminId = request.adminId,
-                password = passwordEncoder.encode(request.password)
-            )
-        )
-        logger.info(
-            "관리자 등록: 요청자 userId={}, 대상 userId={}, adminId(PK)={}",
-            securityUtil.getCurrentUserId(), request.userId, admin.id
-        )
-        return AdminResponse.from(admin)
-    }
+    // admin_id 에 unique 제약이 없는 DB 에서 같은 ID 의 행이 둘 이상이면 어느 계정인지 알 수 없으므로 로그인을 거부한다
+    private fun findUniqueAdmin(adminId: String) =
+        adminRepository.findAllByAdminId(adminId).let { candidates ->
+            if (candidates.size > 1) logger.warn("중복된 관리자 ID 로 로그인 시도: 일치하는 행 {}개", candidates.size)
+            candidates.singleOrNull()
+        }
 }

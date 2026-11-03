@@ -6,6 +6,7 @@ import duit.server.domain.admin.dto.AdminLoginResponse
 import duit.server.domain.admin.dto.AdminRegisterRequest
 import duit.server.domain.admin.dto.AdminResponse
 import duit.server.domain.admin.service.AdminAuthService
+import duit.server.domain.admin.service.AdminService
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.servlet.http.HttpServletRequest
@@ -21,7 +22,8 @@ import org.springframework.web.bind.annotation.RestController
 @RequestMapping("/api/v1/admin/auth")
 @Tag(name = "Admin Auth", description = "관리자 인증 API")
 class AdminAuthController(
-    private val adminAuthService: AdminAuthService
+    private val adminAuthService: AdminAuthService,
+    private val adminService: AdminService
 ) {
 
     @PostMapping("/login")
@@ -44,7 +46,7 @@ class AdminAuthController(
     @ResponseStatus(HttpStatus.CREATED)
     fun register(
         @RequestBody @Valid request: AdminRegisterRequest
-    ): AdminResponse = adminAuthService.register(request)
+    ): AdminResponse = adminService.register(request)
 
     private fun getClientIp(request: HttpServletRequest): String =
         request.getHeader("X-Forwarded-For")?.split(",")?.first()?.trim()

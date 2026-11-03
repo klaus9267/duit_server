@@ -1,16 +1,12 @@
 package duit.server.domain.admin.service
 
 import duit.server.application.security.JwtTokenProvider
-import duit.server.application.security.SecurityUtil
-import duit.server.domain.admin.dto.AdminRegisterRequest
 import duit.server.domain.admin.entity.Admin
 import duit.server.domain.admin.entity.BannedIp
 import duit.server.domain.admin.repository.AdminRepository
 import duit.server.domain.admin.repository.BannedIpRepository
 import duit.server.domain.user.entity.User
-import duit.server.domain.user.repository.UserRepository
 import io.mockk.*
-import jakarta.persistence.EntityNotFoundException
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -18,7 +14,6 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.springframework.security.crypto.password.PasswordEncoder
-import java.util.*
 
 @DisplayName("AdminAuthService 단위 테스트")
 class AdminAuthServiceUnitTest {
@@ -26,10 +21,8 @@ class AdminAuthServiceUnitTest {
     private lateinit var adminRepository: AdminRepository
     private lateinit var bannedIpRepository: BannedIpRepository
     private lateinit var bannedIpService: BannedIpService
-    private lateinit var userRepository: UserRepository
     private lateinit var passwordEncoder: PasswordEncoder
     private lateinit var jwtTokenProvider: JwtTokenProvider
-    private lateinit var securityUtil: SecurityUtil
     private lateinit var adminAuthService: AdminAuthService
 
     private lateinit var user: User
@@ -40,13 +33,10 @@ class AdminAuthServiceUnitTest {
         adminRepository = mockk()
         bannedIpRepository = mockk()
         bannedIpService = mockk(relaxed = true)
-        userRepository = mockk()
         passwordEncoder = mockk()
         jwtTokenProvider = mockk()
-        securityUtil = mockk()
         adminAuthService = AdminAuthService(
-            adminRepository, bannedIpRepository, bannedIpService,
-            userRepository, passwordEncoder, jwtTokenProvider, securityUtil
+            adminRepository, bannedIpRepository, bannedIpService, passwordEncoder, jwtTokenProvider
         )
 
         user = User(id = 1L, nickname = "관리자", providerId = "admin-p1")
@@ -61,7 +51,7 @@ class AdminAuthServiceUnitTest {
         @DisplayName("올바른 자격증명으로 로그인하면 토큰을 반환한다")
         fun loginSuccess() {
             every { bannedIpRepository.findByIpAddress("192.168.1.1") } returns null
-            every { adminRepository.findByAdminId("testadmin") } returns admin
+            every { adminRepository.findAllByAdminId("testadmin") } returns listOf(admin)
             every { passwordEncoder.matches("password123", "encoded-pw") } returns true
             every { jwtTokenProvider.createAccessToken(1L) } returns "jwt-token"
 
@@ -86,7 +76,7 @@ class AdminAuthServiceUnitTest {
         fun proceedsWithUnbannedIp() {
             val unbannedIp = BannedIp(ipAddress = "192.168.1.1", isBanned = false, failureCount = 2)
             every { bannedIpRepository.findByIpAddress("192.168.1.1") } returns unbannedIp
-            every { adminRepository.findByAdminId("testadmin") } returns admin
+            every { adminRepository.findAllByAdminId("testadmin") } returns listOf(admin)
             every { passwordEncoder.matches("password123", "encoded-pw") } returns true
             every { jwtTokenProvider.createAccessToken(1L) } returns "jwt-token"
 
@@ -99,7 +89,7 @@ class AdminAuthServiceUnitTest {
         @DisplayName("존재하지 않는 adminId로 로그인하면 실패 처리 후 IllegalArgumentException이 발생한다")
         fun throwsOnWrongAdminId() {
             every { bannedIpRepository.findByIpAddress("192.168.1.1") } returns null
-            every { adminRepository.findByAdminId("wrongadmin") } returns null
+            every { adminRepository.findAllByAdminId("wrongadmin") } returns emptyList()
 
             assertThrows<IllegalArgumentException> {
                 adminAuthService.login("wrongadmin", "password123", "192.168.1.1")
@@ -111,7 +101,7 @@ class AdminAuthServiceUnitTest {
         @DisplayName("잘못된 비밀번호로 로그인하면 실패 처리 후 IllegalArgumentException이 발생한다")
         fun throwsOnWrongPassword() {
             every { bannedIpRepository.findByIpAddress("192.168.1.1") } returns null
-            every { adminRepository.findByAdminId("testadmin") } returns admin
+            every { adminRepository.findAllByAdminId("testadmin") } returns listOf(admin)
             every { passwordEncoder.matches("wrongpw", "encoded-pw") } returns false
 
             assertThrows<IllegalArgumentException> {
@@ -119,87 +109,20 @@ class AdminAuthServiceUnitTest {
             }
             verify(exactly = 1) { bannedIpService.handleLoginFailure("192.168.1.1") }
         }
-    }
-
-    @Nested
-    @DisplayName("register")
-    inner class RegisterTests {
 
         @Test
-        @DisplayName("지정한 사용자를 새로운 adminId의 관리자로 등록한다")
-        fun registerSuccess() {
-            every { userRepository.findById(1L) } returns Optional.of(user)
-            every { adminRepository.existsByUserId(1L) } returns false
-            every { adminRepository.existsByAdminId("newadmin") } returns false
-            every { securityUtil.getCurrentUserId() } returns 99L
-            every { passwordEncoder.encode("password123") } returns "encoded-new-pw"
-            every { adminRepository.save(any<Admin>()) } answers {
-                val arg = firstArg<Admin>()
-                Admin(id = 100L, user = arg.user, adminId = arg.adminId, password = arg.password)
-            }
-
-            val result = adminAuthService.register(AdminRegisterRequest(1L, "newadmin", "password123"))
-
-            assertEquals(100L, result.id)
-            assertEquals("newadmin", result.adminId)
-            assertEquals(1L, result.userId)
-            verify(exactly = 1) { adminRepository.save(match { it.user === user && it.password == "encoded-new-pw" }) }
-        }
-
-        @Test
-        @DisplayName("요청자가 아닌 요청 본문의 userId 사용자가 관리자가 된다")
-        fun registersRequestedUserNotCaller() {
-            val callerId = 99L
-            val saved = slot<Admin>()
-            every { securityUtil.getCurrentUserId() } returns callerId
-            every { userRepository.findById(1L) } returns Optional.of(user)
-            every { adminRepository.existsByUserId(1L) } returns false
-            every { adminRepository.existsByAdminId("newadmin") } returns false
-            every { passwordEncoder.encode(any()) } returns "encoded"
-            every { adminRepository.save(capture(saved)) } answers {
-                Admin(id = 100L, user = saved.captured.user, adminId = saved.captured.adminId, password = "encoded")
-            }
-
-            adminAuthService.register(AdminRegisterRequest(1L, "newadmin", "password123"))
-
-            assertEquals(1L, saved.captured.user.id)
-            verify(exactly = 0) { userRepository.findById(callerId) }
-        }
-
-        @Test
-        @DisplayName("존재하지 않는 사용자를 지정하면 EntityNotFoundException이 발생한다")
-        fun throwsWhenUserNotFound() {
-            every { userRepository.findById(404L) } returns Optional.empty()
-
-            assertThrows<EntityNotFoundException> {
-                adminAuthService.register(AdminRegisterRequest(404L, "newadmin", "password123"))
-            }
-            verify(exactly = 0) { adminRepository.save(any<Admin>()) }
-        }
-
-        @Test
-        @DisplayName("이미 관리자인 사용자를 지정하면 IllegalStateException이 발생한다")
-        fun throwsWhenUserAlreadyAdmin() {
-            every { userRepository.findById(1L) } returns Optional.of(user)
-            every { adminRepository.existsByUserId(1L) } returns true
-
-            assertThrows<IllegalStateException> {
-                adminAuthService.register(AdminRegisterRequest(1L, "newadmin", "password123"))
-            }
-            verify(exactly = 0) { adminRepository.save(any<Admin>()) }
-        }
-
-        @Test
-        @DisplayName("이미 존재하는 adminId로 등록하면 IllegalArgumentException이 발생한다")
-        fun throwsOnDuplicateAdminId() {
-            every { userRepository.findById(1L) } returns Optional.of(user)
-            every { adminRepository.existsByUserId(1L) } returns false
-            every { adminRepository.existsByAdminId("testadmin") } returns true
+        @DisplayName("같은 adminId의 행이 둘 이상이면 비밀번호가 맞아도 로그인을 거부하고 실패 처리한다")
+        fun rejectsAmbiguousAdminId() {
+            val duplicate = Admin(id = 2L, user = User(id = 2L, nickname = "다른관리자", providerId = "admin-p2"), adminId = "testadmin", password = "encoded-pw")
+            every { bannedIpRepository.findByIpAddress("192.168.1.1") } returns null
+            every { adminRepository.findAllByAdminId("testadmin") } returns listOf(admin, duplicate)
+            every { passwordEncoder.matches("password123", "encoded-pw") } returns true
 
             assertThrows<IllegalArgumentException> {
-                adminAuthService.register(AdminRegisterRequest(1L, "testadmin", "password123"))
+                adminAuthService.login("testadmin", "password123", "192.168.1.1")
             }
-            verify(exactly = 0) { adminRepository.save(any<Admin>()) }
+            verify(exactly = 1) { bannedIpService.handleLoginFailure("192.168.1.1") }
+            verify(exactly = 0) { jwtTokenProvider.createAccessToken(any()) }
         }
     }
 }
