@@ -93,6 +93,12 @@ src/main/kotlin/duit/server/
 ### Services
 - `@Service` + `@Transactional(readOnly = true)` at class level.
 - `@Transactional` on individual write methods.
+- Connections are acquired at the first SQL and released at transaction end (`hikari.auto-commit: false` + `handling_mode: DELAYED_ACQUISITION_AND_RELEASE_AFTER_TRANSACTION`, `performance/decisions.md` D-016). Consequences:
+  - Every write must run inside `@Transactional` — JDBC writes outside a transaction are silently rolled back.
+  - Do not set `@Transactional(isolation = …)` (throws `InvalidIsolationLevelException`; guarded by `ConnectionHandlingIntegrationTest`).
+  - Do not set `hibernate.connection.provider_disables_autocommit` by hand — Boot derives it from the pool setting.
+- Event bookmark flags (`isBookmarked`) come from `BookmarkedEventIdsCache` (per-user event ID list in Redis, `performance/decisions.md` D-020), not from a per-request query. Any code that adds or removes event bookmarks must call `bookmarkedEventIdsCache.evictAfterCommit(userId)` inside the same transaction.
+- Never call the cache (Redis) while a DB connection is held, i.e. inside a transaction that has already run SQL (`performance/decisions.md` D-027). A hung Redis waits up to the command timeout per call, and every held connection drains the pool (10) until all APIs stall. Event read paths (`EventService.getEvents`, `getEventDetail`) are `Propagation.SUPPORTS` (they open no transaction) and do their DB reads in `EventQueryService`; `CacheIoOutsideTransactionIntegrationTest` guards this with `CacheConnectionProbeConfig`. All caches are wrapped by one circuit breaker (`CacheCircuitBreakerConfig`).
 - Constructor injection (no `@Autowired`).
 - Throw `IllegalArgumentException` for bad input, `EntityNotFoundException` for missing resources, `IllegalStateException` for conflicts — the `GlobalExceptionHandler` maps these to HTTP responses.
 
@@ -140,9 +146,11 @@ JUnit 5, MockK (`mockk`, `every`, `verify`), SpringMockK, Spring MockMvc, H2 in-
 ### Profiles
 Tests auto-activate `test` profile (`src/test/resources/application.yml` sets `spring.profiles.active: test`).
 `application-test.yml`: H2 with `MODE=MySQL`, `ddl-auto: create-drop`, schedulers disabled.
+The test `application.yml` shadows the main `application.yml` on the classpath, so connection/transaction settings (OSIV, Hikari, handling mode) are copied into `application-test.yml`; `TestConfigParityTest` fails if they drift.
 
 ### Patterns
 - **Integration tests**: `@SpringBootTest` + `@AutoConfigureMockMvc` + `@ActiveProfiles("test")` + `@Transactional`.
+- **Per-request connection behavior** (connection acquisition, commits, pool exhaustion) is invisible inside the test transaction: use `@Transactional(propagation = NOT_SUPPORTED)`, commit fixtures with `TransactionTemplate`, delete them in `@AfterEach`, and count driver calls with `JdbcCallCounterConfig` (see `ConnectionHandlingIntegrationTest`).
 - **Unit tests**: `@SpringBootTest` + `@ActiveProfiles("test")` with MockK for dependencies.
 - **Test naming**: Backtick method names preferred: `` fun `행사 목록 조회 성공`() ``. camelCase also used.
 - **Organization**: `@Nested` inner classes with `@DisplayName` for grouping.

@@ -1,6 +1,7 @@
 package duit.server.domain.event.service
 
 import duit.server.application.security.SecurityUtil
+import duit.server.domain.bookmark.service.BookmarkedEventIdsCache
 import duit.server.domain.common.dto.pagination.CursorPageInfo
 import duit.server.domain.common.dto.pagination.CursorPageResponse
 import duit.server.domain.common.dto.pagination.PaginationField
@@ -40,6 +41,7 @@ class EventServiceCacheTest {
     private lateinit var fileStorageService: FileStorageService
     private lateinit var eventQueryService: EventQueryService
     private lateinit var eventCacheEvictService: EventCacheEvictService
+    private lateinit var bookmarkedEventIdsCache: BookmarkedEventIdsCache
     private lateinit var eventService: EventService
 
     @BeforeEach
@@ -51,10 +53,11 @@ class EventServiceCacheTest {
         fileStorageService = mockk()
         eventQueryService = mockk(relaxed = true)
         eventCacheEvictService = mockk(relaxed = true)
+        bookmarkedEventIdsCache = mockk()
         eventService = EventService(
             eventRepository, securityUtil, discordService,
             EventHostResolver(hostService, fileStorageService), fileStorageService, eventQueryService, eventCacheEvictService,
-            mockk(relaxed = true)
+            mockk(relaxed = true), bookmarkedEventIdsCache
         )
     }
 
@@ -108,7 +111,7 @@ class EventServiceCacheTest {
 
             every { securityUtil.getCurrentUserIdOrNull() } returns 100L
             every { eventQueryService.findEvents(param) } returns cached
-            every { eventRepository.findBookmarkedEventIds(100L, listOf(1L, 2L, 3L)) } returns listOf(1L, 3L)
+            every { bookmarkedEventIdsCache.get(100L) } returns setOf(1L, 3L)
 
             val result = eventService.getEvents(param)
 
@@ -116,7 +119,7 @@ class EventServiceCacheTest {
             assertFalse(result.content[1].isBookmarked, "ID 2는 북마크 안 됨")
             assertTrue(result.content[2].isBookmarked, "ID 3은 북마크됨")
             verify(exactly = 0) { eventRepository.findEvents(any(), any()) }
-            verify(exactly = 1) { eventRepository.findBookmarkedEventIds(100L, any()) }
+            verify(exactly = 1) { bookmarkedEventIdsCache.get(100L) }
         }
 
         @Test
@@ -132,7 +135,7 @@ class EventServiceCacheTest {
 
             assertFalse(result.content[0].isBookmarked)
             assertFalse(result.content[1].isBookmarked)
-            verify(exactly = 0) { eventRepository.findBookmarkedEventIds(any(), any()) }
+            verify(exactly = 0) { bookmarkedEventIdsCache.get(any()) }
         }
 
         @Test
@@ -150,7 +153,7 @@ class EventServiceCacheTest {
             val result = eventService.getEvents(param)
 
             assertEquals(0, result.content.size)
-            verify(exactly = 0) { eventRepository.findBookmarkedEventIds(any(), any()) }
+            verify(exactly = 0) { bookmarkedEventIdsCache.get(any()) }
         }
 
         @Test
@@ -167,7 +170,7 @@ class EventServiceCacheTest {
 
             every { securityUtil.getCurrentUserIdOrNull() } returns 100L
             every { eventQueryService.findEvents(param) } returns cached
-            every { eventRepository.findBookmarkedEventIds(100L, listOf(1L, 2L)) } returns listOf(1L)
+            every { bookmarkedEventIdsCache.get(100L) } returns setOf(1L)
 
             val result = eventService.getEvents(param)
 
@@ -194,72 +197,65 @@ class EventServiceCacheTest {
     }
 
     @Nested
-    @DisplayName("캐싱 불가 경로 (DB 직접 조회)")
+    @DisplayName("캐싱 불가 경로 (캐시 없이 DB 조회 — eventQueryService.findEventsUncached)")
     inner class NonCacheablePathTests {
 
         @Test
-        @DisplayName("VIEW_COUNT 정렬 - eventQueryService 미호출, DB 직행")
-        fun `VIEW_COUNT는 eventQueryService를 사용하지 않는다`() {
+        @DisplayName("VIEW_COUNT 정렬 - 캐시 없는 조회")
+        fun `VIEW_COUNT는 캐시를 쓰지 않는다`() {
             val param = EventCursorPaginationParam(field = PaginationField.VIEW_COUNT, size = 10)
-            val host = createHost()
-            val events = listOf(createEvent(1L, host))
 
             every { securityUtil.getCurrentUserIdOrNull() } returns null
-            every { eventRepository.findEvents(param, null) } returns events
+            every { eventQueryService.findEventsUncached(param, null) } returns createCachedResponse(1L)
 
             eventService.getEvents(param)
 
             verify(exactly = 0) { eventQueryService.findEvents(any()) }
-            verify(exactly = 1) { eventRepository.findEvents(param, null) }
+            verify(exactly = 1) { eventQueryService.findEventsUncached(param, null) }
         }
 
         @Test
-        @DisplayName("bookmarked=true - eventQueryService 미호출, DB 직행")
-        fun `북마크 필터링은 eventQueryService를 사용하지 않는다`() {
+        @DisplayName("bookmarked=true - 사용자 ID 로 거른 뒤 북마크 표시를 덧입힌다")
+        fun `북마크 필터링은 캐시를 쓰지 않는다`() {
             val param = EventCursorPaginationParam(bookmarked = true, size = 10)
-            val host = createHost()
-            val events = listOf(createEvent(1L, host))
 
             every { securityUtil.getCurrentUserIdOrNull() } returns 100L
-            every { eventRepository.findEvents(param, 100L) } returns events
-            every { eventRepository.findBookmarkedEventIds(100L, listOf(1L)) } returns listOf(1L)
+            every { eventQueryService.findEventsUncached(param, 100L) } returns createCachedResponse(1L)
+            every { bookmarkedEventIdsCache.get(100L) } returns setOf(1L)
 
-            eventService.getEvents(param)
+            val result = eventService.getEvents(param)
 
             verify(exactly = 0) { eventQueryService.findEvents(any()) }
-            verify(exactly = 1) { eventRepository.findEvents(param, 100L) }
+            verify(exactly = 1) { eventQueryService.findEventsUncached(param, 100L) }
+            assertTrue(result.content.single().isBookmarked)
         }
 
         @Test
-        @DisplayName("searchKeyword 있음 - eventQueryService 미호출")
-        fun `검색 키워드가 있으면 eventQueryService를 사용하지 않는다`() {
+        @DisplayName("searchKeyword 있음 - 캐시 없는 조회")
+        fun `검색 키워드가 있으면 캐시를 쓰지 않는다`() {
             val param = EventCursorPaginationParam(searchKeyword = "간호", size = 10)
-            val host = createHost()
-            val events = listOf(createEvent(1L, host))
 
             every { securityUtil.getCurrentUserIdOrNull() } returns null
-            every { eventRepository.findEvents(param, null) } returns events
+            every { eventQueryService.findEventsUncached(param, null) } returns createCachedResponse(1L)
 
             eventService.getEvents(param)
 
             verify(exactly = 0) { eventQueryService.findEvents(any()) }
-            verify(exactly = 1) { eventRepository.findEvents(param, null) }
+            verify(exactly = 1) { eventQueryService.findEventsUncached(param, null) }
         }
 
         @Test
-        @DisplayName("hostId 있음 - eventQueryService 미호출")
-        fun `hostId 필터가 있으면 eventQueryService를 사용하지 않는다`() {
+        @DisplayName("hostId 있음 - 캐시 경로(eventQueryService) 사용 (D-026)")
+        fun `hostId 필터도 eventQueryService로 캐시한다`() {
             val param = EventCursorPaginationParam(hostId = 5L, size = 10)
-            val host = createHost()
-            val events = listOf(createEvent(1L, host))
 
             every { securityUtil.getCurrentUserIdOrNull() } returns null
-            every { eventRepository.findEvents(param, null) } returns events
+            every { eventQueryService.findEvents(param) } returns createCachedResponse(1L)
 
             eventService.getEvents(param)
 
-            verify(exactly = 0) { eventQueryService.findEvents(any()) }
-            verify(exactly = 1) { eventRepository.findEvents(param, null) }
+            verify(exactly = 1) { eventQueryService.findEvents(param) }
+            verify(exactly = 0) { eventRepository.findEvents(any(), any()) }
         }
     }
 

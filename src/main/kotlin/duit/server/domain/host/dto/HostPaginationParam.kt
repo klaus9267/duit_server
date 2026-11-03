@@ -21,6 +21,9 @@ data class HostPaginationParam(
     override val field: PaginationField = PaginationField.NAME
 ) : PaginationParam(page, size, sortDirection, field) {
 
+    /** 주최기관 목록 캐시 키 (정규화된 페이지 값 기준 — page=null 과 page=0 이 같은 키) */
+    fun cacheKey(): String = toPageable().let { "${it.pageNumber}:${it.pageSize}:${it.sort}" }
+
     override fun toPageable(): Pageable {
         val safePage = (page ?: 0).coerceAtLeast(0)
         val safeSize = (size ?: 10).coerceIn(1, 1000)

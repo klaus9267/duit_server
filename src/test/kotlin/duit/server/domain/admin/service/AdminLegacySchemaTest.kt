@@ -27,6 +27,8 @@ import org.springframework.security.access.AccessDeniedException
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.security.crypto.password.PasswordEncoder
+import org.springframework.transaction.PlatformTransactionManager
+import org.springframework.transaction.support.TransactionTemplate
 import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.context.TestPropertySource
 import org.springframework.test.web.servlet.MockMvc
@@ -76,6 +78,12 @@ class AdminLegacySchemaTest {
     @Autowired
     private lateinit var jdbcTemplate: JdbcTemplate
 
+    @Autowired
+    private lateinit var transactionManager: PlatformTransactionManager
+
+    // 풀이 auto-commit=false 라서 트랜잭션 밖에서 실행한 JDBC 쓰기는 커밋되지 않는다
+    private val tx by lazy { TransactionTemplate(transactionManager) }
+
     @BeforeEach
     fun dropUniqueConstraints() {
         fun constraintNames(type: String) = jdbcTemplate.queryForList(
@@ -88,15 +96,19 @@ class AdminLegacySchemaTest {
         if (uniques.isEmpty()) return
 
         // FK 가 unique 인덱스를 재사용하므로 FK 를 먼저 지운 뒤 unique 를 지우고 FK 를 다시 만든다
-        constraintNames("FOREIGN KEY").forEach { jdbcTemplate.execute("ALTER TABLE admins DROP CONSTRAINT \"$it\"") }
-        uniques.forEach { jdbcTemplate.execute("ALTER TABLE admins DROP CONSTRAINT \"$it\"") }
-        jdbcTemplate.execute("ALTER TABLE admins ADD CONSTRAINT fk_admins_user FOREIGN KEY (user_id) REFERENCES users (id)")
+        tx.executeWithoutResult {
+            constraintNames("FOREIGN KEY").forEach { jdbcTemplate.execute("ALTER TABLE admins DROP CONSTRAINT \"$it\"") }
+            uniques.forEach { jdbcTemplate.execute("ALTER TABLE admins DROP CONSTRAINT \"$it\"") }
+            jdbcTemplate.execute("ALTER TABLE admins ADD CONSTRAINT fk_admins_user FOREIGN KEY (user_id) REFERENCES users (id)")
+        }
     }
 
     @AfterEach
     fun cleanUp() {
-        jdbcTemplate.update("DELETE FROM admins")
-        jdbcTemplate.update("DELETE FROM users")
+        tx.executeWithoutResult {
+            jdbcTemplate.update("DELETE FROM admins")
+            jdbcTemplate.update("DELETE FROM users")
+        }
         SecurityContextHolder.clearContext()
     }
 

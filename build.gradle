@@ -52,6 +52,9 @@ dependencies {
     // Redis
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
     implementation 'org.springframework.boot:spring-boot-starter-cache'
+    // 캐시(Redis) 서킷 브레이커 — Redis 가 멈추면 일정 시간 캐시를 건너뛴다 (performance/decisions.md D-027)
+    implementation 'io.github.resilience4j:resilience4j-circuitbreaker:2.2.0'
+    implementation 'io.github.resilience4j:resilience4j-micrometer:2.2.0'
 
     // Firebase Admin SDK
     implementation 'com.google.firebase:firebase-admin:9.2.0'
