@@ -109,6 +109,12 @@ fun publicEndpoint() = ...
 - 관리자 계정을 만드는 API 는 제공하지 않는다. 관리자 추가는 `admins` 에 직접 insert 한다 (`password` 는 BCrypt 해시, `user_id` 는 기존 사용자). 신규 DB 의 첫 관리자도 같다
 - 운영 DB 의 `admins` 에 unique 제약(`user_id`, `admin_id`)이 있다고 가정하지 않는다. 해제는 행 id 가 아니라 사용자 기준으로 처리해 중복 행이 있어도 동작하고, 같은 `adminId` 행이 둘 이상이면 로그인은 400 으로 거부한다
 
+### Actuator 노출 범위
+- 웹으로 노출하는 엔드포인트는 `health`(배포 스크립트·compose 헬스체크)와 `prometheus`(Prometheus 수집)뿐이다. `management.endpoints.web.exposure.include` 에 `*` 를 쓰지 않고, 늘릴 때는 사용처를 함께 적는다
+- `SecurityConfig` 의 permitAll 도 `/actuator/health/**`, `/actuator/prometheus` 두 경로만 연다. 새 엔드포인트를 열 때는 `application.yml` 과 `SecurityConfig` 를 함께 바꾸고 `ActuatorExposureTest` 를 갱신한다
+- `health` 상세(`show-details`)는 `never` 로 둔다
+- Prometheus 는 docker 네트워크 안(`duit-server-*:8080`)에서 인증 없이 수집한다. 앞단 nginx 설정은 저장소 밖에 있다
+
 ### 사용자 디바이스 토큰 엔드포인트
 - 기존 등록 엔드포인트는 `PATCH /api/v1/users/device/{token}`를 유지하되, 새 토큰을 **추가 등록**한다
 - 디바이스 토큰은 컨트롤러에서 `@NotBlank`, `@Pattern` 같은 표준 Bean Validation으로 선검증하고 서비스는 검증 완료 입력만 받는다
