@@ -9,13 +9,45 @@
 > 매 작업 후 갱신. 새 세션 시작 시 이 섹션만 읽으면 전체 파악 가능.
 
  **마지막 작업일**: 2026-11-04
- **진행 중인 작업**: 관리자 계정 관리 PR (feat/admin-member-management → dev). Actuator 노출 범위 축소는 #160 으로 dev 병합 완료. 앞선 작업은 행사 다중 주최(event_hosts) 1단계(#156, dev 병합 완료). 후속은 Linear P-7 하위 이슈: P-13 (V6, #156 운영 배포 후) → P-14 (V7, P-13 운영 배포 후), P-15 (레거시 필드, 클라이언트 전환 후)
+ **진행 중인 작업**: main 코드 JDBC 직접 사용 가드 테스트 PR (test/direct-jdbc-guard → dev). 성능 개선(#158), 관리자 계정 관리(#159), Actuator 노출 범위 축소(#160)는 운영 배포 완료(#161). 앞선 작업은 행사 다중 주최(event_hosts) 1단계(#156, 운영 배포 완료). 후속은 Linear P-7 하위 이슈: P-13 (V6, 착수 가능) → P-14 (V7, P-13 운영 배포 후), P-15 (레거시 필드, 클라이언트 전환 후)
  **블로커**: 운영 DB에서 `scripts/sql/deduplicate_user_device_tokens.sql` 실행 후 `scripts/sql/add_user_device_tokens_unique_constraint.sql` 적용 필요 (이전 작업)
  **미수정 CRITICAL**: 1건 (배포된 비밀 노출 사고 후 실제 비밀 rotation / GHCR 정리 필요)
  **미수정 HIGH**: 6건 (CORS, 외부 API 타임아웃/재시도, FCM invalid token 정리, JWT Refresh Token, Discord fire-and-forget)
- **브랜치**: feat/admin-member-management
+ **브랜치**: test/direct-jdbc-guard
  **신규 의존성**: 없음 (Flyway는 기존 build.gradle 활성화)
  **신규 env**: `application*.yml` 의 `ddl-auto: validate` + `flyway enabled`
+
+## 2026-11-04 (main 코드의 JDBC 직접 사용 가드 테스트)
+
+**분류**: test | docs
+
+### 작업 내용
+- `DirectJdbcUsageGuardTest` 추가: main 의 컴파일된 클래스(Kotlin·Java 출력)에서 JDBC 직접 사용(Spring JDBC 실행 API `core`·`datasource`·`object`, `javax.sql`, `java.sql` 의 Connection·Statement 류)을 찾아 허용 목록 밖이면 실패. 허용 목록은 `DummyDataGenerator` 하나
+- 허용 목록의 클래스가 더 이상 JDBC 를 직접 쓰지 않아도 실패 — 목록이 낡지 않게 하고, 탐지가 실제로 동작하는지도 함께 확인
+- `AGENTS.md` 의 트랜잭션 규칙에 이 테스트를 연결
+
+### 기술적 결정
+- 풀이 `auto-commit=false`(#158)라서 트랜잭션 밖의 JDBC 쓰기는 예외 없이 롤백되고 응답은 성공으로 나간다 (이 설정 전에는 커밋됐다). JPA 의 `save`·`@Modifying` 은 스스로 트랜잭션을 열거나 트랜잭션이 없으면 예외가 나서 이 설정의 영향을 받지 않으므로 JDBC 직접 사용만 제한. 트랜잭션 밖 변경 감지(dirty checking) 유실은 이 설정과 무관한 기존 동작이라 범위 밖
+- 소스가 아니라 바이트코드(상수 풀)를 검사: 완전한 이름으로 쓰거나 `Session.doWork { }` 람다 인자로 `Connection` 을 받으면 import 가 없어 소스 검색으로는 못 잡는다. 람다 경우는 테스트 픽스처로 고정
+- 대상은 SQL 을 실행할 수 있는 타입만: Spring JDBC 는 실행 API(`core`·`datasource`·`object`)만 보고 예외 타입(`CannotGetJdbcConnectionException` 등)은 제외, `java.sql` 은 커넥션·문장 타입만 (`Timestamp` 같은 값 타입은 제외)
+- 새 의존성(ArchUnit 등) 없이 구현
+
+### 한계
+- 허용은 클래스 단위라, 허용된 클래스(`DummyDataGenerator`)에 새로 넣는 JDBC 코드는 잡지 못한다 → 리뷰에서 확인
+- main 바이트코드의 직접 참조만 본다. 라이브러리가 `DataSource` 빈을 받아 쓰는 경우 등 간접 경로는 대상 밖. 런타임에 "트랜잭션 밖에서 미커밋 상태로 반납되는 커넥션"을 감지하는 DataSource 래퍼가 더 근본적인 대안이지만 이번 범위에서는 하지 않음
+- 클래스 파일 바이트에 정규식을 적용하므로 문자열 상수에 `org/springframework/jdbc/core/...` 같은 `/` 표기 경로가 있으면 오탐한다 (실패로 드러나므로 조용히 놓치지는 않음)
+- `DummyDataGenerator` 의 `ALTER TABLE`(이벤트 인덱스 삭제·재생성)은 MySQL 에서 암묵적 커밋을 일으키고(`LOAD DATA` 는 InnoDB 에서 일으키지 않음), `SET FOREIGN_KEY_CHECKS = 0` 은 실패 후 인덱스 복구까지 실패하면 풀 커넥션에 남는다. local 프로파일 전용 도구라 이번 범위에서는 손대지 않음
+
+### 영향 범위
+- 테스트: `src/test/kotlin/duit/server/application/config/DirectJdbcUsageGuardTest.kt`
+- 문서: `AGENTS.md`, `rules/work-log.md`
+- main 코드 변경 없음
+
+### 테스트
+- 전체: 721 tests, 0 failures (기존 비활성 3개 건너뜀)
+- 임시 위반 코드로 실패를 확인한 뒤 원복: Kotlin 에서 완전한 이름으로 쓴 `JdbcTemplate`, Java 소스의 `DataSource`, 낡은 허용 목록 각각 실패. `CannotGetJdbcConnectionException` 만 참조하는 클래스는 통과(오탐 없음)
+
+---
 
 ## 2026-11-04 (관리자 계정 관리: 목록 조회·해제, 등록 API 삭제)
 
