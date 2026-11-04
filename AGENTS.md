@@ -94,7 +94,7 @@ src/main/kotlin/duit/server/
 - `@Service` + `@Transactional(readOnly = true)` at class level.
 - `@Transactional` on individual write methods.
 - Connections are acquired at the first SQL and released at transaction end (`hikari.auto-commit: false` + `handling_mode: DELAYED_ACQUISITION_AND_RELEASE_AFTER_TRANSACTION`, `performance/decisions.md` D-016). Consequences:
-  - Every write must run inside `@Transactional` — JDBC writes outside a transaction are silently rolled back.
+  - Every write must run inside `@Transactional` — JDBC writes outside a transaction are silently rolled back. Direct JDBC in main code (`JdbcTemplate`, `DataSource`, `java.sql.Connection`) is limited to the allowlist in `DirectJdbcUsageGuardTest`; use JPA instead.
   - Do not set `@Transactional(isolation = …)` (throws `InvalidIsolationLevelException`; guarded by `ConnectionHandlingIntegrationTest`).
   - Do not set `hibernate.connection.provider_disables_autocommit` by hand — Boot derives it from the pool setting.
 - Event bookmark flags (`isBookmarked`) come from `BookmarkedEventIdsCache` (per-user event ID list in Redis, `performance/decisions.md` D-020), not from a per-request query. Any code that adds or removes event bookmarks must call `bookmarkedEventIdsCache.evictAfterCommit(userId)` inside the same transaction.
