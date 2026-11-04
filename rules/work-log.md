@@ -36,7 +36,7 @@
 - 허용은 클래스 단위라, 허용된 클래스(`DummyDataGenerator`)에 새로 넣는 JDBC 코드는 잡지 못한다 → 리뷰에서 확인
 - main 바이트코드의 직접 참조만 본다. 라이브러리가 `DataSource` 빈을 받아 쓰는 경우 등 간접 경로는 대상 밖. 런타임에 "트랜잭션 밖에서 미커밋 상태로 반납되는 커넥션"을 감지하는 DataSource 래퍼가 더 근본적인 대안이지만 이번 범위에서는 하지 않음
 - 클래스 파일 바이트에 정규식을 적용하므로 문자열 상수에 `org/springframework/jdbc/core/...` 같은 `/` 표기 경로가 있으면 오탐한다 (실패로 드러나므로 조용히 놓치지는 않음)
-- `DummyDataGenerator` 의 `ALTER TABLE`·`LOAD DATA` 는 MySQL 에서 암묵적 커밋을 일으키고, `SET FOREIGN_KEY_CHECKS = 0` 은 실패 시 풀 커넥션에 남을 수 있다. local 프로파일 전용 도구라 이번 범위에서는 손대지 않음
+- `DummyDataGenerator` 의 `ALTER TABLE`(이벤트 인덱스 삭제·재생성)은 MySQL 에서 암묵적 커밋을 일으키고(`LOAD DATA` 는 InnoDB 에서 일으키지 않음), `SET FOREIGN_KEY_CHECKS = 0` 은 실패 후 인덱스 복구까지 실패하면 풀 커넥션에 남는다. local 프로파일 전용 도구라 이번 범위에서는 손대지 않음
 
 ### 영향 범위
 - 테스트: `src/test/kotlin/duit/server/application/config/DirectJdbcUsageGuardTest.kt`
@@ -44,6 +44,7 @@
 - main 코드 변경 없음
 
 ### 테스트
+- 전체: 721 tests, 0 failures (기존 비활성 3개 건너뜀)
 - 임시 위반 코드로 실패를 확인한 뒤 원복: Kotlin 에서 완전한 이름으로 쓴 `JdbcTemplate`, Java 소스의 `DataSource`, 낡은 허용 목록 각각 실패. `CannotGetJdbcConnectionException` 만 참조하는 클래스는 통과(오탐 없음)
 
 ---
