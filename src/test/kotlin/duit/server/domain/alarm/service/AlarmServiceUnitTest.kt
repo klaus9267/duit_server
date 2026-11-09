@@ -321,7 +321,7 @@ class AlarmServiceUnitTest {
             assertTrue(bodySlot.captured.contains("${event.startAt.hour}시"))
             assertEquals("event_start", dataSlot.captured["type"])
             assertEquals(event.id.toString(), dataSlot.captured["eventId"])
-            assertEquals(event.host.name, dataSlot.captured["hostName"])
+            assertEquals(event.hosts.first().name, dataSlot.captured["hostName"])
         }
 
         @Test

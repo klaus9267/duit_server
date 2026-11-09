@@ -80,16 +80,8 @@ class Event(
     @OrderBy("sortOrder ASC")
     private val eventHosts: MutableList<EventHost> = mutableListOf()
 
-    // TODO(P-13): events.host_id 는 blue-green 전환·롤백 중 구 서버 호환을 위해 첫 번째 주최를 미러링만 한다.
-    //  읽기는 항상 hosts 를 사용할 것. 다음 배포(P-13)에서 이 필드를 제거하고, 컬럼은 그다음 배포(P-14)에서 삭제.
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "host_id")
-    var host: Host = requireNotNull(hosts.firstOrNull()) { "주최는 최소 1개 이상이어야 합니다" }
-        protected set
-
-    // TODO(P-13): ifEmpty fallback 은 전환 구간에 구 서버가 event_hosts 없이 기록한 행 대응. P-13 의 V6 백필과 함께 제거
     val hosts: List<Host>
-        get() = eventHosts.sortedBy { it.sortOrder }.map { it.host }.ifEmpty { listOf(host) }
+        get() = eventHosts.sortedBy { it.sortOrder }.map { it.host }
 
     init {
         replaceHosts(hosts)
@@ -107,8 +99,6 @@ class Event(
                 ?.let { it.sortOrder = index }
                 ?: eventHosts.add(EventHost(event = this, host = host, sortOrder = index))
         }
-
-        host = orderedHosts.first()
     }
 
     private fun Host.identity(): Any = id ?: this

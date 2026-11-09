@@ -8,14 +8,52 @@
 
 > 매 작업 후 갱신. 새 세션 시작 시 이 섹션만 읽으면 전체 파악 가능.
 
- **마지막 작업일**: 2026-11-04
- **진행 중인 작업**: main 코드 JDBC 직접 사용 가드 테스트 PR (test/direct-jdbc-guard → dev). 성능 개선(#158), 관리자 계정 관리(#159), Actuator 노출 범위 축소(#160)는 운영 배포 완료(#161). 앞선 작업은 행사 다중 주최(event_hosts) 1단계(#156, 운영 배포 완료). 후속은 Linear P-7 하위 이슈: P-13 (V6, 착수 가능) → P-14 (V7, P-13 운영 배포 후), P-15 (레거시 필드, 클라이언트 전환 후)
+ **마지막 작업일**: 2026-11-10
+ **진행 중인 작업**: 행사 다중 주최 2단계 P-13 — `events.host_id` 사용 중단(V6) PR (refactor/p13-event-host-id-deprecate → dev). 다음은 P-14 (V7 컬럼 삭제, P-13 운영 배포 후), P-15 (레거시 필드, 클라이언트 전환 후). 앞선 작업: JDBC 직접 사용 가드 테스트(#163, dev 머지), 성능 개선(#158)·관리자 계정 관리(#159)·Actuator 노출 범위 축소(#160) 운영 배포 완료(#161), 다중 주최 1단계(#156, 운영 배포 완료)
  **블로커**: 운영 DB에서 `scripts/sql/deduplicate_user_device_tokens.sql` 실행 후 `scripts/sql/add_user_device_tokens_unique_constraint.sql` 적용 필요 (이전 작업)
  **미수정 CRITICAL**: 1건 (배포된 비밀 노출 사고 후 실제 비밀 rotation / GHCR 정리 필요)
  **미수정 HIGH**: 6건 (CORS, 외부 API 타임아웃/재시도, FCM invalid token 정리, JWT Refresh Token, Discord fire-and-forget)
- **브랜치**: test/direct-jdbc-guard
+ **브랜치**: refactor/p13-event-host-id-deprecate
  **신규 의존성**: 없음 (Flyway는 기존 build.gradle 활성화)
  **신규 env**: `application*.yml` 의 `ddl-auto: validate` + `flyway enabled`
+
+## 2026-11-10 (행사 다중 주최 2단계: events.host_id 사용 중단, P-13)
+
+**분류**: refactor | db | test | docs
+
+### 작업 내용
+- V6 마이그레이션: `event_hosts` 가 없는 행사 백필, `events.host_id` FK 제거, NULL 허용. 컬럼은 남긴다 (P-14 에서 삭제)
+- `Event.host` 매핑과 `hosts` 의 fallback 제거. 주최는 `event_hosts` 로만 읽고 쓴다
+- 목록 쿼리(V1 native, V2 QueryDSL·VIEW_COUNT native, 캘린더 JPQL)의 주최 존재 조건을 `event_hosts` 존재만으로 바꿈. main 코드의 `events.host_id` 참조 0건 (마이그레이션 제외)
+- `DummyDataGenerator`: CSV 에서 host_id 를 빼고 `event_hosts` 를 직접 만든다. 컬럼 목록에 남아 있던 `is_approved`(운영 스키마에 없는 컬럼)도 빼서 CSV 필드와 맞춤
+- V6 마이그레이션 테스트 추가 (Testcontainers). `JobPostingSortMigrationTest` 에 `target("4")` 추가 — V5 부터 `events` 테이블이 필요해져 실제 MySQL 에서는 실패하던 테스트
+
+### 기술적 결정
+- FK 를 지우는 이유: 이 버전은 주최를 바꿔도 host_id 를 갱신하지 않는다. FK 가 남으면 행사에서 빠진 주최를 삭제할 때 남은 host_id 참조가 삭제를 막는다
+- FK 는 Flyway 도입 전 Hibernate 가 자동 이름으로 만들어서 `information_schema` 에서 이름을 찾아 PREPARE 로 지운다. 못 찾으면 `DO 0` 으로 건너뛴다 (FK 가 없는 DB 대비)
+- 컬럼을 남기는 이유: 배포 전환 중과 롤백 시 V5 버전 서버가 이 컬럼을 매핑한다. V5 버전은 `Event.host` 를 fallback 에서만 읽고, 이 버전이 만든 행사는 `event_hosts` 가 있으므로 host_id 가 NULL 이어도 동작한다 (아래 롤백 확인)
+
+### 운영 DB 확인 (2026-11-09, 읽기 전용)
+- 이슈의 배포 전 확인 쿼리 2개 모두 0건. 행사 756개 모두 `event_hosts` 가 정확히 1개이고 첫 주최가 host_id 와 같다 → V6 백필 대상 0건
+- host_id FK 는 `FKdqkiykj89a9gdfh6cepo057o6` 1개. FK 를 지워도 같은 이름의 인덱스는 남고 P-14 에서 컬럼과 함께 사라진다. host_id 는 이미 NULL 허용
+- host_id 를 참조하는 뷰·트리거·루틴 없음. `lower_case_table_names=0` 이라 마이그레이션의 테이블 이름은 소문자로 쓴다
+
+### 한계 / 후속
+- Testcontainers 테스트가 Docker 29 에서 건너뛰어지던 문제는 #166 에서 해결. dev 를 합치면서 V6 테스트도 `@RequiresDocker` 로 바꿨다
+- `DummyDataGenerator` 는 local 프로파일 전용이지만 local 의 DB 는 SSH 터널 너머 운영 MySQL 이다. 그대로 호출하면 운영 `events` 인덱스를 지우고 100만 건을 넣는다 → 대상 DB 를 확인하는 가드가 필요 (별도 작업). 지우고 다시 만드는 인덱스 목록도 현재 스키마와 다르다 (없는 `idx_status_created_at_id`·`idx_status_group_created_at_id`, 빠진 `idx_status_group_id`)
+
+### 영향 범위
+- main: `Event`, `EventRepository`, `EventRepositoryImpl`, `DummyDataGenerator`, `V6__stop_using_events_host_id.sql`
+- 테스트: `EventHostIdDeprecationMigrationTest`(신규), `JobPostingSortMigrationTest`, `EventUnitTest`, `EventControllerIntegrationTest`, `EventControllerV2IntegrationTest`, `AlarmServiceUnitTest`
+- 문서: `rules/entities.md`, `rules/work-log.md`
+
+### 테스트
+- 전체(H2): 722 tests, 0 failures (5개 건너뜀: 기존 비활성 3개 + 새 V6 테스트 2개)
+- 실제 MySQL 에서 마이그레이션 테스트 3개(V4 1개, V6 2개) 통과
+- 운영 스키마(DDL·Flyway 이력만 복제, 데이터는 합성)의 MySQL 8.0: V6 적용(백필 1건, FK 제거) 후 `ddl-auto: validate` 로 기동. 이벤트·주최 테스트 185개 통과 — H2 에서 비활성인 V1 목록 테스트와 VIEW_COUNT 경로를 임시로 켜서 포함. `@DataJpaTest` 2개 클래스는 내장 H2 로 바뀌어 대상에서 뺌
+- 롤백: 운영 버전(main)을 V6 적용 DB 로 기동 → host_id 가 NULL 인 행사의 상세·V1/V2 목록·VIEW_COUNT+hostId 조회 정상, 주최 변경 정상
+
+---
 
 ## 2026-11-10 (Testcontainers 1.21.4 — Docker 29 에서 마이그레이션 테스트가 건너뛰어지던 문제)
 
@@ -33,7 +71,7 @@
 - `AGENTS.md` Testing 에 실제 MySQL 테스트 규칙 추가
 
 ### 후속
-- P-13 PR(#164)의 `EventHostIdDeprecationMigrationTest` 는 아직 `disabledWithoutDocker = true` 다. 두 PR 중 나중에 머지되는 쪽에서 `@RequiresDocker` 로 바꾼다 (`target("4")` 는 두 PR 이 같은 줄을 똑같이 바꾼다)
+- P-13 PR(#164)의 `EventHostIdDeprecationMigrationTest` 는 #164 에 dev 를 합치면서 `@RequiresDocker` 로 바꿨다
 
 ### 영향 범위
 - `build.gradle`, `src/test/kotlin/duit/server/support/RequiresDocker.kt`(신규), `JobPostingSortMigrationTest`, `AGENTS.md`, `rules/work-log.md`
