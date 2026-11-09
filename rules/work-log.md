@@ -39,7 +39,7 @@
 - host_id 를 참조하는 뷰·트리거·루틴 없음. `lower_case_table_names=0` 이라 마이그레이션의 테이블 이름은 소문자로 쓴다
 
 ### 한계 / 후속
-- Testcontainers 테스트(V4·V6)는 지금 건너뛰어진다. Testcontainers 1.21.3 이 Docker API 1.32 로 요청하는데 Docker 29 는 1.44 미만을 거부해서, `disabledWithoutDocker` 가 Docker 없음으로 판단한다. CI 결과의 skipped 3개에도 V4 테스트가 들어 있다 (돌았다면 V5 이후 실패했어야 함). Testcontainers 업그레이드는 별도 작업
+- Testcontainers 테스트가 Docker 29 에서 건너뛰어지던 문제는 #166 에서 해결. dev 를 합치면서 V6 테스트도 `@RequiresDocker` 로 바꿨다
 - `DummyDataGenerator` 는 local 프로파일 전용이지만 local 의 DB 는 SSH 터널 너머 운영 MySQL 이다. 그대로 호출하면 운영 `events` 인덱스를 지우고 100만 건을 넣는다 → 대상 DB 를 확인하는 가드가 필요 (별도 작업). 지우고 다시 만드는 인덱스 목록도 현재 스키마와 다르다 (없는 `idx_status_created_at_id`·`idx_status_group_created_at_id`, 빠진 `idx_status_group_id`)
 
 ### 영향 범위
@@ -52,6 +52,34 @@
 - 실제 MySQL 에서 마이그레이션 테스트 3개(V4 1개, V6 2개) 통과
 - 운영 스키마(DDL·Flyway 이력만 복제, 데이터는 합성)의 MySQL 8.0: V6 적용(백필 1건, FK 제거) 후 `ddl-auto: validate` 로 기동. 이벤트·주최 테스트 185개 통과 — H2 에서 비활성인 V1 목록 테스트와 VIEW_COUNT 경로를 임시로 켜서 포함. `@DataJpaTest` 2개 클래스는 내장 H2 로 바뀌어 대상에서 뺌
 - 롤백: 운영 버전(main)을 V6 적용 DB 로 기동 → host_id 가 NULL 인 행사의 상세·V1/V2 목록·VIEW_COUNT+hostId 조회 정상, 주최 변경 정상
+
+---
+
+## 2026-11-10 (Testcontainers 1.21.4 — Docker 29 에서 마이그레이션 테스트가 건너뛰어지던 문제)
+
+**분류**: test | build | docs
+
+### 배경
+- Testcontainers 1.21.3 은 Docker API 1.32 로 요청한다. Docker 29 는 1.44 미만을 거부해서 Testcontainers 가 Docker 를 못 찾고, `@Testcontainers(disabledWithoutDocker = true)` 테스트는 실패 대신 건너뛰어졌다
+- CI 러너(ubuntu-26.04 이미지)도 Docker 29.4.2 라 같은 이유로 건너뛰었다. CI 결과의 skipped 3개 = V1 목록 비활성 2개 + `JobPostingSortMigrationTest`
+- 그 사이 V5 가 추가되면서 `JobPostingSortMigrationTest` 는 실제 MySQL 에서 실패하는 상태였는데(V5 가 이 테스트에 없는 `events` 를 참조) 아무도 몰랐다
+
+### 작업 내용
+- `ext['testcontainers.version'] = '1.21.4'`. Spring Boot 의존성 관리가 core 를 1.21.3 으로 고정하므로 모듈 버전만 올리면 core 가 그대로 남는다. 1.21.4 는 1.21.x 를 최근 Docker 엔진에 맞춘 릴리스
+- `@RequiresDocker` 추가: Docker 가 없으면 로컬에서는 건너뛰고, CI(`CI=true`)에서는 실행해서 실패시킨다. `JobPostingSortMigrationTest` 에 적용
+- `JobPostingSortMigrationTest` 에 `target("4")`: V4 까지만 적용
+- `AGENTS.md` Testing 에 실제 MySQL 테스트 규칙 추가
+
+### 후속
+- P-13 PR(#164)의 `EventHostIdDeprecationMigrationTest` 는 #164 에 dev 를 합치면서 `@RequiresDocker` 로 바꿨다
+
+### 영향 범위
+- `build.gradle`, `src/test/kotlin/duit/server/support/RequiresDocker.kt`(신규), `JobPostingSortMigrationTest`, `AGENTS.md`, `rules/work-log.md`
+
+### 테스트
+- 같은 Docker 29 환경에서 비교: 1.21.3(dev)은 `JobPostingSortMigrationTest` 건너뜀, 1.21.4 는 MySQL 8.4 컨테이너를 띄워 통과
+- Docker 가 없을 때: `CI=true` 면 실패("Could not find a valid Docker environment"), 로컬이면 건너뜀
+- CI 와 같은 조건(`CI=true`, Docker 있음, `test jacocoTestReport`): 721 tests, 0 failures, 건너뜀은 V1 목록 비활성 2개뿐
 
 ---
 
