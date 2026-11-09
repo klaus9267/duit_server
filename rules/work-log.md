@@ -9,13 +9,39 @@
 > 매 작업 후 갱신. 새 세션 시작 시 이 섹션만 읽으면 전체 파악 가능.
 
  **마지막 작업일**: 2026-11-10
- **진행 중인 작업**: dev 에 행사 다중 주최 2단계 P-13(#164), FCM 디바이스 토큰 보완(#165), Testcontainers 1.21.4(#166) 머지 → 운영 배포. 다음은 P-14 (V7 `events.host_id` 컬럼 삭제, P-13 운영 배포 후), `users.device_token` 컬럼 삭제(#165 운영 배포 후), P-15 (레거시 주최 필드, 클라이언트 전환 후). iOS 앱이 1.6.0부터 FCM 토큰을 등록하지 못하는 문제는 앱 쪽 Linear P-16. 앞선 작업: JDBC 직접 사용 가드 테스트(#163), 성능 개선(#158)·관리자 계정 관리(#159)·Actuator 노출 범위 축소(#160, 운영 배포 #161), 다중 주최 1단계(#156)
+ **진행 중인 작업**: 행사 다중 주최 3단계 P-14 — `events.host_id` 컬럼 삭제(V7) (refactor/p14-drop-events-host-id → dev). P-13(#164)·FCM 디바이스 토큰 보완(#165)·Testcontainers 1.21.4(#166)는 운영 배포 완료(#167, 2026-11-10). 다음은 `users.device_token` 컬럼 삭제(#165 운영 배포 후 가능), P-15 (레거시 주최 필드, 클라이언트 전환 후). iOS 앱이 1.6.0부터 FCM 토큰을 등록하지 못하는 문제는 앱 쪽 Linear P-16. 앞선 작업: JDBC 직접 사용 가드 테스트(#163), 성능 개선(#158)·관리자 계정 관리(#159)·Actuator 노출 범위 축소(#160, 운영 배포 #161), 다중 주최 1단계(#156)
  **블로커**: 없음 (`user_device_tokens` 중복 정리·유니크 제약은 운영 적용 확인, 2026-11-10)
  **미수정 CRITICAL**: 1건 (배포된 비밀 노출 사고 후 실제 비밀 rotation / GHCR 정리 필요)
  **미수정 HIGH**: 5건 (CORS, 외부 API 타임아웃/재시도, JWT Refresh Token, Discord fire-and-forget)
- **브랜치**: dev
+ **브랜치**: refactor/p14-drop-events-host-id
  **신규 의존성**: 없음 (Flyway는 기존 build.gradle 활성화)
  **신규 env**: `application*.yml` 의 `ddl-auto: validate` + `flyway enabled`
+
+## 2026-11-10 (행사 다중 주최 3단계: events.host_id 컬럼 삭제, P-14)
+
+**분류**: refactor | db | test | docs
+
+### 작업 내용
+- V7 마이그레이션: `ALTER TABLE events DROP COLUMN host_id`. 컬럼에 남아 있던 인덱스(`FKdqkiykj89a9gdfh6cepo057o6`, FK 는 V6 에서 삭제)도 같이 사라진다
+- `EventHostIdDeprecationMigrationTest`: V6 테스트는 `target("6")` 으로 고정, V7 테스트 추가
+
+### 기술적 결정
+- 배포 순서: P-13(V6) 버전이 운영에 나간 뒤라(2026-11-10, #167) 전환 중·롤백 시 돌아가는 구 버전도 `host_id` 를 매핑하지 않는다. 이 배포 뒤로는 P-13 이전 버전(#156)으로 롤백할 수 없다
+- 컬럼이 없는 DB 를 위한 분기는 넣지 않았다. 적용 대상은 운영뿐이고, 없으면 마이그레이션이 실패해 배포가 멈추는 쪽이 안전하다
+
+### 배포 전 확인 (2026-11-10, 읽기 전용)
+- 클라이언트: 앱(duty-it)·관리자 웹(duit-admin)·수집기(duit-surfer)는 API 로만 접근한다. 응답의 `host` 필드는 그대로라(P-15 에서 정리) API 변화 없음
+- 운영 MySQL 에 붙는 것은 서버 앱과 백업 컨테이너뿐. Grafana 에 MySQL 데이터소스 없음. `host_id` 를 참조하는 뷰·트리거·루틴 없음(P-13 때 확인)
+
+### 영향 범위
+- `src/main/resources/db/migration/V7__drop_events_host_id.sql`(신규), `EventHostIdDeprecationMigrationTest`, `rules/work-log.md`
+
+### 테스트
+- CI 와 같은 조건(`CI=true`, Docker 있음): 728 tests, 0 failures, 건너뜀은 V1 목록 비활성 2개뿐. 마이그레이션 테스트 4개(V4, V6×2, V7) 실제 MySQL 에서 통과
+- 운영 스키마(V6 적용 상태 DDL·Flyway 이력, 데이터는 합성)의 MySQL 8.0: V7 적용 후 `ddl-auto: validate` 로 기동, 행사·주최·사용자·구독 테스트 209개 통과
+- 롤백: 운영 버전(main `baf726b`)을 V7 적용 DB 로 기동 → 행사 상세·V1/V2 목록·VIEW_COUNT+hostId 조회, 주최 변경 정상
+
+---
 
 ## 2026-11-10 (FCM 디바이스 토큰: 무효 토큰 정리, 계정 전환, 다중 기기 보완)
 
