@@ -280,17 +280,11 @@ class UserControllerIntegrationTest : IntegrationTestSupport() {
                 val updatedUser = entityManager.find(User::class.java, user.id!!)
                 assertTrue(updatedUser.deviceTokens.any { it.token == "fcm-token-12345" })
             }
-        }
-
-        @Nested
-        @DisplayName("실패")
-        inner class Failure {
 
             @Test
-            @DisplayName("다른 사용자가 이미 등록한 토큰이면 409를 반환한다")
-            fun tokenAlreadyOwnedByAnotherUser() {
-                val managedOtherUser = entityManager.find(User::class.java, otherUser.id!!)
-                managedOtherUser.registerDeviceToken("shared-token")
+            @DisplayName("다른 사용자가 등록한 토큰이면 현재 사용자로 옮긴다")
+            fun takeOverTokenOfAnotherUser() {
+                entityManager.find(User::class.java, otherUser.id!!).registerDeviceToken("shared-token")
                 entityManager.flush()
                 entityManager.clear()
 
@@ -299,8 +293,24 @@ class UserControllerIntegrationTest : IntegrationTestSupport() {
                         .header("Authorization", authHeader(user.id!!))
                 )
                     .andDo(print())
-                    .andExpect(status().isConflict)
+                    .andExpect(status().isOk)
+
+                entityManager.flush()
+                entityManager.clear()
+                assertEquals(
+                    listOf("shared-token"),
+                    entityManager.find(User::class.java, user.id!!).deviceTokens.map { it.token }
+                )
+                assertEquals(
+                    emptyList<String>(),
+                    entityManager.find(User::class.java, otherUser.id!!).deviceTokens.map { it.token }
+                )
             }
+        }
+
+        @Nested
+        @DisplayName("실패")
+        inner class Failure {
 
             @Test
             @DisplayName("유효하지 않은 토큰이면 400을 반환한다")

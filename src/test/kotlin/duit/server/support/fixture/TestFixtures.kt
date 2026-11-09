@@ -51,7 +51,6 @@ object TestFixtures {
             providerType = providerType,
             providerId = providerId,
             alarmSettings = alarmSettings,
-            deviceToken = deviceToken ?: deviceTokens.firstOrNull(),
         )
         (listOfNotNull(deviceToken) + deviceTokens).distinct().forEach(user::registerDeviceToken)
         return user

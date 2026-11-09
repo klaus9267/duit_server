@@ -8,7 +8,7 @@ import duit.server.domain.alarm.entity.AlarmType
 import duit.server.domain.alarm.service.AlarmService
 import duit.server.domain.common.dto.pagination.PageResponse
 import duit.server.domain.event.service.EventService
-import duit.server.domain.user.service.UserService
+import duit.server.domain.user.service.UserDeviceTokenService
 import duit.server.infrastructure.external.firebase.FCMService
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.*
 class AlarmController(
     private val fcmService: FCMService,
     private val securityUtil: SecurityUtil,
-    private val userService: UserService,
+    private val userDeviceTokenService: UserDeviceTokenService,
     private val alarmService: AlarmService,
     private val eventService: EventService
 ) {
@@ -88,15 +88,11 @@ class AlarmController(
         @RequestParam title: String,
         @RequestParam body: String,
     ) {
-        val currentUserId = securityUtil.getCurrentUserId()
-        val user = userService.findUserById(currentUserId)
-
-        if (user.deviceToken.isNullOrBlank()) {
-            throw RuntimeException("디바이스 토큰이 없습니다")
-        }
+        val deviceTokens = userDeviceTokenService.getTokens(securityUtil.getCurrentUserId())
+        check(deviceTokens.isNotEmpty()) { "등록된 디바이스 토큰이 없습니다" }
 
         fcmService.sendAlarms(
-            deviceTokens = listOf(user.deviceToken!!),
+            deviceTokens = deviceTokens,
             title = title,
             body = body,
             data = mapOf("type" to "custom_test")
@@ -111,11 +107,8 @@ class AlarmController(
         @RequestParam alarmType: AlarmType,
         @RequestParam eventId: Long,
     ) {
-        val currentUserId = securityUtil.getCurrentUserId()
-        val user = userService.findUserById(currentUserId)
-
-        if (user.deviceToken.isNullOrBlank()) {
-            throw RuntimeException("디바이스 토큰이 없습니다")
+        check(userDeviceTokenService.getTokens(securityUtil.getCurrentUserId()).isNotEmpty()) {
+            "등록된 디바이스 토큰이 없습니다"
         }
 
         val event = eventService.getEvent(eventId)
