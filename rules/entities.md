@@ -112,8 +112,8 @@ class Event(...) {
 |--------|-------|----------|------------|------|
 | Event | events | O (created, updated) | updateStatus(), update(), replaceHosts() | OneToMany(EventHost), OneToOne(View), OneToMany(Bookmark, Alarm) |
 | EventHost | event_hosts | X | 없음 (Event.replaceHosts 가 관리) | ManyToOne(Event, Host). `sort_order` = 주최 순서, UNIQUE(event_id, host_id) |
-| User | users | O (created, updated) | updateNickname(), updateSettings(), registerDeviceToken(), unregisterDeviceToken() | OneToMany(Bookmark, Alarm, UserDeviceToken), OneToOne(Admin) |
-| UserDeviceToken | user_device_tokens | O (created, updated) | 없음 | ManyToOne(User) |
+| User | users | O (created, updated) | updateNickname(), updateSettings(), registerDeviceToken(), takeOverDeviceToken(), unregisterDeviceToken() | OneToMany(Bookmark, Alarm, UserDeviceToken), OneToOne(Admin) |
+| UserDeviceToken | user_device_tokens | O (created, updated) | markRegistered(), transferTo() | ManyToOne(User) |
 | Host | hosts | **X (미구현)** | 없음 | OneToMany(EventHost) |
 | View | views | **X (미구현)** | 없음 | OneToOne(Event) |
 | Bookmark | bookmarks | O (created, updated) | 없음 | ManyToOne(User, Event) |
@@ -174,9 +174,12 @@ class Event(...) {
 - `UserDeviceToken.token`은 전역 유니크로 관리해 한 디바이스 토큰이 동시에 여러 사용자에게 연결되지 않도록 한다
 - `user_device_tokens` 테이블은 `idx_user_device_tokens_user_id` 인덱스로 사용자별 토큰 조회를 빠르게 유지한다
 - 엔티티의 `@Table` 메타데이터도 운영 수동 SQL과 동일하게 `uk_user_device_tokens_token` / `idx_user_device_tokens_user_id`를 선언해 스키마 드리프트를 막는다
-- 다른 사용자가 이미 등록한 토큰은 자동 이전하지 않고 충돌로 거부한다
+- 다른 사용자가 이미 등록한 토큰을 등록하면 현재 사용자로 옮긴다. 한 기기의 토큰은 마지막으로 로그인한 계정의 것이다 (거부하면 새 계정은 푸시를 못 받고 이전 계정 알림이 그 기기로 간다)
+- `updated_at` 은 앱이 그 토큰을 마지막으로 등록한 시각이다. 같은 토큰을 다시 등록하면 하루에 한 번 갱신한다
+- 사용자당 토큰은 `User.MAX_DEVICE_TOKENS`(10)개까지 두고, 넘으면 `updated_at` 이 오래된 것부터 지운다
+- FCM 이 `UNREGISTERED`·`SENDER_ID_MISMATCH` 로 거부한 토큰은 `FCMService` 가 지운다. 일시 오류(`UNAVAILABLE` 등)는 지우지 않는다
 - 사용자 삭제 시 `orphanRemoval = true`로 연결된 디바이스 토큰도 함께 제거한다
-- `User.deviceToken`은 구 클라이언트/레거시 호환용 대표 토큰으로만 당분간 유지하고, 실제 알림 발송은 `user_device_tokens` 기준으로 처리한다
+- `users.device_token` 컬럼은 더 이상 매핑하지 않는다. 알림 발송과 테스트 푸시는 모두 `user_device_tokens` 를 쓴다 (컬럼 삭제는 배포 후 별도 마이그레이션)
 
 ## Enum 목록
 

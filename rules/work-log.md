@@ -9,13 +9,54 @@
 > 매 작업 후 갱신. 새 세션 시작 시 이 섹션만 읽으면 전체 파악 가능.
 
  **마지막 작업일**: 2026-11-10
- **진행 중인 작업**: 행사 다중 주최 2단계 P-13 — `events.host_id` 사용 중단(V6) PR (refactor/p13-event-host-id-deprecate → dev). 다음은 P-14 (V7 컬럼 삭제, P-13 운영 배포 후), P-15 (레거시 필드, 클라이언트 전환 후). 앞선 작업: JDBC 직접 사용 가드 테스트(#163, dev 머지), 성능 개선(#158)·관리자 계정 관리(#159)·Actuator 노출 범위 축소(#160) 운영 배포 완료(#161), 다중 주최 1단계(#156, 운영 배포 완료)
- **블로커**: 운영 DB에서 `scripts/sql/deduplicate_user_device_tokens.sql` 실행 후 `scripts/sql/add_user_device_tokens_unique_constraint.sql` 적용 필요 (이전 작업)
+ **진행 중인 작업**: dev 에 행사 다중 주최 2단계 P-13(#164), FCM 디바이스 토큰 보완(#165), Testcontainers 1.21.4(#166) 머지 → 운영 배포. 다음은 P-14 (V7 `events.host_id` 컬럼 삭제, P-13 운영 배포 후), `users.device_token` 컬럼 삭제(#165 운영 배포 후), P-15 (레거시 주최 필드, 클라이언트 전환 후). iOS 앱이 1.6.0부터 FCM 토큰을 등록하지 못하는 문제는 앱 쪽 Linear P-16. 앞선 작업: JDBC 직접 사용 가드 테스트(#163), 성능 개선(#158)·관리자 계정 관리(#159)·Actuator 노출 범위 축소(#160, 운영 배포 #161), 다중 주최 1단계(#156)
+ **블로커**: 없음 (`user_device_tokens` 중복 정리·유니크 제약은 운영 적용 확인, 2026-11-10)
  **미수정 CRITICAL**: 1건 (배포된 비밀 노출 사고 후 실제 비밀 rotation / GHCR 정리 필요)
- **미수정 HIGH**: 6건 (CORS, 외부 API 타임아웃/재시도, FCM invalid token 정리, JWT Refresh Token, Discord fire-and-forget)
- **브랜치**: refactor/p13-event-host-id-deprecate
+ **미수정 HIGH**: 5건 (CORS, 외부 API 타임아웃/재시도, JWT Refresh Token, Discord fire-and-forget)
+ **브랜치**: dev
  **신규 의존성**: 없음 (Flyway는 기존 build.gradle 활성화)
  **신규 env**: `application*.yml` 의 `ddl-auto: validate` + `flyway enabled`
+
+## 2026-11-10 (FCM 디바이스 토큰: 무효 토큰 정리, 계정 전환, 다중 기기 보완)
+
+**분류**: fix | refactor | test | docs
+
+### 배경
+- iOS 에서 구독 푸시가 오지 않는다는 제보로 운영 DB·로그를 확인(읽기 전용). 서버 발송은 정상이고 원인은 앱이다: iOS 1.6.0부터 FCM 토큰이 등록되지 않는다 → Linear P-16
+- 같이 드러난 서버 쪽 문제: 무효 토큰이 지워지지 않고 쌓인다(토큰 5개 중 4개가 무효인 계정), 다른 계정에 등록된 토큰은 409 로 거부한다, 테스트 푸시는 레거시 단일 필드(`users.device_token`)로만 보낸다, 여러 사용자 토큰을 한 번에 보낼 때 500개를 넘으면 `sendEach` 예외로 전부 실패한다
+
+### 작업 내용
+- `FCMService`: `FirebaseMessaging` 빈을 주입받아 500개씩 나눠 보내고 중복 토큰은 한 번만 보낸다. `UNREGISTERED`·`SENDER_ID_MISMATCH` 로 거부된 토큰은 `UserDeviceTokenService.deleteTokens` 로 지운다. 실패 로그에 오류 코드를 남긴다
+- 토큰 등록(`PATCH /api/v1/users/device/{token}`): 다른 사용자에 등록된 토큰이면 현재 사용자로 옮긴다(409 없앰). 같은 토큰을 다시 등록하면 `updated_at`(마지막 등록 시각)을 하루 한 번 갱신한다. 사용자당 10개를 넘으면 오래된 것부터 지운다
+- `User.deviceToken` 매핑 제거. 컬럼은 남는다. 테스트 푸시 API 는 `user_device_tokens` 전체로 보내고, 토큰이 없으면 500 대신 409
+- 운영에 유니크 제약이 있으므로 `findAllByToken`(중복 행 방어)을 `findByToken` 으로 되돌림
+
+### 기술적 결정
+- 2026-04-11 의 "토큰 자동 이전 안 함" 결정을 뒤집음. 같은 기기에서 계정을 바꾸면 새 계정은 푸시를 못 받고, 이전 계정의 알림은 그 기기로 계속 갔다. 토큰은 기기만 아는 값이라, 남의 토큰을 가져가도 그 사람의 알림을 받지는 못한다
+- 오래된 토큰을 시간 기준으로 지우지는 않음. iOS 1.6.0 사용자는 재등록을 못 해 `updated_at` 이 멈춰 있지만, 그 전에 등록한 토큰은 아직 푸시를 받는다. P-16 배포 뒤에 검토
+- 삭제는 기본 전파(REQUIRED). 행사 알림은 `AlarmService` 트랜잭션 안에서 보내므로 거기에 합류하고, 구독 푸시는 트랜잭션 밖(푸시 스레드)이라 새 트랜잭션이 열린다. auto-commit=false 에서도 커밋되는지 통합 테스트로 고정
+- 운영 로그의 실패 메시지(`NotRegistered`, `Device unregistered.`, `APNs device token is disabled.`)가 `UNREGISTERED` 코드로 오는지는 배포 후 실패 로그의 code 로 확인한다. 다른 코드면 지우지 않고 남는다(안전한 쪽)
+
+### 운영 DB 확인 (2026-11-10, 읽기 전용)
+- `uk_user_device_tokens_token` 적용, 토큰 2,368개 중 중복 0 → 스냅샷의 블로커(중복 정리·유니크 제약) 해소
+- 2대 이상 등록한 사용자 97명. 최근 구독 알림을 받은 6명 중 3명은 토큰이 0개(P-16)
+
+### 후속
+- `users.device_token` 컬럼 삭제: 이 버전이 배포되고 구 버전이 내려간 뒤 별도 마이그레이션
+- P-16 배포 후 오래 등록되지 않은 토큰 정리 검토
+- `AlarmService` 는 FCM 을 트랜잭션 안에서 보내 그동안 커넥션을 잡는다. 구독 푸시(D-023)처럼 커밋 뒤로 옮길지 검토
+
+### 영향 범위
+- main: `FCMService`, `FirebaseConfig`, `User`, `UserDeviceToken`, `UserDeviceTokenRepository`, `UserDeviceTokenService`(신규), `UserService`, `AlarmController`, `DummyDataGenerator`
+- 테스트: `FCMServiceTest`·`FCMInvalidTokenCleanupIntegrationTest`(신규), `UserServiceUnitTest`, `UserControllerIntegrationTest`, `AlarmServiceUnitTest`, `TestFixtures`, `TestFirebaseConfig`
+- 문서: `rules/entities.md`, `rules/work-log.md`
+
+### 테스트
+- 전체: 726 tests, 0 failures (기존 비활성 3개 건너뜀)
+- `FCMServiceTest`: 500개 분할, 중복 제거, 무효 토큰만 삭제, 발송·삭제 실패 시 예외 없음
+- `FCMInvalidTokenCleanupIntegrationTest`: 트랜잭션 밖에서 보내도 무효 토큰 삭제가 커밋됨
+
+---
 
 ## 2026-11-10 (행사 다중 주최 2단계: events.host_id 사용 중단, P-13)
 

@@ -32,7 +32,6 @@ class User(
     var autoAddBookmarkToCalendar: Boolean = false,
     @Embedded
     var alarmSettings: AlarmSettings = AlarmSettings(),
-    var deviceToken: String? = null,
 
     @CreatedDate
     val createdAt: LocalDateTime = LocalDateTime.now(),
@@ -71,11 +70,29 @@ class User(
 
     fun registerDeviceToken(token: String) {
         if (deviceTokens.none { it.token == token }) {
-            deviceTokens.add(UserDeviceToken(user = this, token = token))
+            addDeviceToken(UserDeviceToken(user = this, token = token))
         }
+    }
+
+    // 한 기기에서 계정을 바꾸면 그 기기의 토큰은 마지막으로 로그인한 계정의 것이다
+    fun takeOverDeviceToken(deviceToken: UserDeviceToken) {
+        deviceToken.transferTo(this)
+        addDeviceToken(deviceToken)
+    }
+
+    // 재설치·기기 변경으로 토큰이 계속 쌓이므로, 개수를 넘으면 가장 오래전에 등록된 토큰부터 지운다
+    private fun addDeviceToken(deviceToken: UserDeviceToken) {
+        deviceTokens.add(deviceToken)
+        deviceTokens.sortedByDescending { it.updatedAt }
+            .drop(MAX_DEVICE_TOKENS)
+            .forEach(deviceTokens::remove)
     }
 
     fun unregisterDeviceToken(token: String) {
         deviceTokens.removeIf { it.token == token }
+    }
+
+    companion object {
+        const val MAX_DEVICE_TOKENS = 10
     }
 }

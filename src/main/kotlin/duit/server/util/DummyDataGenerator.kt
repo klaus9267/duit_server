@@ -92,9 +92,8 @@ class DummyDataGenerator(
                 providerType = ProviderType.values().random(),
                 providerId = "user_${i}_${System.currentTimeMillis()}",
                 autoAddBookmarkToCalendar = Random.nextBoolean(),
-                deviceToken = generateRandomDeviceToken()
             )
-            user.registerDeviceToken(user.deviceToken!!)
+            user.registerDeviceToken(generateRandomDeviceToken())
             users.add(user)
         }
 
@@ -116,9 +115,8 @@ class DummyDataGenerator(
             providerType = ProviderType.GOOGLE,
             providerId = "admin_google_id_123",
             autoAddBookmarkToCalendar = true,
-            deviceToken = generateRandomDeviceToken(),
         )
-        user.registerDeviceToken(user.deviceToken!!)
+        user.registerDeviceToken(generateRandomDeviceToken())
 
         val savedUser = userRepository.save(user)
         logger.info("✅ User 생성 완료: ${savedUser.email}")

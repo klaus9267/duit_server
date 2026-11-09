@@ -58,7 +58,11 @@ class UserController(
     ): UserResponse = userService.updateCurrentUserNickname(request)
 
     @PatchMapping("/device/{token}")
-    @Operation(summary = "디바이스 토큰 등록", description = "푸시 알림을 위한 디바이스 토큰을 등록합니다")
+    @Operation(
+        summary = "디바이스 토큰 등록",
+        description = "푸시 알림을 위한 디바이스 토큰을 등록합니다. 한 사용자가 여러 기기를 등록할 수 있고(최대 10개, 넘으면 가장 오래전에 등록된 것부터 삭제) 알림은 모든 기기로 갑니다. " +
+            "다른 계정에 등록된 토큰이면 현재 계정으로 옮깁니다. 앱 실행·로그인·토큰 갱신 때마다 호출해도 됩니다."
+    )
     @RequireAuth
     @ResponseStatus(HttpStatus.OK)
     fun registerDeviceToken(
