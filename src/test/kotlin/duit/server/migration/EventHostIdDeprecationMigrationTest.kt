@@ -26,25 +26,12 @@ class EventHostIdDeprecationMigrationTest {
 
     @Test
     fun `V6 는 event_hosts 가 없는 행사를 백필하고 host_id FK 를 지워 행사에서 빠진 주최를 삭제할 수 있게 한다`() {
-        // 운영처럼 Flyway 도입 전 Hibernate 가 자동 이름으로 만든 FK
-        execute(
-            "CREATE TABLE hosts (id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY, name VARCHAR(255))",
-            """
-            CREATE TABLE events (
-                id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-                title VARCHAR(255),
-                host_id BIGINT,
-                CONSTRAINT FKdqkiykj89a9gdfh6cepo057o6 FOREIGN KEY (host_id) REFERENCES hosts (id)
-            )
-            """.trimIndent(),
-            "INSERT INTO hosts (id, name) VALUES (1, '주최A'), (2, '주최B')",
-            "INSERT INTO events (id, title, host_id) VALUES (1, '행사1', 1)",
-        )
+        createSchemaBeforeMultiHost()
         migrate(target = "5")
         // V5 적용 후 전환 구간에 다중 주최 이전 서버가 event_hosts 없이 만든 행사
         execute("INSERT INTO events (id, title, host_id) VALUES (2, '행사2', 2)")
 
-        migrate()
+        migrate(target = "6")
 
         assertThat(rows("SELECT event_id, host_id, sort_order FROM event_hosts ORDER BY event_id"))
             .containsExactly(listOf<Any>(1L, 1L, 0), listOf<Any>(2L, 2L, 0))
@@ -66,10 +53,45 @@ class EventHostIdDeprecationMigrationTest {
             "CREATE TABLE events (id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY, title VARCHAR(255), host_id BIGINT NOT NULL)",
         )
 
-        migrate()
+        migrate(target = "6")
 
         assertThat(rows(HOST_ID_NULLABLE)).containsExactly(listOf("YES"))
         execute("INSERT INTO events (title) VALUES ('주최 없는 행사')")
+    }
+
+    @Test
+    fun `V7 은 host_id 컬럼과 그 인덱스를 지우고 event_hosts 는 그대로 둔다`() {
+        createSchemaBeforeMultiHost()
+        migrate(target = "6")
+        // V6 버전 서버가 만든 행사: host_id 없이 event_hosts 만 기록한다
+        execute(
+            "INSERT INTO events (id, title) VALUES (2, '행사2')",
+            "INSERT INTO event_hosts (event_id, host_id, sort_order) VALUES (2, 2, 0)",
+        )
+
+        migrate()
+
+        assertThat(rows(HOST_ID_COLUMN)).isEmpty()
+        assertThat(rows(HOST_ID_INDEXES)).isEmpty()
+        assertThat(rows("SELECT event_id, host_id, sort_order FROM event_hosts ORDER BY event_id"))
+            .containsExactly(listOf<Any>(1L, 1L, 0), listOf<Any>(2L, 2L, 0))
+    }
+
+    // 운영처럼 Flyway 도입 전 Hibernate 가 자동 이름으로 만든 FK 가 걸린 events.host_id
+    private fun createSchemaBeforeMultiHost() {
+        execute(
+            "CREATE TABLE hosts (id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY, name VARCHAR(255))",
+            """
+            CREATE TABLE events (
+                id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                title VARCHAR(255),
+                host_id BIGINT,
+                CONSTRAINT FKdqkiykj89a9gdfh6cepo057o6 FOREIGN KEY (host_id) REFERENCES hosts (id)
+            )
+            """.trimIndent(),
+            "INSERT INTO hosts (id, name) VALUES (1, '주최A'), (2, '주최B')",
+            "INSERT INTO events (id, title, host_id) VALUES (1, '행사1', 1)",
+        )
     }
 
     private fun migrate(target: String? = null) {
@@ -111,6 +133,16 @@ class EventHostIdDeprecationMigrationTest {
             SELECT CONSTRAINT_NAME FROM information_schema.KEY_COLUMN_USAGE
             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'events' AND COLUMN_NAME = 'host_id'
               AND REFERENCED_TABLE_NAME IS NOT NULL
+        """
+
+        private const val HOST_ID_COLUMN = """
+            SELECT COLUMN_NAME FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'events' AND COLUMN_NAME = 'host_id'
+        """
+
+        private const val HOST_ID_INDEXES = """
+            SELECT INDEX_NAME FROM information_schema.STATISTICS
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'events' AND COLUMN_NAME = 'host_id'
         """
 
         private const val HOST_ID_NULLABLE = """
