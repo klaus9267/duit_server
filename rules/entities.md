@@ -110,7 +110,7 @@ class Event(...) {
 
 | 엔티티 | 테이블 | 감사 필드 | 도메인 로직 | 관계 |
 |--------|-------|----------|------------|------|
-| Event | events | O (created, updated) | updateStatus(), update(), replaceHosts() | OneToMany(EventHost), ManyToOne(Host — `host_id` 레거시 미러), OneToOne(View), OneToMany(Bookmark, Alarm) |
+| Event | events | O (created, updated) | updateStatus(), update(), replaceHosts() | OneToMany(EventHost), OneToOne(View), OneToMany(Bookmark, Alarm) |
 | EventHost | event_hosts | X | 없음 (Event.replaceHosts 가 관리) | ManyToOne(Event, Host). `sort_order` = 주최 순서, UNIQUE(event_id, host_id) |
 | User | users | O (created, updated) | updateNickname(), updateSettings(), registerDeviceToken(), unregisterDeviceToken() | OneToMany(Bookmark, Alarm, UserDeviceToken), OneToOne(Admin) |
 | UserDeviceToken | user_device_tokens | O (created, updated) | 없음 | ManyToOne(User) |

@@ -216,10 +216,11 @@ class EventControllerIntegrationTest : IntegrationTestSupport() {
                     .andExpect(jsonPath("$.host.name").value("신규공동주최"))
 
                 entityManager.flush()
-                val mirroredHostName = entityManager.createQuery(
-                    "SELECT e.host.name FROM Event e WHERE e.title = '공동 주최 행사'", String::class.java
-                ).singleResult
-                assertEquals("신규공동주최", mirroredHostName, "events.host_id 는 첫 번째 주최를 미러링해야 한다")
+                val savedHostNames = entityManager.createQuery(
+                    "SELECT eh.host.name FROM EventHost eh WHERE eh.event.title = '공동 주최 행사' ORDER BY eh.sortOrder",
+                    String::class.java
+                ).resultList
+                assertEquals(listOf("신규공동주최", host.name), savedHostNames)
             }
         }
 

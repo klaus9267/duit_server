@@ -43,6 +43,7 @@ class JobPostingSortMigrationTest {
             .locations("classpath:db/migration")
             .baselineOnMigrate(true)
             .baselineVersion("3")
+            .target("4")
             .load()
             .migrate()
 
