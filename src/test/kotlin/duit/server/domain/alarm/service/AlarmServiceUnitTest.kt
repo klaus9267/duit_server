@@ -53,7 +53,7 @@ class AlarmServiceUnitTest {
         alarmService = AlarmService(fcmService, eventRepository, alarmRepository, bookmarkRepository, securityUtil)
 
         host = Host(id = 1L, name = "테스트 주최")
-        user = User(id = 1L, nickname = "테스트유저", providerId = "p1", deviceToken = "fcm-token-1").apply {
+        user = User(id = 1L, nickname = "테스트유저", providerId = "p1").apply {
             registerDeviceToken("fcm-token-1")
         }
         event = Event(
@@ -234,11 +234,11 @@ class AlarmServiceUnitTest {
         @Test
         @DisplayName("여러 사용자 중 일부만 알람이 존재하면 새 사용자에게만 알람 생성한다")
         fun `여러 사용자 중 기존 알람이 있는 사용자는 건너뛴다`() {
-            val user2 = User(id = 2L, nickname = "유저2", providerId = "p2", deviceToken = "fcm-token-2").apply {
+            val user2 = User(id = 2L, nickname = "유저2", providerId = "p2").apply {
                 registerDeviceToken("fcm-token-2")
                 registerDeviceToken("fcm-token-2-sub")
             }
-            val user3 = User(id = 3L, nickname = "유저3", providerId = "p3", deviceToken = "fcm-token-3").apply {
+            val user3 = User(id = 3L, nickname = "유저3", providerId = "p3").apply {
                 registerDeviceToken("fcm-token-3")
             }
 
@@ -261,7 +261,7 @@ class AlarmServiceUnitTest {
         @Test
         @DisplayName("한 유저의 알람이 이미 존재해도(UK 위반) 나머지 유저 알람은 정상 생성되어야 한다")
         fun `한 유저 save 실패해도 나머지 유저 알람은 생성된다`() {
-            val user2 = User(id = 2L, nickname = "유저2", providerId = "p2", deviceToken = "fcm-token-2").apply {
+            val user2 = User(id = 2L, nickname = "유저2", providerId = "p2").apply {
                 registerDeviceToken("fcm-token-2")
             }
             every { eventRepository.findById(10L) } returns Optional.of(event)
@@ -321,7 +321,7 @@ class AlarmServiceUnitTest {
             assertTrue(bodySlot.captured.contains("${event.startAt.hour}시"))
             assertEquals("event_start", dataSlot.captured["type"])
             assertEquals(event.id.toString(), dataSlot.captured["eventId"])
-            assertEquals(event.host.name, dataSlot.captured["hostName"])
+            assertEquals(event.hosts.first().name, dataSlot.captured["hostName"])
         }
 
         @Test

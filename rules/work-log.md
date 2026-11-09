@@ -8,14 +8,153 @@
 
 > 매 작업 후 갱신. 새 세션 시작 시 이 섹션만 읽으면 전체 파악 가능.
 
- **마지막 작업일**: 2026-11-04
- **진행 중인 작업**: 관리자 계정 관리 PR (feat/admin-member-management → dev). Actuator 노출 범위 축소는 #160 으로 dev 병합 완료. 앞선 작업은 행사 다중 주최(event_hosts) 1단계(#156, dev 병합 완료). 후속은 Linear P-7 하위 이슈: P-13 (V6, #156 운영 배포 후) → P-14 (V7, P-13 운영 배포 후), P-15 (레거시 필드, 클라이언트 전환 후)
- **블로커**: 운영 DB에서 `scripts/sql/deduplicate_user_device_tokens.sql` 실행 후 `scripts/sql/add_user_device_tokens_unique_constraint.sql` 적용 필요 (이전 작업)
+ **마지막 작업일**: 2026-11-10
+ **진행 중인 작업**: dev 에 행사 다중 주최 2단계 P-13(#164), FCM 디바이스 토큰 보완(#165), Testcontainers 1.21.4(#166) 머지 → 운영 배포. 다음은 P-14 (V7 `events.host_id` 컬럼 삭제, P-13 운영 배포 후), `users.device_token` 컬럼 삭제(#165 운영 배포 후), P-15 (레거시 주최 필드, 클라이언트 전환 후). iOS 앱이 1.6.0부터 FCM 토큰을 등록하지 못하는 문제는 앱 쪽 Linear P-16. 앞선 작업: JDBC 직접 사용 가드 테스트(#163), 성능 개선(#158)·관리자 계정 관리(#159)·Actuator 노출 범위 축소(#160, 운영 배포 #161), 다중 주최 1단계(#156)
+ **블로커**: 없음 (`user_device_tokens` 중복 정리·유니크 제약은 운영 적용 확인, 2026-11-10)
  **미수정 CRITICAL**: 1건 (배포된 비밀 노출 사고 후 실제 비밀 rotation / GHCR 정리 필요)
- **미수정 HIGH**: 6건 (CORS, 외부 API 타임아웃/재시도, FCM invalid token 정리, JWT Refresh Token, Discord fire-and-forget)
- **브랜치**: feat/admin-member-management
+ **미수정 HIGH**: 5건 (CORS, 외부 API 타임아웃/재시도, JWT Refresh Token, Discord fire-and-forget)
+ **브랜치**: dev
  **신규 의존성**: 없음 (Flyway는 기존 build.gradle 활성화)
  **신규 env**: `application*.yml` 의 `ddl-auto: validate` + `flyway enabled`
+
+## 2026-11-10 (FCM 디바이스 토큰: 무효 토큰 정리, 계정 전환, 다중 기기 보완)
+
+**분류**: fix | refactor | test | docs
+
+### 배경
+- iOS 에서 구독 푸시가 오지 않는다는 제보로 운영 DB·로그를 확인(읽기 전용). 서버 발송은 정상이고 원인은 앱이다: iOS 1.6.0부터 FCM 토큰이 등록되지 않는다 → Linear P-16
+- 같이 드러난 서버 쪽 문제: 무효 토큰이 지워지지 않고 쌓인다(토큰 5개 중 4개가 무효인 계정), 다른 계정에 등록된 토큰은 409 로 거부한다, 테스트 푸시는 레거시 단일 필드(`users.device_token`)로만 보낸다, 여러 사용자 토큰을 한 번에 보낼 때 500개를 넘으면 `sendEach` 예외로 전부 실패한다
+
+### 작업 내용
+- `FCMService`: `FirebaseMessaging` 빈을 주입받아 500개씩 나눠 보내고 중복 토큰은 한 번만 보낸다. `UNREGISTERED`·`SENDER_ID_MISMATCH` 로 거부된 토큰은 `UserDeviceTokenService.deleteTokens` 로 지운다. 실패 로그에 오류 코드를 남긴다
+- 토큰 등록(`PATCH /api/v1/users/device/{token}`): 다른 사용자에 등록된 토큰이면 현재 사용자로 옮긴다(409 없앰). 같은 토큰을 다시 등록하면 `updated_at`(마지막 등록 시각)을 하루 한 번 갱신한다. 사용자당 10개를 넘으면 오래된 것부터 지운다
+- `User.deviceToken` 매핑 제거. 컬럼은 남는다. 테스트 푸시 API 는 `user_device_tokens` 전체로 보내고, 토큰이 없으면 500 대신 409
+- 운영에 유니크 제약이 있으므로 `findAllByToken`(중복 행 방어)을 `findByToken` 으로 되돌림
+
+### 기술적 결정
+- 2026-04-11 의 "토큰 자동 이전 안 함" 결정을 뒤집음. 같은 기기에서 계정을 바꾸면 새 계정은 푸시를 못 받고, 이전 계정의 알림은 그 기기로 계속 갔다. 토큰은 기기만 아는 값이라, 남의 토큰을 가져가도 그 사람의 알림을 받지는 못한다
+- 오래된 토큰을 시간 기준으로 지우지는 않음. iOS 1.6.0 사용자는 재등록을 못 해 `updated_at` 이 멈춰 있지만, 그 전에 등록한 토큰은 아직 푸시를 받는다. P-16 배포 뒤에 검토
+- 삭제는 기본 전파(REQUIRED). 행사 알림은 `AlarmService` 트랜잭션 안에서 보내므로 거기에 합류하고, 구독 푸시는 트랜잭션 밖(푸시 스레드)이라 새 트랜잭션이 열린다. auto-commit=false 에서도 커밋되는지 통합 테스트로 고정
+- 운영 로그의 실패 메시지(`NotRegistered`, `Device unregistered.`, `APNs device token is disabled.`)가 `UNREGISTERED` 코드로 오는지는 배포 후 실패 로그의 code 로 확인한다. 다른 코드면 지우지 않고 남는다(안전한 쪽)
+
+### 운영 DB 확인 (2026-11-10, 읽기 전용)
+- `uk_user_device_tokens_token` 적용, 토큰 2,368개 중 중복 0 → 스냅샷의 블로커(중복 정리·유니크 제약) 해소
+- 2대 이상 등록한 사용자 97명. 최근 구독 알림을 받은 6명 중 3명은 토큰이 0개(P-16)
+
+### 후속
+- `users.device_token` 컬럼 삭제: 이 버전이 배포되고 구 버전이 내려간 뒤 별도 마이그레이션
+- P-16 배포 후 오래 등록되지 않은 토큰 정리 검토
+- `AlarmService` 는 FCM 을 트랜잭션 안에서 보내 그동안 커넥션을 잡는다. 구독 푸시(D-023)처럼 커밋 뒤로 옮길지 검토
+
+### 영향 범위
+- main: `FCMService`, `FirebaseConfig`, `User`, `UserDeviceToken`, `UserDeviceTokenRepository`, `UserDeviceTokenService`(신규), `UserService`, `AlarmController`, `DummyDataGenerator`
+- 테스트: `FCMServiceTest`·`FCMInvalidTokenCleanupIntegrationTest`(신규), `UserServiceUnitTest`, `UserControllerIntegrationTest`, `AlarmServiceUnitTest`, `TestFixtures`, `TestFirebaseConfig`
+- 문서: `rules/entities.md`, `rules/work-log.md`
+
+### 테스트
+- 전체: 726 tests, 0 failures (기존 비활성 3개 건너뜀)
+- `FCMServiceTest`: 500개 분할, 중복 제거, 무효 토큰만 삭제, 발송·삭제 실패 시 예외 없음
+- `FCMInvalidTokenCleanupIntegrationTest`: 트랜잭션 밖에서 보내도 무효 토큰 삭제가 커밋됨
+
+---
+
+## 2026-11-10 (행사 다중 주최 2단계: events.host_id 사용 중단, P-13)
+
+**분류**: refactor | db | test | docs
+
+### 작업 내용
+- V6 마이그레이션: `event_hosts` 가 없는 행사 백필, `events.host_id` FK 제거, NULL 허용. 컬럼은 남긴다 (P-14 에서 삭제)
+- `Event.host` 매핑과 `hosts` 의 fallback 제거. 주최는 `event_hosts` 로만 읽고 쓴다
+- 목록 쿼리(V1 native, V2 QueryDSL·VIEW_COUNT native, 캘린더 JPQL)의 주최 존재 조건을 `event_hosts` 존재만으로 바꿈. main 코드의 `events.host_id` 참조 0건 (마이그레이션 제외)
+- `DummyDataGenerator`: CSV 에서 host_id 를 빼고 `event_hosts` 를 직접 만든다. 컬럼 목록에 남아 있던 `is_approved`(운영 스키마에 없는 컬럼)도 빼서 CSV 필드와 맞춤
+- V6 마이그레이션 테스트 추가 (Testcontainers). `JobPostingSortMigrationTest` 에 `target("4")` 추가 — V5 부터 `events` 테이블이 필요해져 실제 MySQL 에서는 실패하던 테스트
+
+### 기술적 결정
+- FK 를 지우는 이유: 이 버전은 주최를 바꿔도 host_id 를 갱신하지 않는다. FK 가 남으면 행사에서 빠진 주최를 삭제할 때 남은 host_id 참조가 삭제를 막는다
+- FK 는 Flyway 도입 전 Hibernate 가 자동 이름으로 만들어서 `information_schema` 에서 이름을 찾아 PREPARE 로 지운다. 못 찾으면 `DO 0` 으로 건너뛴다 (FK 가 없는 DB 대비)
+- 컬럼을 남기는 이유: 배포 전환 중과 롤백 시 V5 버전 서버가 이 컬럼을 매핑한다. V5 버전은 `Event.host` 를 fallback 에서만 읽고, 이 버전이 만든 행사는 `event_hosts` 가 있으므로 host_id 가 NULL 이어도 동작한다 (아래 롤백 확인)
+
+### 운영 DB 확인 (2026-11-09, 읽기 전용)
+- 이슈의 배포 전 확인 쿼리 2개 모두 0건. 행사 756개 모두 `event_hosts` 가 정확히 1개이고 첫 주최가 host_id 와 같다 → V6 백필 대상 0건
+- host_id FK 는 `FKdqkiykj89a9gdfh6cepo057o6` 1개. FK 를 지워도 같은 이름의 인덱스는 남고 P-14 에서 컬럼과 함께 사라진다. host_id 는 이미 NULL 허용
+- host_id 를 참조하는 뷰·트리거·루틴 없음. `lower_case_table_names=0` 이라 마이그레이션의 테이블 이름은 소문자로 쓴다
+
+### 한계 / 후속
+- Testcontainers 테스트가 Docker 29 에서 건너뛰어지던 문제는 #166 에서 해결. dev 를 합치면서 V6 테스트도 `@RequiresDocker` 로 바꿨다
+- `DummyDataGenerator` 는 local 프로파일 전용이지만 local 의 DB 는 SSH 터널 너머 운영 MySQL 이다. 그대로 호출하면 운영 `events` 인덱스를 지우고 100만 건을 넣는다 → 대상 DB 를 확인하는 가드가 필요 (별도 작업). 지우고 다시 만드는 인덱스 목록도 현재 스키마와 다르다 (없는 `idx_status_created_at_id`·`idx_status_group_created_at_id`, 빠진 `idx_status_group_id`)
+
+### 영향 범위
+- main: `Event`, `EventRepository`, `EventRepositoryImpl`, `DummyDataGenerator`, `V6__stop_using_events_host_id.sql`
+- 테스트: `EventHostIdDeprecationMigrationTest`(신규), `JobPostingSortMigrationTest`, `EventUnitTest`, `EventControllerIntegrationTest`, `EventControllerV2IntegrationTest`, `AlarmServiceUnitTest`
+- 문서: `rules/entities.md`, `rules/work-log.md`
+
+### 테스트
+- 전체(H2): 722 tests, 0 failures (5개 건너뜀: 기존 비활성 3개 + 새 V6 테스트 2개)
+- 실제 MySQL 에서 마이그레이션 테스트 3개(V4 1개, V6 2개) 통과
+- 운영 스키마(DDL·Flyway 이력만 복제, 데이터는 합성)의 MySQL 8.0: V6 적용(백필 1건, FK 제거) 후 `ddl-auto: validate` 로 기동. 이벤트·주최 테스트 185개 통과 — H2 에서 비활성인 V1 목록 테스트와 VIEW_COUNT 경로를 임시로 켜서 포함. `@DataJpaTest` 2개 클래스는 내장 H2 로 바뀌어 대상에서 뺌
+- 롤백: 운영 버전(main)을 V6 적용 DB 로 기동 → host_id 가 NULL 인 행사의 상세·V1/V2 목록·VIEW_COUNT+hostId 조회 정상, 주최 변경 정상
+
+---
+
+## 2026-11-10 (Testcontainers 1.21.4 — Docker 29 에서 마이그레이션 테스트가 건너뛰어지던 문제)
+
+**분류**: test | build | docs
+
+### 배경
+- Testcontainers 1.21.3 은 Docker API 1.32 로 요청한다. Docker 29 는 1.44 미만을 거부해서 Testcontainers 가 Docker 를 못 찾고, `@Testcontainers(disabledWithoutDocker = true)` 테스트는 실패 대신 건너뛰어졌다
+- CI 러너(ubuntu-26.04 이미지)도 Docker 29.4.2 라 같은 이유로 건너뛰었다. CI 결과의 skipped 3개 = V1 목록 비활성 2개 + `JobPostingSortMigrationTest`
+- 그 사이 V5 가 추가되면서 `JobPostingSortMigrationTest` 는 실제 MySQL 에서 실패하는 상태였는데(V5 가 이 테스트에 없는 `events` 를 참조) 아무도 몰랐다
+
+### 작업 내용
+- `ext['testcontainers.version'] = '1.21.4'`. Spring Boot 의존성 관리가 core 를 1.21.3 으로 고정하므로 모듈 버전만 올리면 core 가 그대로 남는다. 1.21.4 는 1.21.x 를 최근 Docker 엔진에 맞춘 릴리스
+- `@RequiresDocker` 추가: Docker 가 없으면 로컬에서는 건너뛰고, CI(`CI=true`)에서는 실행해서 실패시킨다. `JobPostingSortMigrationTest` 에 적용
+- `JobPostingSortMigrationTest` 에 `target("4")`: V4 까지만 적용
+- `AGENTS.md` Testing 에 실제 MySQL 테스트 규칙 추가
+
+### 후속
+- P-13 PR(#164)의 `EventHostIdDeprecationMigrationTest` 는 #164 에 dev 를 합치면서 `@RequiresDocker` 로 바꿨다
+
+### 영향 범위
+- `build.gradle`, `src/test/kotlin/duit/server/support/RequiresDocker.kt`(신규), `JobPostingSortMigrationTest`, `AGENTS.md`, `rules/work-log.md`
+
+### 테스트
+- 같은 Docker 29 환경에서 비교: 1.21.3(dev)은 `JobPostingSortMigrationTest` 건너뜀, 1.21.4 는 MySQL 8.4 컨테이너를 띄워 통과
+- Docker 가 없을 때: `CI=true` 면 실패("Could not find a valid Docker environment"), 로컬이면 건너뜀
+- CI 와 같은 조건(`CI=true`, Docker 있음, `test jacocoTestReport`): 721 tests, 0 failures, 건너뜀은 V1 목록 비활성 2개뿐
+
+---
+
+## 2026-11-04 (main 코드의 JDBC 직접 사용 가드 테스트)
+
+**분류**: test | docs
+
+### 작업 내용
+- `DirectJdbcUsageGuardTest` 추가: main 의 컴파일된 클래스(Kotlin·Java 출력)에서 JDBC 직접 사용(Spring JDBC 실행 API `core`·`datasource`·`object`, `javax.sql`, `java.sql` 의 Connection·Statement 류)을 찾아 허용 목록 밖이면 실패. 허용 목록은 `DummyDataGenerator` 하나
+- 허용 목록의 클래스가 더 이상 JDBC 를 직접 쓰지 않아도 실패 — 목록이 낡지 않게 하고, 탐지가 실제로 동작하는지도 함께 확인
+- `AGENTS.md` 의 트랜잭션 규칙에 이 테스트를 연결
+
+### 기술적 결정
+- 풀이 `auto-commit=false`(#158)라서 트랜잭션 밖의 JDBC 쓰기는 예외 없이 롤백되고 응답은 성공으로 나간다 (이 설정 전에는 커밋됐다). JPA 의 `save`·`@Modifying` 은 스스로 트랜잭션을 열거나 트랜잭션이 없으면 예외가 나서 이 설정의 영향을 받지 않으므로 JDBC 직접 사용만 제한. 트랜잭션 밖 변경 감지(dirty checking) 유실은 이 설정과 무관한 기존 동작이라 범위 밖
+- 소스가 아니라 바이트코드(상수 풀)를 검사: 완전한 이름으로 쓰거나 `Session.doWork { }` 람다 인자로 `Connection` 을 받으면 import 가 없어 소스 검색으로는 못 잡는다. 람다 경우는 테스트 픽스처로 고정
+- 대상은 SQL 을 실행할 수 있는 타입만: Spring JDBC 는 실행 API(`core`·`datasource`·`object`)만 보고 예외 타입(`CannotGetJdbcConnectionException` 등)은 제외, `java.sql` 은 커넥션·문장 타입만 (`Timestamp` 같은 값 타입은 제외)
+- 새 의존성(ArchUnit 등) 없이 구현
+
+### 한계
+- 허용은 클래스 단위라, 허용된 클래스(`DummyDataGenerator`)에 새로 넣는 JDBC 코드는 잡지 못한다 → 리뷰에서 확인
+- main 바이트코드의 직접 참조만 본다. 라이브러리가 `DataSource` 빈을 받아 쓰는 경우 등 간접 경로는 대상 밖. 런타임에 "트랜잭션 밖에서 미커밋 상태로 반납되는 커넥션"을 감지하는 DataSource 래퍼가 더 근본적인 대안이지만 이번 범위에서는 하지 않음
+- 클래스 파일 바이트에 정규식을 적용하므로 문자열 상수에 `org/springframework/jdbc/core/...` 같은 `/` 표기 경로가 있으면 오탐한다 (실패로 드러나므로 조용히 놓치지는 않음)
+- `DummyDataGenerator` 의 `ALTER TABLE`(이벤트 인덱스 삭제·재생성)은 MySQL 에서 암묵적 커밋을 일으키고(`LOAD DATA` 는 InnoDB 에서 일으키지 않음), `SET FOREIGN_KEY_CHECKS = 0` 은 실패 후 인덱스 복구까지 실패하면 풀 커넥션에 남는다. local 프로파일 전용 도구라 이번 범위에서는 손대지 않음
+
+### 영향 범위
+- 테스트: `src/test/kotlin/duit/server/application/config/DirectJdbcUsageGuardTest.kt`
+- 문서: `AGENTS.md`, `rules/work-log.md`
+- main 코드 변경 없음
+
+### 테스트
+- 전체: 721 tests, 0 failures (기존 비활성 3개 건너뜀)
+- 임시 위반 코드로 실패를 확인한 뒤 원복: Kotlin 에서 완전한 이름으로 쓴 `JdbcTemplate`, Java 소스의 `DataSource`, 낡은 허용 목록 각각 실패. `CannotGetJdbcConnectionException` 만 참조하는 클래스는 통과(오탐 없음)
+
+---
 
 ## 2026-11-04 (관리자 계정 관리: 목록 조회·해제, 등록 API 삭제)
 

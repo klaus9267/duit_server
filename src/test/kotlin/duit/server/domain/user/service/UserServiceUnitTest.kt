@@ -12,6 +12,7 @@ import io.mockk.*
 import jakarta.persistence.EntityNotFoundException
 import org.junit.jupiter.api.*
 import org.junit.jupiter.api.Assertions.*
+import java.time.LocalDateTime
 import java.util.*
 
 @DisplayName("UserService 단위 테스트")
@@ -201,93 +202,75 @@ class UserServiceUnitTest {
     @DisplayName("registerDeviceToken")
     inner class RegisterDeviceTokenTests {
 
+        @BeforeEach
+        fun setUpCurrentUser() {
+            every { securityUtil.getCurrentUserId() } returns 1L
+        }
+
         @Test
         @DisplayName("새 디바이스 토큰을 등록한다")
         fun registerNewToken() {
             val user = createUser()
-            every { securityUtil.getCurrentUserId() } returns 1L
-            every { userDeviceTokenRepository.findAllByToken("new-fcm-token") } returns emptyList()
             every { userRepository.findById(1L) } returns Optional.of(user)
+            every { userDeviceTokenRepository.findByToken("new-fcm-token") } returns null
 
             userService.registerDeviceToken("new-fcm-token")
 
-            assertEquals("new-fcm-token", user.deviceToken)
-            assertTrue(user.deviceTokens.any { it.token == "new-fcm-token" })
+            assertEquals(listOf("new-fcm-token"), user.deviceTokens.map { it.token })
         }
 
         @Test
-        @DisplayName("같은 사용자가 이미 등록한 토큰이면 대표 토큰만 갱신하고 중복 저장하지 않는다")
-        fun ignoreDuplicateTokenOfSameUser() {
-            val user = createUser().apply {
-                registerDeviceToken("existing-token")
-                deviceToken = "old-token"
-            }
-            every { securityUtil.getCurrentUserId() } returns 1L
+        @DisplayName("이미 등록한 토큰이면 새로 저장하지 않고 등록 시각만 갱신한다")
+        fun refreshRegisteredAtOfOwnToken() {
+            val user = createUser()
+            val registeredAt = LocalDateTime.now().minusDays(3)
+            val existing = UserDeviceToken(id = 1L, user = user, token = "existing-token", updatedAt = registeredAt)
+            user.deviceTokens.add(existing)
             every { userRepository.findById(1L) } returns Optional.of(user)
-            every { userDeviceTokenRepository.findAllByToken("existing-token") } returns listOf(
-                UserDeviceToken(id = 1L, user = user, token = "existing-token")
-            )
+            every { userDeviceTokenRepository.findByToken("existing-token") } returns existing
 
             userService.registerDeviceToken("existing-token")
 
-            assertEquals("existing-token", user.deviceToken)
-            assertEquals(1, user.deviceTokens.count { it.token == "existing-token" })
-            verify(exactly = 1) { userRepository.findById(1L) }
+            assertEquals(1, user.deviceTokens.size)
+            assertTrue(existing.updatedAt.isAfter(registeredAt))
         }
 
         @Test
-        @DisplayName("다른 사용자가 이미 등록한 토큰이면 IllegalStateException이 발생한다")
-        fun throwWhenTokenAlreadyOwnedByAnotherUser() {
+        @DisplayName("다른 사용자가 등록한 토큰이면 현재 사용자로 옮긴다")
+        fun takeOverTokenOfAnotherUser() {
             val user = createUser()
             val otherUser = createUser(id = 2L, providerId = "provider-2")
-            every { securityUtil.getCurrentUserId() } returns 1L
+            val shared = UserDeviceToken(id = 10L, user = otherUser, token = "shared-token")
+            otherUser.deviceTokens.add(shared)
             every { userRepository.findById(1L) } returns Optional.of(user)
-            every { userDeviceTokenRepository.findAllByToken("shared-token") } returns listOf(
-                UserDeviceToken(id = 10L, user = otherUser, token = "shared-token")
-            )
+            every { userDeviceTokenRepository.findByToken("shared-token") } returns shared
 
-            assertThrows<IllegalStateException> {
-                userService.registerDeviceToken("shared-token")
-            }
+            userService.registerDeviceToken("shared-token")
+
+            assertSame(user, shared.user)
+            assertEquals(listOf("shared-token"), user.deviceTokens.map { it.token })
         }
 
         @Test
-        @DisplayName("같은 사용자의 중복 row가 있어도 예외 없이 등록을 이어간다")
-        fun ignoreDuplicateRowsOfSameUser() {
-            val user = createUser().apply {
-                registerDeviceToken("duplicated-token")
-                deviceToken = "old-token"
-            }
-            every { securityUtil.getCurrentUserId() } returns 1L
-            every { userRepository.findById(1L) } returns Optional.of(user)
-            every { userDeviceTokenRepository.findAllByToken("duplicated-token") } returns listOf(
-                UserDeviceToken(id = 1L, user = user, token = "duplicated-token"),
-                UserDeviceToken(id = 2L, user = user, token = "duplicated-token")
-            )
-
-            assertDoesNotThrow {
-                userService.registerDeviceToken("duplicated-token")
-            }
-            assertEquals("duplicated-token", user.deviceToken)
-        }
-
-        @Test
-        @DisplayName("중복 row 안에 다른 사용자 소유 토큰이 섞여 있으면 충돌을 반환한다")
-        fun throwWhenDuplicateRowsContainOtherUser() {
+        @DisplayName("사용자당 토큰 수를 넘으면 가장 오래전에 등록된 토큰부터 지운다")
+        fun dropOldestTokenOverLimit() {
             val user = createUser()
-            val otherUser = createUser(id = 2L, providerId = "provider-2")
-            every { securityUtil.getCurrentUserId() } returns 1L
-            every { userRepository.findById(1L) } returns Optional.of(user)
-            every { userDeviceTokenRepository.findAllByToken("duplicated-token") } returns listOf(
-                UserDeviceToken(id = 1L, user = user, token = "duplicated-token"),
-                UserDeviceToken(id = 2L, user = otherUser, token = "duplicated-token")
-            )
-
-            assertThrows<IllegalStateException> {
-                userService.registerDeviceToken("duplicated-token")
+            val now = LocalDateTime.now()
+            repeat(User.MAX_DEVICE_TOKENS) { index ->
+                user.deviceTokens.add(
+                    UserDeviceToken(user = user, token = "token-$index", updatedAt = now.minusDays(index + 1L))
+                )
             }
-        }
+            every { userRepository.findById(1L) } returns Optional.of(user)
+            every { userDeviceTokenRepository.findByToken("new-token") } returns null
 
+            userService.registerDeviceToken("new-token")
+
+            val tokens = user.deviceTokens.map { it.token }
+            assertEquals(User.MAX_DEVICE_TOKENS, tokens.size)
+            assertTrue("new-token" in tokens)
+            assertFalse("token-${User.MAX_DEVICE_TOKENS - 1}" in tokens)
+        }
     }
 
     @Nested
@@ -295,19 +278,17 @@ class UserServiceUnitTest {
     inner class DeleteDeviceTokenTests {
 
         @Test
-        @DisplayName("현재 사용자에게 연결된 디바이스 토큰만 삭제하고 대표 토큰을 재설정한다")
+        @DisplayName("현재 사용자에게 연결된 디바이스 토큰만 삭제한다")
         fun deleteCurrentUserToken() {
             val user = createUser().apply {
                 registerDeviceToken("keep-token")
                 registerDeviceToken("delete-me")
-                deviceToken = "delete-me"
             }
             every { securityUtil.getCurrentUserId() } returns 1L
             every { userRepository.findById(1L) } returns Optional.of(user)
 
             userService.deleteDeviceToken("delete-me")
 
-            assertEquals("keep-token", user.deviceToken)
             assertEquals(listOf("keep-token"), user.deviceTokens.map { it.token })
         }
     }

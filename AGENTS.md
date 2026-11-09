@@ -94,7 +94,7 @@ src/main/kotlin/duit/server/
 - `@Service` + `@Transactional(readOnly = true)` at class level.
 - `@Transactional` on individual write methods.
 - Connections are acquired at the first SQL and released at transaction end (`hikari.auto-commit: false` + `handling_mode: DELAYED_ACQUISITION_AND_RELEASE_AFTER_TRANSACTION`, `performance/decisions.md` D-016). Consequences:
-  - Every write must run inside `@Transactional` — JDBC writes outside a transaction are silently rolled back.
+  - Every write must run inside `@Transactional` — JDBC writes outside a transaction are silently rolled back. Direct JDBC in main code (`JdbcTemplate`, `DataSource`, `java.sql.Connection`) is limited to the allowlist in `DirectJdbcUsageGuardTest`; use JPA instead.
   - Do not set `@Transactional(isolation = …)` (throws `InvalidIsolationLevelException`; guarded by `ConnectionHandlingIntegrationTest`).
   - Do not set `hibernate.connection.provider_disables_autocommit` by hand — Boot derives it from the pool setting.
 - Event bookmark flags (`isBookmarked`) come from `BookmarkedEventIdsCache` (per-user event ID list in Redis, `performance/decisions.md` D-020), not from a per-request query. Any code that adds or removes event bookmarks must call `bookmarkedEventIdsCache.evictAfterCommit(userId)` inside the same transaction.
@@ -151,6 +151,7 @@ The test `application.yml` shadows the main `application.yml` on the classpath, 
 ### Patterns
 - **Integration tests**: `@SpringBootTest` + `@AutoConfigureMockMvc` + `@ActiveProfiles("test")` + `@Transactional`.
 - **Per-request connection behavior** (connection acquisition, commits, pool exhaustion) is invisible inside the test transaction: use `@Transactional(propagation = NOT_SUPPORTED)`, commit fixtures with `TransactionTemplate`, delete them in `@AfterEach`, and count driver calls with `JdbcCallCounterConfig` (see `ConnectionHandlingIntegrationTest`).
+- **Real MySQL tests** (Flyway migrations, `src/test/kotlin/duit/server/migration`): Testcontainers with `@RequiresDocker` + `@Testcontainers`, not `@Testcontainers(disabledWithoutDocker = true)`. Without Docker they are skipped locally but fail in CI (`CI=true`), so they cannot silently stop running there. Migration tests that baseline at an old version should pin `target(...)` so later migrations do not need tables the test never created.
 - **Unit tests**: `@SpringBootTest` + `@ActiveProfiles("test")` with MockK for dependencies.
 - **Test naming**: Backtick method names preferred: `` fun `행사 목록 조회 성공`() ``. camelCase also used.
 - **Organization**: `@Nested` inner classes with `@DisplayName` for grouping.

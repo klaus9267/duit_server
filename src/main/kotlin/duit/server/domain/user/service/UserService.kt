@@ -94,32 +94,25 @@ class UserService(
         return UserResponse.from(user)
     }
 
+    /**
+     * 다른 계정에 등록된 토큰이면 현재 계정으로 옮긴다.
+     * 같은 기기에서 계정을 바꿨는데 거부하면, 새 계정은 푸시를 못 받고 이전 계정의 알림이 이 기기로 계속 간다.
+     */
     @Transactional
     fun registerDeviceToken(token: String) {
-        val currentUserId = securityUtil.getCurrentUserId()
-        val user = findUserById(currentUserId)
-        val existingTokens = userDeviceTokenRepository.findAllByToken(token)
+        val user = findUserById(securityUtil.getCurrentUserId())
+        val registered = userDeviceTokenRepository.findByToken(token)
 
         when {
-            existingTokens.any { it.user.id != currentUserId } ->
-                throw IllegalStateException("이미 다른 사용자에 등록된 디바이스 토큰입니다")
-
-            else -> {
-                user.deviceToken = token
-                user.registerDeviceToken(token)
-            }
+            registered == null -> user.registerDeviceToken(token)
+            registered.user.id == user.id -> registered.markRegistered()
+            else -> user.takeOverDeviceToken(registered)
         }
     }
 
-
     @Transactional
     fun deleteDeviceToken(token: String) {
-        val user = findUserById(securityUtil.getCurrentUserId())
-        user.unregisterDeviceToken(token)
-
-        if (user.deviceToken == token) {
-            user.deviceToken = user.deviceTokens.lastOrNull()?.token
-        }
+        findUserById(securityUtil.getCurrentUserId()).unregisterDeviceToken(token)
     }
 
     /**
