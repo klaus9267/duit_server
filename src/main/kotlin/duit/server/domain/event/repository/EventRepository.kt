@@ -14,15 +14,14 @@ import java.time.LocalDateTime
 interface EventRepository : JpaRepository<Event, Long>, EventRepositoryCustom {
 
     // todo - v2로 옮기면 삭제 예정
-    // TODO(P-13): 목록 쿼리의 (host_id IS NOT NULL OR event_hosts 존재) 는 주최 없는 행사를 hosts inner join 시절처럼 제외하는 조건.
-    //  host_id 매핑을 제거할 때 event_hosts 존재 조건만 남긴다 (이 파일과 EventRepositoryImpl 모두)
+    // 목록 쿼리의 event_hosts 존재 조건은 주최 없는 행사를 hosts inner join 시절처럼 제외한다 (EventRepositoryImpl 도 같음)
     @Query(
         value = """
         SELECT e.*
         FROM events e
         LEFT JOIN views v ON v.event_id = e.id
         LEFT JOIN bookmarks b ON b.event_id = e.id AND (b.user_id = :#{#filter.userId} OR :#{#filter.userId} IS NULL)
-        WHERE (e.host_id IS NOT NULL OR EXISTS (SELECT 1 FROM event_hosts eh0 WHERE eh0.event_id = e.id))
+        WHERE EXISTS (SELECT 1 FROM event_hosts eh0 WHERE eh0.event_id = e.id)
         AND (:#{#filter.excludePending} = false OR e.status_group <> 'PENDING')
         AND (:#{#filter.eventTypesToString()} IS NULL OR FIND_IN_SET(e.event_type, :#{#filter.eventTypesToString()}) > 0)
         AND (:#{#filter.includeFinished} = 1 OR (e.end_at IS NOT NULL AND e.end_at <= CURDATE()) OR (e.end_at IS NULL AND e.start_at <= CURDATE()))
@@ -53,7 +52,7 @@ interface EventRepository : JpaRepository<Event, Long>, EventRepositoryCustom {
         SELECT COUNT(DISTINCT e.id)
         FROM events e
         LEFT JOIN bookmarks b ON b.event_id = e.id AND (b.user_id = :#{#filter.userId} OR :#{#filter.userId} IS NULL)
-        WHERE (e.host_id IS NOT NULL OR EXISTS (SELECT 1 FROM event_hosts eh0 WHERE eh0.event_id = e.id))
+        WHERE EXISTS (SELECT 1 FROM event_hosts eh0 WHERE eh0.event_id = e.id)
         AND (:#{#filter.excludePending} = false OR e.status_group <> 'PENDING')
         AND (:#{#filter.eventTypesToString()} IS NULL OR FIND_IN_SET(e.event_type, :#{#filter.eventTypesToString()}) > 0)
         AND (:#{#filter.includeFinished} = 1 OR (e.end_at IS NOT NULL AND e.end_at <= CURDATE()) OR (e.end_at IS NULL AND e.start_at <= CURDATE()))
@@ -93,7 +92,7 @@ interface EventRepository : JpaRepository<Event, Long>, EventRepositoryCustom {
         JOIN FETCH e.view
         JOIN Bookmark b ON b.event = e
         WHERE b.user.id = :userId
-        AND (e.host IS NOT NULL OR EXISTS (SELECT 1 FROM EventHost eh0 WHERE eh0.event = e))
+        AND EXISTS (SELECT 1 FROM EventHost eh0 WHERE eh0.event = e)
         AND e.status != EventStatus.PENDING
         AND e.startAt BETWEEN :start AND :end
         AND (:eventType IS NULL OR e.eventType = :eventType)

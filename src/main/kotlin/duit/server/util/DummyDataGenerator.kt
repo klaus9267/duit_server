@@ -303,7 +303,6 @@ class DummyDataGenerator(
                 }
 
                 val randomTitle = "${SAMPLE_TITLES.random()}_$i"
-                val hostId = Random.nextLong(1, HOST_COUNT.toLong() + 1)
                 val eventType = EVENT_TYPES.random().name
                 val (status, statusGroup) = calculateStatusAndGroup(
                     now = now,
@@ -323,7 +322,6 @@ class DummyDataGenerator(
                     "https://duit.com/events/$i\t" +
                     "\\N\t" +  // thumbnail
                     "$eventType\t" +
-                    "$hostId\t" +
                     "$status\t" +
                     "$statusGroup\n"
                 )
@@ -345,22 +343,21 @@ class DummyDataGenerator(
             FIELDS TERMINATED BY '\t'
             LINES TERMINATED BY '\n'
             (title, start_at, end_at, recruitment_start_at, recruitment_end_at,
-             uri, thumbnail, is_approved, event_type, host_id, status, status_group)
+             uri, thumbnail, event_type, status, status_group)
             SET created_at = NOW(), updated_at = NOW()
         """.trimIndent()
 
         jdbcTemplate.execute(sql)
     }
 
-    // TODO(P-13): events.host_id 사용 중단 시 CSV 에서 host_id 를 빼고 event_hosts 를 직접 생성하도록 변경
+    // 주최가 없는 행사마다 주최 1개를 무작위로 연결한다 (주최 id 는 generateHostsInternal 이 만든 1..HOST_COUNT)
     private fun linkEventHosts() {
         jdbcTemplate.execute(
             """
             INSERT INTO event_hosts (event_id, host_id, sort_order)
-            SELECT e.id, e.host_id, 0
+            SELECT e.id, FLOOR(1 + RAND() * $HOST_COUNT), 0
             FROM events e
-            WHERE e.host_id IS NOT NULL
-              AND NOT EXISTS (SELECT 1 FROM event_hosts eh WHERE eh.event_id = e.id)
+            WHERE NOT EXISTS (SELECT 1 FROM event_hosts eh WHERE eh.event_id = e.id)
             """.trimIndent()
         )
     }

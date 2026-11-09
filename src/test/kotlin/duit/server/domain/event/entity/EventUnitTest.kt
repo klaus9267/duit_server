@@ -277,12 +277,11 @@ class EventUnitTest {
         )
 
         @Test
-        @DisplayName("요청 순서대로 주최를 보관하고, host(events.host_id 미러)는 첫 번째 주최다")
-        fun keepsRequestOrderAndMirrorsFirstHost() {
+        @DisplayName("요청 순서대로 주최를 보관한다")
+        fun keepsRequestOrder() {
             val event = createEventWithHosts(hostB, hostA, hostC)
 
             assertEquals(listOf(hostB, hostA, hostC), event.hosts)
-            assertEquals(hostB, event.host)
         }
 
         @Test
@@ -294,14 +293,13 @@ class EventUnitTest {
         }
 
         @Test
-        @DisplayName("replaceHosts - 순서를 바꾸면 첫 번째 주최 미러도 바뀐다")
-        fun reorderUpdatesMirror() {
+        @DisplayName("replaceHosts - 순서를 바꾸면 바뀐 순서대로 보관한다")
+        fun reorderKeepsNewOrder() {
             val event = createEventWithHosts(hostA, hostB)
 
             event.replaceHosts(listOf(hostB, hostA))
 
             assertEquals(listOf(hostB, hostA), event.hosts)
-            assertEquals(hostB, event.host)
         }
 
         @Test
@@ -312,7 +310,6 @@ class EventUnitTest {
             event.replaceHosts(listOf(hostB, hostC))
 
             assertEquals(listOf(hostB, hostC), event.hosts)
-            assertEquals(hostB, event.host)
         }
 
         @Test

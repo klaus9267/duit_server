@@ -156,12 +156,9 @@ class EventRepositoryImpl(
         return this.where(*conditions.filterNotNull().toTypedArray())
     }
 
-    // 주최 없는 행사 제외 (hosts inner join 시절과 동일). host_id 가 비어도 event_hosts 가 있으면 포함
-    // TODO(P-13): host_id 매핑을 제거할 때 event_hosts 존재 조건만 남긴다
+    // 주최 없는 행사 제외 (hosts inner join 시절과 동일)
     private fun hasAnyHost(): BooleanExpression =
-        event.host().isNotNull.or(
-            JPAExpressions.selectOne().from(eventHost).where(eventHost.event().eq(event)).exists()
-        )
+        JPAExpressions.selectOne().from(eventHost).where(eventHost.event().eq(event)).exists()
 
     private fun hasHostMatching(condition: BooleanExpression): BooleanExpression =
         JPAExpressions.selectOne()
@@ -306,7 +303,7 @@ class EventRepositoryImpl(
             FROM views v FORCE INDEX (idx_count_event)
             JOIN events e ON e.id = v.event_id
             $bookmarkJoin
-            WHERE (e.host_id IS NOT NULL OR EXISTS (SELECT 1 FROM event_hosts eh0 WHERE eh0.event_id = e.id))
+            WHERE EXISTS (SELECT 1 FROM event_hosts eh0 WHERE eh0.event_id = e.id)
               AND $statusCondition
               $typesCondition
               $searchCondition

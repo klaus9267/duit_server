@@ -1077,11 +1077,9 @@ class EventControllerV2IntegrationTest : IntegrationTestSupport() {
         }
 
         @Test
-        @DisplayName("주최가 없는 행사(host_id NULL)는 hosts inner join 시절처럼 목록에서 제외된다")
+        @DisplayName("주최가 없는 행사(event_hosts 없음)는 hosts inner join 시절처럼 목록에서 제외된다")
         fun excludesEventWithoutHost() {
             entityManager.createNativeQuery("DELETE FROM event_hosts WHERE event_id = :id")
-                .setParameter("id", coHostedEvent.id).executeUpdate()
-            entityManager.createNativeQuery("UPDATE events SET host_id = NULL WHERE id = :id")
                 .setParameter("id", coHostedEvent.id).executeUpdate()
 
             mockMvc.perform(
@@ -1093,23 +1091,6 @@ class EventControllerV2IntegrationTest : IntegrationTestSupport() {
                 .andExpect(status().isOk)
                 .andExpect(jsonPath("$.content.length()").value(greaterThan(0)))
                 .andExpect(jsonPath("$.content[*].title").value(not(hasItem("공동주최전용행사"))))
-        }
-
-        @Test
-        @DisplayName("host_id 가 비어 있어도 event_hosts 가 있으면 목록에 포함된다 (host_id 사용 중단 후 롤백 대비)")
-        fun includesEventWithEventHostsOnly() {
-            entityManager.createNativeQuery("UPDATE events SET host_id = NULL WHERE id = :id")
-                .setParameter("id", coHostedEvent.id).executeUpdate()
-
-            mockMvc.perform(
-                get("/api/v2/events")
-                    .param("searchKeyword", "공동주최전용행사")
-                    .param("size", "10")
-            )
-                .andDo(print())
-                .andExpect(status().isOk)
-                .andExpect(jsonPath("$.content.length()").value(1))
-                .andExpect(jsonPath("$.content[0].hosts[*].id").value(contains(host2.id!!.toInt(), host1.id!!.toInt())))
         }
     }
 }
