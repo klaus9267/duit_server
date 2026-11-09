@@ -21,6 +21,9 @@ repositories {
     mavenCentral()
 }
 
+// Spring Boot 가 관리하는 1.21.3 은 Docker 29(최소 API 1.44)에 API 1.32 로 요청해 Docker 를 못 찾는다
+ext['testcontainers.version'] = '1.21.4'
+
 dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-security'
@@ -74,8 +77,8 @@ dependencies {
     testImplementation 'org.springframework.security:spring-security-test'
     testImplementation 'io.mockk:mockk:1.13.8'
     testImplementation 'com.ninja-squad:springmockk:4.0.2'
-    testImplementation 'org.testcontainers:junit-jupiter:1.21.3'
-    testImplementation 'org.testcontainers:mysql:1.21.3'
+    testImplementation 'org.testcontainers:junit-jupiter'
+    testImplementation 'org.testcontainers:mysql'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 

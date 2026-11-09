@@ -1,6 +1,7 @@
 package duit.server.migration
 
 import org.assertj.core.api.Assertions.assertThat
+import duit.server.support.RequiresDocker
 import org.flywaydb.core.Flyway
 import org.junit.jupiter.api.Test
 import org.testcontainers.containers.MySQLContainer
@@ -8,7 +9,8 @@ import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
 import java.sql.DriverManager
 
-@Testcontainers(disabledWithoutDocker = true)
+@RequiresDocker
+@Testcontainers
 class JobPostingSortMigrationTest {
 
     @Test
@@ -43,6 +45,7 @@ class JobPostingSortMigrationTest {
             .locations("classpath:db/migration")
             .baselineOnMigrate(true)
             .baselineVersion("3")
+            .target("4")
             .load()
             .migrate()
 

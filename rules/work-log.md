@@ -17,6 +17,34 @@
  **신규 의존성**: 없음 (Flyway는 기존 build.gradle 활성화)
  **신규 env**: `application*.yml` 의 `ddl-auto: validate` + `flyway enabled`
 
+## 2026-11-10 (Testcontainers 1.21.4 — Docker 29 에서 마이그레이션 테스트가 건너뛰어지던 문제)
+
+**분류**: test | build | docs
+
+### 배경
+- Testcontainers 1.21.3 은 Docker API 1.32 로 요청한다. Docker 29 는 1.44 미만을 거부해서 Testcontainers 가 Docker 를 못 찾고, `@Testcontainers(disabledWithoutDocker = true)` 테스트는 실패 대신 건너뛰어졌다
+- CI 러너(ubuntu-26.04 이미지)도 Docker 29.4.2 라 같은 이유로 건너뛰었다. CI 결과의 skipped 3개 = V1 목록 비활성 2개 + `JobPostingSortMigrationTest`
+- 그 사이 V5 가 추가되면서 `JobPostingSortMigrationTest` 는 실제 MySQL 에서 실패하는 상태였는데(V5 가 이 테스트에 없는 `events` 를 참조) 아무도 몰랐다
+
+### 작업 내용
+- `ext['testcontainers.version'] = '1.21.4'`. Spring Boot 의존성 관리가 core 를 1.21.3 으로 고정하므로 모듈 버전만 올리면 core 가 그대로 남는다. 1.21.4 는 1.21.x 를 최근 Docker 엔진에 맞춘 릴리스
+- `@RequiresDocker` 추가: Docker 가 없으면 로컬에서는 건너뛰고, CI(`CI=true`)에서는 실행해서 실패시킨다. `JobPostingSortMigrationTest` 에 적용
+- `JobPostingSortMigrationTest` 에 `target("4")`: V4 까지만 적용
+- `AGENTS.md` Testing 에 실제 MySQL 테스트 규칙 추가
+
+### 후속
+- P-13 PR(#164)의 `EventHostIdDeprecationMigrationTest` 는 아직 `disabledWithoutDocker = true` 다. 두 PR 중 나중에 머지되는 쪽에서 `@RequiresDocker` 로 바꾼다 (`target("4")` 는 두 PR 이 같은 줄을 똑같이 바꾼다)
+
+### 영향 범위
+- `build.gradle`, `src/test/kotlin/duit/server/support/RequiresDocker.kt`(신규), `JobPostingSortMigrationTest`, `AGENTS.md`, `rules/work-log.md`
+
+### 테스트
+- 같은 Docker 29 환경에서 비교: 1.21.3(dev)은 `JobPostingSortMigrationTest` 건너뜀, 1.21.4 는 MySQL 8.4 컨테이너를 띄워 통과
+- Docker 가 없을 때: `CI=true` 면 실패("Could not find a valid Docker environment"), 로컬이면 건너뜀
+- CI 와 같은 조건(`CI=true`, Docker 있음, `test jacocoTestReport`): 721 tests, 0 failures, 건너뜀은 V1 목록 비활성 2개뿐
+
+---
+
 ## 2026-11-04 (main 코드의 JDBC 직접 사용 가드 테스트)
 
 **분류**: test | docs
