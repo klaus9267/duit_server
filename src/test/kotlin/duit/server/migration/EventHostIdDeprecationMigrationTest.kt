@@ -1,5 +1,6 @@
 package duit.server.migration
 
+import duit.server.support.RequiresDocker
 import org.assertj.core.api.Assertions.assertThat
 import org.flywaydb.core.Flyway
 import org.junit.jupiter.api.BeforeEach
@@ -9,7 +10,8 @@ import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
 import java.sql.DriverManager
 
-@Testcontainers(disabledWithoutDocker = true)
+@RequiresDocker
+@Testcontainers
 class EventHostIdDeprecationMigrationTest {
 
     @BeforeEach
