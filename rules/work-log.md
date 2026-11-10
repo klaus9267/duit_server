@@ -9,13 +9,49 @@
 > 매 작업 후 갱신. 새 세션 시작 시 이 섹션만 읽으면 전체 파악 가능.
 
  **마지막 작업일**: 2026-11-10
- **진행 중인 작업**: 행사 다중 주최 3단계 P-14 — `events.host_id` 컬럼 삭제(V7) (refactor/p14-drop-events-host-id → dev). P-13(#164)·FCM 디바이스 토큰 보완(#165)·Testcontainers 1.21.4(#166)는 운영 배포 완료(#167, 2026-11-10). 다음은 `users.device_token` 컬럼 삭제(#165 운영 배포 후 가능), P-15 (레거시 주최 필드, 클라이언트 전환 후). iOS 앱이 1.6.0부터 FCM 토큰을 등록하지 못하는 문제는 앱 쪽 Linear P-16. 앞선 작업: JDBC 직접 사용 가드 테스트(#163), 성능 개선(#158)·관리자 계정 관리(#159)·Actuator 노출 범위 축소(#160, 운영 배포 #161), 다중 주최 1단계(#156)
+ **진행 중인 작업**: 행사 목록(V2) 행사일·모집일 범위 필터 (feat/event-date-range-filter → dev). 행사 다중 주최는 P-13(#164, V6)·P-14(#168, V7) 운영 배포 완료(2026-11-10), 남은 것은 P-15 (레거시 주최 필드, 클라이언트 전환 후). FCM 디바이스 토큰 보완(#165)·Testcontainers 1.21.4(#166) 운영 배포 완료. 다음은 `users.device_token` 컬럼 삭제. iOS 앱 FCM 토큰 미등록은 앱 쪽 Linear P-16 (앱 develop 에 수정 커밋 있음)
  **블로커**: 없음 (`user_device_tokens` 중복 정리·유니크 제약은 운영 적용 확인, 2026-11-10)
  **미수정 CRITICAL**: 1건 (배포된 비밀 노출 사고 후 실제 비밀 rotation / GHCR 정리 필요)
  **미수정 HIGH**: 5건 (CORS, 외부 API 타임아웃/재시도, JWT Refresh Token, Discord fire-and-forget)
- **브랜치**: refactor/p14-drop-events-host-id
+ **브랜치**: feat/event-date-range-filter
  **신규 의존성**: 없음 (Flyway는 기존 build.gradle 활성화)
  **신규 env**: `application*.yml` 의 `ddl-auto: validate` + `flyway enabled`
+
+## 2026-11-10 (행사 목록 행사일·모집일 범위 필터)
+
+**분류**: feature | api | test | docs
+
+### 작업 내용
+- `GET /api/v2/events` 에 선택 파라미터 4개 추가: `eventDateFrom`·`eventDateTo`(행사일), `recruitmentDateFrom`·`recruitmentDateTo`(모집일). `yyyy-MM-dd`, 양 끝 날짜 포함, 한쪽만 줄 수 있다. 시작이 끝보다 늦으면 400
+- 행사일: 행사 기간(시작일~종료일, 종료일이 없으면 시작일)이 범위와 겹치는 행사
+- 모집일: 모집 기간이 범위와 겹치는 행사. 모집 시작이 없으면 시작은 제한하지 않고, 모집 마감이 없으면 행사 시작 시각을 마감으로 포함한다. 모집 일정이 모두 없어도 같은 fallback을 쓴다. 이 필터 규칙은 `Event.isRecruiting` 상태 판정과 다르다
+- QueryDSL 경로와 조회수 정렬 native SQL 에 같은 조건을 넣음
+- 캐시 키: 날짜 필터가 있을 때만 `e{from}~{to}:`·`r{from}~{to}:` 를 붙인다. 필터 없는 요청의 키는 이전과 같아 배포해도 기존 캐시가 그대로 맞는다
+
+### 기술적 결정
+- 구 버전 클라이언트 호환: 파라미터를 보내지 않으면 SQL·캐시 키가 이전과 같다. V1 목록(`/api/v1/events`, 삭제 예정)에는 넣지 않음
+- 컬럼을 함수로 감싸지 않고 COALESCE 대신 OR와 범위 비교를 사용한다. OR 조건이 인덱스 사용을 보장하지는 않으며 선택도와 정렬에 따라 실행계획이 달라진다. 새 인덱스는 추가하지 않았다
+- 조회수 정렬 경로는 H2 에서 돌지 않아(FORCE INDEX) Testcontainers MySQL 테스트로 QueryDSL 경로와 결과가 같은지 고정
+
+### 기존 변경에서 기록된 성능 측정 (fallback 변경 전, MySQL 8.0, 합성 행사 30만 개 중 ACTIVE 5.9만)
+- ID·등록일 정렬: 필터 없음 0.15ms, 날짜 필터 0.2~4ms
+- 시작일·모집마감 정렬: 흔한 범위(앞으로 7일, 모집 15일) 0.2~13ms. 가장 나쁜 경우는 300일 뒤 하루만 고른 시작일 정렬 128ms — 오늘부터 그날까지 시작일 인덱스를 훑는다
+- 조회수 정렬은 필터 없이도 약 1초 (기존 쿼리의 규모 문제, 이번 변경과 무관). 운영 규모에서는 모두 1ms 미만
+
+### 모집 마감 fallback 후 검증 (2026-11-10)
+- H2 날짜 필터 통합 테스트 8개와 DTO 테스트 4개, MySQL 8 Testcontainers 테스트 4개 통과. MySQL에서 ID·조회수 정렬을 비교하고 자정 경계를 확인했다.
+- 별도 MySQL 8 합성 데이터 1만 건, ID 정렬 한 사례의 `EXPLAIN ANALYZE`: OR와 COALESCE 모두 `idx_status_group_id`로 ACTIVE 행 152건을 읽어 21건을 반환했다. 각 0.83ms, 0.58ms는 단일 실행으로 성능 우열이나 다른 정렬의 계획을 일반화할 수 없다. 기존 성능 수치는 fallback 변경 전 수치다.
+
+### 영향 범위
+- main: `EventCursorPaginationParam`, `DateRangeFilter`(신규), `EventRepositoryImpl`
+- 테스트: `EventCursorPaginationParamTest`(신규), `EventDateRangeFilterMySqlTest`(신규), `EventControllerV2IntegrationTest`
+- 문서: `rules/work-log.md`
+
+### 기존 변경에서 기록된 테스트 (fallback 변경 전)
+- CI 와 같은 조건(`CI=true`, Docker 있음): 742 tests, 0 failures, 건너뜀은 V1 목록 비활성 2개뿐
+- 신규: 파라미터 검증·캐시 키 4개, API 통합(H2) 7개, MySQL 조회수 정렬 3개
+
+---
 
 ## 2026-11-10 (행사 다중 주최 3단계: events.host_id 컬럼 삭제, P-14)
 

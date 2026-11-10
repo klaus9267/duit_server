@@ -353,3 +353,7 @@ fun createEvent(
 - 대부분의 Response DTO에 `@Schema` 어노테이션 누락
 - 일부 Request DTO에 `@Schema` 누락 (AdminLoginRequest, UpdateNicknameRequest 등)
 - `rules/anti-patterns.md` 참조
+
+### 행사 목록 날짜 범위
+- `GET /api/v2/events`의 `eventDateFrom`, `eventDateTo`, `recruitmentDateFrom`, `recruitmentDateTo`는 선택 날짜(`yyyy-MM-dd`)이며 양 끝 날짜를 포함한다. 각 범위는 한쪽만 지정할 수 있고 역순은 400이다.
+- 행사 기간은 시작부터 종료까지이며 종료가 없으면 시작 시각을 쓴다. 모집 기간은 시작이 없으면 시작 제한이 없고, 마감이 없으면 행사 시작 시각을 마감으로 포함한다. 시작과 마감이 모두 없어도 이 규칙을 적용한다. 이 조회 규칙은 행사 상태 판정과 별개다.

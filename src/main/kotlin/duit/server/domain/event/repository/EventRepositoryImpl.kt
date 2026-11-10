@@ -7,6 +7,7 @@ import com.querydsl.jpa.impl.JPAQueryFactory
 import duit.server.domain.bookmark.entity.QBookmark
 import duit.server.domain.common.dto.pagination.EventCursor
 import duit.server.domain.common.dto.pagination.PaginationField.*
+import duit.server.domain.event.dto.DateRangeFilter
 import duit.server.domain.event.dto.EventCursorPaginationParam
 import duit.server.domain.event.entity.*
 import duit.server.domain.view.entity.QView
@@ -124,6 +125,9 @@ class EventRepositoryImpl(
             conditions.add(hasHostMatching(eventHost.host().id.eq(hostId)))
         }
 
+        conditions.add(overlapsEventPeriod(param.eventDateRange()))
+        conditions.add(overlapsRecruitmentPeriod(param.recruitmentDateRange()))
+
         val now = LocalDateTime.now()
         val isFinished = param.status == EventStatus.FINISHED || param.statusGroup == EventStatusGroup.FINISHED
 
@@ -154,6 +158,24 @@ class EventRepositoryImpl(
         conditions.add(buildCursorCondition(cursor, param))
 
         return this.where(*conditions.filterNotNull().toTypedArray())
+    }
+
+    // 행사 기간 [startAt, endAt ?: startAt] 이 범위와 겹치는 행사. 인덱스를 탈 수 있게 COALESCE 대신 OR 로 푼다
+    private fun overlapsEventPeriod(range: DateRangeFilter): BooleanExpression? =
+        listOfNotNull(
+            range.endExclusive?.let { event.startAt.lt(it) },
+            range.startInclusive?.let { event.endAt.goe(it).or(event.endAt.isNull.and(event.startAt.goe(it))) },
+        ).reduceOrNull(BooleanExpression::and)
+
+    // 모집 시작이 없으면 시작은 열려 있고, 마감이 없으면 행사 시작을 마감으로 본다.
+    private fun overlapsRecruitmentPeriod(range: DateRangeFilter): BooleanExpression? {
+        if (range.isUnbounded) return null
+        val start = event.recruitmentStartAt
+        val end = event.recruitmentEndAt
+        return listOfNotNull(
+            range.endExclusive?.let { start.isNull.or(start.lt(it)) },
+            range.startInclusive?.let { end.goe(it).or(end.isNull.and(event.startAt.goe(it))) },
+        ).reduce(BooleanExpression::and)
     }
 
     // 주최 없는 행사 제외 (hosts inner join 시절과 동일)
@@ -284,6 +306,21 @@ class EventRepositoryImpl(
             "AND EXISTS (SELECT 1 FROM event_hosts eh WHERE eh.event_id = e.id AND eh.host_id = :hostId)"
         } else ""
 
+        // overlapsEventPeriod·overlapsRecruitmentPeriod 와 같은 조건
+        val eventRange = param.eventDateRange()
+        val eventDateCondition = listOfNotNull(
+            eventRange.endExclusive?.let { "AND e.start_at < :eventUntil" },
+            eventRange.startInclusive?.let { "AND (e.end_at >= :eventFrom OR (e.end_at IS NULL AND e.start_at >= :eventFrom))" },
+        ).joinToString(" ")
+
+        val recruitmentRange = param.recruitmentDateRange()
+        val recruitmentDateCondition = if (recruitmentRange.isUnbounded) "" else listOfNotNull(
+            recruitmentRange.endExclusive?.let { "AND (e.recruitment_start_at IS NULL OR e.recruitment_start_at < :recruitmentUntil)" },
+            recruitmentRange.startInclusive?.let {
+                "AND (e.recruitment_end_at >= :recruitmentFrom OR (e.recruitment_end_at IS NULL AND e.start_at >= :recruitmentFrom))"
+            },
+        ).joinToString(" ")
+
 
         val cursorCondition = if (viewCountCursor != null) {
             """
@@ -308,6 +345,8 @@ class EventRepositoryImpl(
               $typesCondition
               $searchCondition
               $hostCondition
+              $eventDateCondition
+              $recruitmentDateCondition
               $cursorCondition
             ORDER BY v.count DESC, v.event_id DESC
             LIMIT :limit
@@ -342,6 +381,11 @@ class EventRepositoryImpl(
         param.hostId?.let {
             query.setParameter("hostId", it)
         }
+
+        eventRange.endExclusive?.let { query.setParameter("eventUntil", it) }
+        eventRange.startInclusive?.let { query.setParameter("eventFrom", it) }
+        recruitmentRange.endExclusive?.let { query.setParameter("recruitmentUntil", it) }
+        recruitmentRange.startInclusive?.let { query.setParameter("recruitmentFrom", it) }
 
         query.setParameter("limit", param.size + 1)
 
