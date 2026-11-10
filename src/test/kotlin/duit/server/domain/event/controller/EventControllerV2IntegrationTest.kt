@@ -1093,4 +1093,146 @@ class EventControllerV2IntegrationTest : IntegrationTestSupport() {
                 .andExpect(jsonPath("$.content[*].title").value(not(hasItem("공동주최전용행사"))))
         }
     }
+
+
+    @Nested
+    @DisplayName("행사일·모집일 범위 필터")
+    inner class DateRangeFilterTests {
+
+        private lateinit var eventDateHost: Host
+        private lateinit var recruitmentHost: Host
+        private val ids = mutableMapOf<String, Int>()
+
+        @BeforeEach
+        fun setUpDateRangeEvents() {
+            eventDateHost = TestFixtures.host(name = "행사일필터주최").also(entityManager::persist)
+            recruitmentHost = TestFixtures.host(name = "모집일필터주최").also(entityManager::persist)
+
+            persist("11/01~11/03", eventDateHost, startAt = at(11, 1), endAt = at(11, 3))
+            persist("11/05 하루", eventDateHost, startAt = at(11, 5))
+            persist("10/25~11/10", eventDateHost, startAt = at(10, 25), endAt = at(11, 10))
+            persist("11/20~11/22", eventDateHost, startAt = at(11, 20), endAt = at(11, 22))
+
+            persist("모집 10/01~10/10", recruitmentHost, recruitmentStartAt = at(10, 1), recruitmentEndAt = at(10, 10))
+            persist("모집 ~10/20", recruitmentHost, recruitmentEndAt = at(10, 20))
+            persist("모집 10/15~행사 시작(11/01)", recruitmentHost, startAt = at(11, 1), recruitmentStartAt = at(10, 15))
+            persist("모집 일정 없음", recruitmentHost)
+
+            entityManager.flush()
+            entityManager.clear()
+        }
+
+        private fun at(month: Int, day: Int): LocalDateTime = LocalDateTime.of(2031, month, day, 10, 0)
+
+        private fun persist(
+            key: String,
+            host: Host,
+            startAt: LocalDateTime = at(12, 1),
+            endAt: LocalDateTime? = null,
+            recruitmentStartAt: LocalDateTime? = null,
+            recruitmentEndAt: LocalDateTime? = null,
+        ) {
+            val event = TestFixtures.event(
+                title = "날짜필터 $key",
+                startAt = startAt,
+                endAt = endAt,
+                recruitmentStartAt = recruitmentStartAt,
+                recruitmentEndAt = recruitmentEndAt,
+                status = EventStatus.EVENT_WAITING,
+                statusGroup = EventStatusGroup.ACTIVE,
+                host = host,
+            )
+            entityManager.persist(event)
+            ids[key] = event.id!!.toInt()
+        }
+
+        private fun expectIds(host: Host, vararg filters: Pair<String, String>, field: String = "ID") =
+            mockMvc.perform(
+                get("/api/v2/events")
+                    .param("hostId", host.id.toString())
+                    .param("field", field)
+                    .param("size", "50")
+                    .apply { filters.forEach { (name, value) -> param(name, value) } }
+            )
+                .andDo(print())
+                .andExpect(status().isOk)
+
+        private fun idsOf(vararg keys: String): Array<Int> = keys.map { ids.getValue(it) }.toTypedArray()
+
+        @Test
+        @DisplayName("행사 기간이 행사일 범위와 겹치는 행사만 조회한다 (종료일이 없으면 시작일 하루)")
+        fun eventDateRange() {
+            expectIds(eventDateHost, "eventDateFrom" to "2031-11-04", "eventDateTo" to "2031-11-06")
+                .andExpect(jsonPath("$.content[*].id").value(containsInAnyOrder(*idsOf("11/05 하루", "10/25~11/10"))))
+        }
+
+        @Test
+        @DisplayName("행사일 범위는 양 끝 날짜를 포함하고, 한쪽만 줄 수 있다")
+        fun eventDateRangeBoundsAndOpenEnds() {
+            expectIds(eventDateHost, "eventDateFrom" to "2031-11-03", "eventDateTo" to "2031-11-03")
+                .andExpect(jsonPath("$.content[*].id").value(containsInAnyOrder(*idsOf("11/01~11/03", "10/25~11/10"))))
+            expectIds(eventDateHost, "eventDateFrom" to "2031-11-21")
+                .andExpect(jsonPath("$.content[*].id").value(containsInAnyOrder(*idsOf("11/20~11/22"))))
+            expectIds(eventDateHost, "eventDateTo" to "2031-11-01")
+                .andExpect(jsonPath("$.content[*].id").value(containsInAnyOrder(*idsOf("11/01~11/03", "10/25~11/10"))))
+        }
+
+        @Test
+        @DisplayName("모집 기간이 모집일 범위와 겹치는 행사만 조회한다 (마감일만 있으면 마감까지)")
+        fun recruitmentDateRange() {
+            expectIds(recruitmentHost, "recruitmentDateFrom" to "2031-10-12", "recruitmentDateTo" to "2031-10-14")
+                .andExpect(jsonPath("$.content[*].id").value(containsInAnyOrder(*idsOf("모집 ~10/20", "모집 일정 없음"))))
+        }
+
+        @Test
+        @DisplayName("모집 마감일이 없으면 행사 시작까지로 보고, 시작일이 없으면 시작은 제한하지 않는다")
+        fun recruitmentDateRangeOpenEnds() {
+            expectIds(recruitmentHost, "recruitmentDateFrom" to "2031-10-25")
+                .andExpect(jsonPath("$.content[*].id").value(containsInAnyOrder(*idsOf("모집 10/15~행사 시작(11/01)", "모집 일정 없음"))))
+            expectIds(recruitmentHost, "recruitmentDateTo" to "2031-10-05")
+                .andExpect(jsonPath("$.content[*].id").value(containsInAnyOrder(*idsOf("모집 10/01~10/10", "모집 ~10/20", "모집 일정 없음"))))
+        }
+
+        @Test
+        @DisplayName("모집 마감 대체 시각의 자정은 포함하고 그 다음 날은 제외한다")
+        fun recruitmentFallbackMidnightBoundary() {
+            persist("자정 시작 일정 없음", recruitmentHost, startAt = LocalDateTime.of(2031, 10, 25, 0, 0))
+            persist("자정 시작 모집 시작만", recruitmentHost, startAt = LocalDateTime.of(2031, 10, 25, 0, 0), recruitmentStartAt = at(10, 15))
+            entityManager.flush()
+            entityManager.clear()
+            expectIds(recruitmentHost, "recruitmentDateFrom" to "2031-10-25", "recruitmentDateTo" to "2031-10-25")
+                .andExpect(jsonPath("$.content[*].id").value(containsInAnyOrder(*idsOf(
+                    "모집 10/15~행사 시작(11/01)", "모집 일정 없음", "자정 시작 일정 없음", "자정 시작 모집 시작만"
+                ))))
+            expectIds(recruitmentHost, "recruitmentDateFrom" to "2031-10-26", "recruitmentDateTo" to "2031-10-26")
+                .andExpect(jsonPath("$.content[*].id").value(containsInAnyOrder(*idsOf("모집 10/15~행사 시작(11/01)", "모집 일정 없음"))))
+        }
+
+        @Test
+        @DisplayName("날짜 필터를 보내지 않으면 지금처럼 모든 행사를 조회한다")
+        fun noDateFilterKeepsExistingBehavior() {
+            expectIds(recruitmentHost)
+                .andExpect(jsonPath("$.content[*].id").value(containsInAnyOrder(
+                    *idsOf("모집 10/01~10/10", "모집 ~10/20", "모집 10/15~행사 시작(11/01)", "모집 일정 없음")
+                )))
+        }
+
+        @Test
+        @DisplayName("다른 필터·정렬과 함께 쓸 수 있다 (시작일 정렬)")
+        fun combinesWithSortAndFilters() {
+            expectIds(eventDateHost, "eventDateFrom" to "2031-11-01", "eventDateTo" to "2031-11-30", field = "START_DATE")
+                .andExpect(jsonPath("$.content[*].id").value(contains(*idsOf("10/25~11/10", "11/01~11/03", "11/05 하루", "11/20~11/22"))))
+        }
+
+        @Test
+        @DisplayName("범위 시작이 끝보다 늦거나 날짜 형식이 틀리면 400")
+        fun rejectsInvalidRange() {
+            mockMvc.perform(get("/api/v2/events").param("eventDateFrom", "2031-11-10").param("eventDateTo", "2031-11-01"))
+                .andExpect(status().isBadRequest)
+            mockMvc.perform(get("/api/v2/events").param("recruitmentDateFrom", "2031-11-10").param("recruitmentDateTo", "2031-11-01"))
+                .andExpect(status().isBadRequest)
+            mockMvc.perform(get("/api/v2/events").param("eventDateFrom", "2031/11/10"))
+                .andExpect(status().isBadRequest)
+        }
+    }
 }
